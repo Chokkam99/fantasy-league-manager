@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+/* CSS Custom Properties for consistent theming */
+:root {
+  --background: #ffffff;
+  --foreground: #1f2937;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Force light mode for consistent appearance across all browsers */
+html {
+  color-scheme: light only;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Global text inheritance for consistent styling */
+* {
+  color: inherit;
+}
+
+/* Override light gray text colors for better readability */
+.text-gray-50,
+.text-gray-100,
+.text-gray-200 {
+  color: #374151 !important; /* Use gray-700 for sufficient contrast */
+}
+
+/* Ensure white backgrounds maintain proper text contrast */
+.bg-white {
+  background-color: #ffffff !important;
+  color: #1f2937 !important; /* Dark gray for readability */
+}
+
+/* 
+ * Button Color Overrides
+ * Uses softer, more eye-friendly colors while maintaining accessibility
+ */
+
+/* Orange button colors - used for primary actions */
+.bg-orange-500 {
+  background-color: #fb923c !important; /* Muted orange for better visual comfort */
+  color: #ffffff !important;
+}
+
+.bg-orange-600 {
+  background-color: #f97316 !important; /* Slightly darker muted orange */
+  color: #ffffff !important;
+}
+
+.bg-orange-700 {
+  background-color: #ea580c !important; /* Darkest muted orange */
+  color: #ffffff !important;
+}
+
+/* Red button colors - used for destructive actions */
+.bg-red-500 {
+  background-color: #f87171 !important; /* Softer red for less aggressive appearance */
+  color: #ffffff !important;
+}
+
+.bg-red-600 {
+  background-color: #ef4444 !important; /* Slightly darker soft red */
+  color: #ffffff !important;
+}
+
+.bg-red-700 {
+  background-color: #dc2626 !important; /* Darkest soft red */
+  color: #ffffff !important;
+}
+
+/* Blue, green, and slate button text colors */
+.bg-blue-500,
+.bg-blue-600,
+.bg-blue-700,
+.bg-blue-800 {
+  color: #ffffff !important;
+}
+
+.bg-green-600,
+.bg-green-700 {
+  color: #ffffff !important;
+}
+
+.bg-slate-600,
+.bg-slate-700 {
+  color: #ffffff !important;
+}
+
+/* 
+ * Button Hover Effects
+ * Applies to button elements only to avoid affecting other UI components
+ */
+/* Orange button hover effects */
+button.bg-orange-500:hover,
+button.bg-orange-600:hover {
+  background-color: #ea580c !important; /* Darker orange on hover */
+  transform: translateY(-1px); /* Subtle lift effect */
+  transition: all 0.2s ease;
+}
+
+button.bg-orange-700:hover {
+  background-color: #c2410c !important; /* Even darker orange on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Red button hover effects */
+button.bg-red-500:hover,
+button.bg-red-600:hover {
+  background-color: #dc2626 !important; /* Darker red on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+button.bg-red-700:hover {
+  background-color: #b91c1c !important; /* Even darker red on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Blue button hover effects */
+button.bg-blue-500:hover,
+button.bg-blue-600:hover {
+  background-color: #2563eb !important; /* Darker blue on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+button.bg-blue-700:hover,
+button.bg-blue-800:hover {
+  background-color: #1d4ed8 !important; /* Even darker blue on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Green button hover effects */
+button.bg-green-600:hover {
+  background-color: #16a34a !important; /* Darker green on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+button.bg-green-700:hover {
+  background-color: #15803d !important; /* Even darker green on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Slate/gray button hover effects */
+button.bg-slate-600:hover {
+  background-color: #475569 !important; /* Darker slate on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+button.bg-slate-700:hover {
+  background-color: #334155 !important; /* Even darker slate on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Neutral button hover effects */
+button.bg-white:hover {
+  background-color: #f9fafb !important; /* Light gray on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+button.bg-gray-50:hover {
+  background-color: #f3f4f6 !important; /* Slightly darker gray on hover */
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* 
+ * Text Color Overrides
+ * Ensures consistent text colors across the application
+ */
+.text-claude-text,
+.text-gray-900 {
+  color: #1f2937 !important; /* gray-800 */
+}
+
+.text-claude-text-secondary,
+.text-gray-600 {
+  color: #4b5563 !important; /* gray-600 */
+}
+
+.text-claude-text-light,
+.text-gray-500 {
+  color: #6b7280 !important; /* gray-500 */
+}
+
+/* Ensure headers and important text are always dark */
+h1, h2, h3, h4, h5, h6 {
+  color: #1f2937 !important;
+}
+
+/* Fix any remaining contrast issues */
+.bg-orange-50,
+.bg-gray-50 {
+  color: #1f2937 !important;
+}
+
+/* Ensure form inputs have proper contrast */
+input, select, textarea {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+input::placeholder,
+select::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important; /* gray-400 */
+}
