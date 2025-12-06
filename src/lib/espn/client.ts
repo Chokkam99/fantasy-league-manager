@@ -63,7 +63,11 @@ export class ESPNClient {
   async makeRequest(endpoint: string, params: Record<string, string> = {}): Promise<ESPNAPIResponse> {
     try {
       // Use Next.js API route to bypass CORS
-      const response = await fetch('/api/espn', {
+      // Support both client-side and server-side contexts
+      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+      const apiUrl = `${baseUrl}/api/espn`;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

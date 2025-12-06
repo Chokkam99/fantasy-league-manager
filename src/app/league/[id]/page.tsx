@@ -51,9 +51,10 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
         setIsAdmin(false) // Force non-admin in view-only mode
       } else {
         // Only check admin auth if not in view-only mode
-        const adminAuthenticated = checkAdminAuth()
-        setIsAdmin(adminAuthenticated)
-        setIsViewOnly(!adminAuthenticated)
+        checkAdminAuth().then((adminAuthenticated) => {
+          setIsAdmin(adminAuthenticated)
+          setIsViewOnly(!adminAuthenticated)
+        })
       }
     }
   }, [resolvedParams.id, searchParams])

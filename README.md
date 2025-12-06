@@ -1,59 +1,38 @@
 # Fantasy League Manager
 
-A modern, full-featured web application for managing fantasy football leagues with multi-season support, player tracking, and comprehensive standings management.
+A modern web application for managing fantasy football leagues with multi-season support, automated ESPN score imports, and comprehensive standings tracking.
 
 ![Next.js](https://img.shields.io/badge/Next.js-15.5.2-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green)
 
-## ✨ Features
+## Features
 
-### 🏆 **League Management**
-- Create and manage multiple fantasy leagues
-- Multi-season support with historical data
-- Configurable league settings and prize structures
-- Season-specific member management
+- **Multi-League Management** - Track multiple fantasy leagues and seasons
+- **Automated ESPN Imports** - Scheduled weekly score imports (Tuesdays 3 AM)
+- **Division Support** - Organize teams into divisions with playoff seeding
+- **Prize Tracking** - Configure and track season prizes and weekly winners
+- **Readonly Sharing** - Share league standings with view-only access
+- **Mobile Responsive** - Works great on all devices
 
-### 👥 **Player Management**
-- Add/remove players from leagues
-- Track player participation across multiple seasons
-- Payment status tracking (paid/pending)
-- Player history and performance analytics
+## Quick Start
 
-### 📊 **Scoring & Standings**
-- Weekly score input and management
-- Automated standings calculations
-- Playoff toggle for regular/postseason view
-- Prize distribution tracking with weekly winners
+### 1. Prerequisites
 
-### 🔗 **Sharing & Access Control**
-- **View-only mode** for league sharing
-- Readonly links with restricted navigation
-- Season switching in shared leagues
-- Mobile-responsive design
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
+- Node.js 18+
 - Supabase account (free tier available)
+- Vercel account (optional, for deployment)
 
-### Installation
+### 2. Setup Database
 
-1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/fantasy-league-manager.git
-cd fantasy-league-manager
+# Run the database setup script in your Supabase SQL Editor
+psql "your-supabase-connection-string" -f database-setup.sql
 ```
 
-2. **Install dependencies**
-```bash
-npm install
-```
+### 3. Configure Environment
 
-3. **Set up environment variables**
 ```bash
 cp .env.example .env
 ```
@@ -61,121 +40,168 @@ cp .env.example .env
 Edit `.env` with your Supabase credentials:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_ADMIN_PASSWORD=your-secure-password
 ```
 
-4. **Set up the database**
-   - Create a new Supabase project
-   - Run the SQL scripts in `/scripts/schema/` to create tables
-   - Run the functions in `/scripts/functions/` to set up stored procedures
+### 4. Install & Run
 
-5. **Start the development server**
 ```bash
+npm install
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to see your application.
+Visit [http://localhost:3000](http://localhost:3000)
 
-## 🏗️ Tech Stack
+## Automated ESPN Imports
 
-- **Framework**: Next.js 15.5.2 (App Router)
-- **Language**: TypeScript
-- **Database**: Supabase (PostgreSQL)
-- **Styling**: Tailwind CSS 4
-- **Deployment**: Vercel (recommended)
-
-## 📖 Documentation
-
-- [**📚 Full Documentation**](./docs/) - Comprehensive guides and documentation
-- [**🏗️ Project Structure**](./docs/development/PROJECT_STRUCTURE.md) - Architecture overview
-- [**⚙️ Claude Code Config**](./CLAUDE.md) - Development commands and setup
-- [**📊 Database Scripts**](./scripts/) - SQL schema and utilities
-- [**🛠️ Utility Tools**](./tools/) - Database management scripts
-
-## 🔧 Available Scripts
+Enable automated weekly score imports from ESPN:
 
 ```bash
-npm run dev      # Start development server
-npm run build    # Build for production  
-npm run start    # Start production server
-npm run lint     # Run ESLint
-npm run typecheck # Run TypeScript checks
+# 1. Generate CRON_SECRET
+./scripts/setup-cron.sh
+
+# 2. Configure your leagues in database
+UPDATE leagues
+SET espn_league_id = 'YOUR_ESPN_LEAGUE_ID',
+    sync_status = 'active'
+WHERE id = 'your-league-id';
+
+# 3. Deploy to Vercel (cron runs Tuesdays at 3 AM Phoenix time)
+git push origin main
 ```
 
-## 🗄️ Database Schema
+**Testing locally:**
+```bash
+npm run dev
+./scripts/test-cron.sh
+```
 
-The application uses PostgreSQL via Supabase with the following core tables:
+## Deployment
 
-- **`leagues`** - League information and settings
-- **`league_seasons`** - Season-specific configuration  
-- **`league_members`** - Player rosters per season
-- **`weekly_scores`** - Individual player weekly scores
-- **`matchups`** - Head-to-head game results
+### Vercel (Recommended)
 
-Key features include:
-- Multi-season player tracking
-- Automated standings calculations via `get_season_standings()` function
-- Flexible prize structure configuration
+1. Push code to GitHub
+2. Connect repo to Vercel
+3. Add environment variables:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_ADMIN_PASSWORD`
+   - `CRON_SECRET` (for automated imports)
+4. Deploy!
+
+Vercel will automatically configure the cron job from `vercel.json`.
+
+## Project Structure
+
+```
+├── src/
+│   ├── app/                 # Next.js app router pages
+│   ├── components/          # React components
+│   ├── hooks/              # Custom React hooks
+│   └── lib/                # Utilities and configs
+├── database-setup.sql       # Complete DB schema
+├── migrations/             # Database migrations
+├── scripts/                # Helper scripts
+└── vercel.json             # Cron job configuration
+```
+
+## Key Features Explained
+
+### Multi-Season Support
+- Track multiple seasons per league
+- Independent rosters, prizes, and settings per season
 - Historical data preservation
 
-## 🎯 Key Features
+### Automated Score Imports
+- Weekly ESPN score imports (Tuesdays 3 AM)
+- Automatic matchup creation
+- Error tracking and notifications
 
-### **Multi-Season Support**
-Each league supports multiple seasons with independent:
-- Player rosters and payment tracking
-- Prize structures and league fees  
-- Standings and scoring history
-- Configuration settings
+### Division Standings
+- Organize teams into divisions
+- Division winners + wild card playoff spots
+- Automatic playoff seed calculation
 
-### **Readonly Mode** 
-Share leagues with view-only access:
-- URL-based activation (`?readonly=true`)
-- Restricted navigation and editing
-- Season switching enabled
-- Persistent across browser sessions
+### Prize Management
+- Weekly high scorer prizes
+- Season-end payouts (1st, 2nd, 3rd, 4th)
+- Highest/lowest weekly score bonuses
+- Configurable prize structures
 
-### **Automated Standings**
-Complex standings calculations include:
-- Win/loss records from matchups
-- Total points and weekly rankings  
-- Prize distributions and winners
-- Playoff vs. regular season views
+## Configuration
 
-### **Prize Management**
-- Weekly high-scorer prizes
-- Season-end payouts (1st, 2nd, 3rd)
-- Highest points for season bonus
-- Configurable prize structures per season
+### League Setup
+```sql
+-- Create a league
+INSERT INTO leagues (id, name) VALUES ('my-league', 'My Fantasy League');
 
-## 🚀 Deployment
+-- Configure season
+INSERT INTO league_seasons (league_id, season, playoff_start_week, prize_structure)
+VALUES ('my-league', '2025', 14, '{"first": 500, "second": 300, "third": 150, "fourth": 50}'::jsonb);
 
-The easiest way to deploy is via Vercel:
+-- Add members
+INSERT INTO league_members (league_id, season, manager_name, team_name, division)
+VALUES ('my-league', '2025', 'John Doe', 'The Champions', 'East');
+```
 
-1. Push your code to GitHub
-2. Connect your GitHub repo to Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy automatically on every push
+### ESPN Integration
+```sql
+-- For public leagues
+UPDATE leagues
+SET espn_league_id = '123456',
+    sync_status = 'active'
+WHERE id = 'my-league';
 
-For detailed deployment instructions, see the [documentation](./docs/).
+-- For private leagues (add cookies)
+UPDATE leagues
+SET espn_league_id = '123456',
+    espn_s2 = 'your-espn-s2-cookie',
+    espn_swid = 'your-swid-cookie',
+    sync_status = 'active'
+WHERE id = 'my-league';
+```
 
-## 🤝 Contributing
+## Available Scripts
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)  
-5. Open a Pull Request
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npm run typecheck    # TypeScript type checking
+npm run test         # Run tests
+```
 
-## 📄 License
+## Tech Stack
 
-This project is licensed under the MIT License.
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript
+- **Database:** PostgreSQL (Supabase)
+- **Styling:** Tailwind CSS 4
+- **Deployment:** Vercel
+- **Testing:** Jest + React Testing Library
 
-## 🆘 Support
+## Known Issues & Roadmap
+
+### Security (High Priority)
+- **Admin Authentication**: Currently client-side only. Password visible in browser DevTools.
+  - TODO: Implement proper server-side authentication with JWT/sessions
+
+### Improvements
+- React hooks dependency warnings in some components
+- Test files have TypeScript errors (don't affect production)
+
+## Support
 
 - Create an issue for bug reports
-- Check discussions for questions
-- Review documentation for architecture details
+- Check existing issues for solutions
+- Review `database-setup.sql` for schema reference
+
+## License
+
+MIT License - Built with ❤️ for fantasy football commissioners
 
 ---
 
-**Built with ❤️ using Next.js, TypeScript, and Supabase**
+**Made by Rithvik Chokkam**

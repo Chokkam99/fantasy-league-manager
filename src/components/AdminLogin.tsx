@@ -14,14 +14,14 @@ export default function AdminLogin({ isAdmin, onAuthChange }: AdminLoginProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
     try {
-      const success = authenticateAdmin(password)
-      
+      const success = await authenticateAdmin(password)
+
       if (success) {
         onAuthChange(true)
         setShowLogin(false)

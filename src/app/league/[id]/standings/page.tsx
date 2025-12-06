@@ -245,9 +245,10 @@ export default function StandingsPage({ params }: StandingsPageProps) {
         }
       } else {
         // Check admin auth if not in view-only mode
-        const adminAuthenticated = checkAdminAuth()
-        setIsAdmin(adminAuthenticated)
-        setIsViewOnly(!adminAuthenticated)
+        checkAdminAuth().then((adminAuthenticated) => {
+          setIsAdmin(adminAuthenticated)
+          setIsViewOnly(!adminAuthenticated)
+        })
       }
     }
   }, [resolvedParams.id, searchParams])

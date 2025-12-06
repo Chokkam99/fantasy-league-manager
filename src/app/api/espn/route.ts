@@ -110,11 +110,17 @@ export async function POST(request: NextRequest) {
 }
 
 // Handle preflight requests
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  // Only allow requests from same origin in production
+  const origin = request.headers.get('origin')
+  const allowedOrigin = process.env.NODE_ENV === 'production'
+    ? origin || '' // Same-origin only in production
+    : '*' // Allow all in development
+
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     },

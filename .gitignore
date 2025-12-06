@@ -30,22 +30,31 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (never commit secrets)
+.env
+.env.local
+.env.*.local
 
-# Ignore entire scripts and data directories (contain sensitive data)
-scripts/
-data/
+# Keep .env.example for documentation
+!.env.example
 
 # Claude Code configuration (contains credentials and AI-specific instructions)
 CLAUDE.md
 
 # AI/Claude-specific documentation (keep local, don't push to repo)
-docs/CLAUDE_CONTEXT.md
 .claude/
+
+# Temporary and local data files
+/data/
+/temp/
+*.tmp
 
 # Build artifacts
 *.tsbuildinfo
+
+# Package managers (using pnpm)
+package-lock.json
+yarn.lock
 
 # vercel
 .vercel

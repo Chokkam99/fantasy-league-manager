@@ -1,54 +1,52 @@
-const ADMIN_SESSION_KEY = 'fantasy-admin-session'
-const ADMIN_SESSION_EXPIRY = 24 * 60 * 60 * 1000 // 24 hours
+/**
+ * Admin Authentication - Server-side validation
+ * Password never exposed to client
+ */
 
-interface AdminSession {
-  authenticated: boolean
-  timestamp: number
+export async function checkAdminAuth(): Promise<boolean> {
+  return checkAdminStatus();
 }
 
-export function checkAdminAuth(): boolean {
-  if (typeof window === 'undefined') return false
-  
-  const stored = localStorage.getItem(ADMIN_SESSION_KEY)
-  if (!stored) return false
-  
+export async function authenticateAdmin(password: string): Promise<boolean> {
   try {
-    const session: AdminSession = JSON.parse(stored)
-    const now = Date.now()
-    
-    // Check if session expired
-    if (now - session.timestamp > ADMIN_SESSION_EXPIRY) {
-      localStorage.removeItem(ADMIN_SESSION_KEY)
-      return false
-    }
-    
-    return session.authenticated
-  } catch {
-    localStorage.removeItem(ADMIN_SESSION_KEY)
-    return false
+    const response = await fetch('/api/admin/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password, action: 'login' }),
+    });
+
+    const data = await response.json();
+    return data.success && data.isAdmin;
+  } catch (error) {
+    console.error('Authentication failed:', error);
+    return false;
   }
 }
 
-export function authenticateAdmin(password: string): boolean {
-  const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
-  
-  if (!adminPassword || password !== adminPassword) {
-    return false
+export async function logoutAdmin(): Promise<void> {
+  try {
+    await fetch('/api/admin/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'logout' }),
+    });
+  } catch (error) {
+    console.error('Logout failed:', error);
   }
-  
-  // Store session
-  const session: AdminSession = {
-    authenticated: true,
-    timestamp: Date.now()
-  }
-  
-  localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session))
-  return true
 }
 
-export function logoutAdmin(): void {
-  localStorage.removeItem(ADMIN_SESSION_KEY)
-  // Also clear any existing readonly mode settings
-  localStorage.removeItem('fantasy-readonly-mode')
-  localStorage.removeItem('fantasy-readonly-league')
+export async function checkAdminStatus(): Promise<boolean> {
+  try {
+    const response = await fetch('/api/admin/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'check' }),
+    });
+
+    const data = await response.json();
+    return data.success && data.isAdmin;
+  } catch (error) {
+    console.error('Status check failed:', error);
+    return false;
+  }
 }
