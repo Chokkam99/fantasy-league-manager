@@ -11,19 +11,18 @@ This is the exact handoff for the locally verified application and migrations `0
 - Fresh GET-only production audits at `2026-08-27T04:12Z` found the unchanged deployed-v0 shape: 2 leagues, 8 season configurations, 92 memberships, 1,568 scores, 773 matchups, and 0 legacy payments.
 - Cleanup preconditions remain exactly 10 null-season duplicate scores, 24 completed/not-final scores, and 6 historical active-season flags. Every ambiguity and matchup-integrity counter remains zero.
 - Owner-only application-data export: `data/rollout-backups/2026-08-26-pre-migration/`. The directory is gitignored with mode `700`; its eight JSON files use mode `600`. The manifest checksums and all JSON files were independently read and verified.
+- Owner-only PostgreSQL 17 logical export: `data/rollout-backups/2026-08-26-pooler-pg-dump/`. Its public-schema SQL files and checksum manifest use mode `600`; both checksums revalidate, and the dump restores successfully into a clean disposable PostgreSQL 17 database with the audited production counts and contracts.
+- The production migration-history table is absent, as expected for the deployed-v0 baseline. The linked CLI dry-run completed successfully and proposed exactly migrations `001` through `014`, in order, with no seed or role changes.
 
-The current export contains every row from `leagues`, `league_seasons`, `league_members`, `weekly_scores`, `matchups`, and `payments`, plus the exact 10/24/6 rollback rows. It is a compensating application-data export, not a transaction snapshot, PostgreSQL role/schema dump, managed-schema backup, or provider restore point.
+The JSON export contains every row from `leagues`, `league_seasons`, `league_members`, `weekly_scores`, `matchups`, and `payments`, plus the exact 10/24/6 rollback rows. The PostgreSQL export independently contains the complete public schema and data, including grants, RLS, functions, fantasy data, and the unrelated public `collections`/`items` tables. Provider-managed schemas, cluster roles, and a provider restore point remain outside its scope.
 
 ## Open gates
 
-Do not deploy or migrate until all are resolved:
+The backup, packaging, release-gate, migration-history, and dry-run gates are resolved. Do not deploy or migrate until the remaining gates are resolved:
 
-1. The Supabase Free plan has no downloadable automatic backup. The linked CLI's temporary-login-role flow fails for this legacy project, even for `db dump --dry-run`, because it cannot alter `cli_login_postgres`. Either explicitly accept the verified application-data export as the recovery boundary for this private project or obtain the database password and create the full logical dump described below. Do not upgrade the plan or enable PITR.
-2. Vercel Production currently lacks `ADMIN_SESSION_SECRET` and `SUPABASE_SECRET_KEY`/`SUPABASE_SERVICE_ROLE_KEY`. Its existing `ADMIN_PASSWORD_HASH` and `CRON_SECRET` are stored as non-sensitive values and must be replaced with new production-only sensitive values. Never reuse local Keychain values.
-3. Review and commit the complete dirty worktree on `codex/authorization-preview`; then rerun the release gate from that exact commit.
-4. Immediately before migration, rerun the read-only audits and require the exact counts above. Any drift stops the rollout.
-5. Confirm migration history with a read-only query. The audited baseline has no history table; if one now exists or contains rows, stop and reconcile it before `db push`.
-6. Obtain separate explicit approval immediately before the production application deployment and again before removing `--dry-run` from the migration command.
+1. Vercel Production currently lacks `ADMIN_SESSION_SECRET` and `SUPABASE_SECRET_KEY`/`SUPABASE_SERVICE_ROLE_KEY`. Its existing `ADMIN_PASSWORD_HASH` and `CRON_SECRET` are stored as non-sensitive values and must be replaced with new production-only sensitive values. Never reuse local Keychain values.
+2. Immediately before migration, rerun the read-only audits and require the exact counts above. Any drift stops the rollout.
+3. Obtain separate explicit approval immediately before the production application deployment and again before removing `--dry-run` from the migration command.
 
 ## Production secret preparation
 
@@ -40,22 +39,17 @@ vercel env add CRON_SECRET production --force --sensitive
 
 Afterward, `vercel env ls production` must show all four plus the two public Supabase values. Do not pull secret values into the workspace.
 
-## Full logical dump option
+## Verified logical dump
 
-Supabase recommends a CLI/`pg_dump` logical export for Free projects. If the database password is available without a plan change, load it into only the current shell through a hidden prompt and do not pass it on the command line:
+Supabase recommends a CLI/`pg_dump` logical export for Free projects. The database password is stored in macOS Keychain and was passed only through child-process environment memory to PostgreSQL 17 tools. Because cluster-role dumping hung through the pooler and the direct database endpoint refused this machine's IPv4 connection, the verified export intentionally targets the complete `public` application schema and its data through the CLI-linked Supavisor session pooler.
 
-```sh
-read -s "SUPABASE_DB_PASSWORD?Supabase database password: "
-export SUPABASE_DB_PASSWORD
-umask 077
-mkdir -p data/rollout-backups/production-pg-dump
-supabase db dump --linked --role-only --file data/rollout-backups/production-pg-dump/roles.sql
-supabase db dump --linked --file data/rollout-backups/production-pg-dump/schema.sql
-supabase db dump --linked --data-only --use-copy --file data/rollout-backups/production-pg-dump/data.sql
-unset SUPABASE_DB_PASSWORD
-```
+The protected export is `data/rollout-backups/2026-08-26-pooler-pg-dump/`:
 
-Verify that every file is nonempty and readable, record SHA-256 checksums, and retain it outside Git. If the password must be reset, treat that as a separate remote credential change requiring approval.
+- `schema.sql`: 44,029 bytes; SHA-256 `54298fce9df13e9501fa6dbd75a512b962d7f0751b4367f8945775601744087e`.
+- `data.sql`: 409,787 bytes; SHA-256 `f7945d541184fc5f957fd0263a8de1a163d170e13adc5eacb02d6d1265061b05`.
+- `manifest.json`: owner-only checksum and scope metadata.
+
+The dump restored successfully into a clean disposable PostgreSQL 17 database and reproduced the audited fantasy counts, cleanup candidates, calculated view, unrelated public tables, and deployed-v0 function contract. It is retained outside Git. Cluster roles and provider-managed schemas are not included and must not be inferred from this artifact.
 
 ## Immutable migration manifest
 
@@ -80,14 +74,14 @@ Do not edit a migration after this checkpoint. Any hash change invalidates the a
 
 ## Exact dry-run plan
 
-First use the Supabase SQL Editor or official read-only Management API endpoint to run:
+The authorized read-only production check returned no migration-history table:
 
 ```sql
 select
   to_regclass('supabase_migrations.schema_migrations') as history_table;
 ```
 
-The expected result is null. Only if it is non-null, run `select count(*) from supabase_migrations.schema_migrations;` and inspect every history row. If the table remains absent, no baseline `migration repair` is needed because the repository contains forward migrations only; the deployed-v0 bootstrap is intentionally outside `supabase/migrations`.
+Result: `history_table = null`. No history rows were read because the table is absent. No baseline `migration repair` is needed because the repository contains forward migrations only; the deployed-v0 bootstrap is intentionally outside `supabase/migrations`.
 
 With the database password loaded transiently as `SUPABASE_DB_PASSWORD`, generate the plan:
 
@@ -95,7 +89,9 @@ With the database password loaded transiently as `SUPABASE_DB_PASSWORD`, generat
 supabase db push --linked --include-all --skip-vault --dry-run
 ```
 
-Require exactly migrations `001` through `014`, in filename order, and no seed, roles, Vault update, destructive reset, bootstrap, or `database-setup.sql`. Save only the non-secret plan output. If the CLI again attempts temporary-login provisioning, stop; do not repair/delete login roles or switch to an unreviewed SQL execution path.
+The dry-run succeeded and returned `upToDate: false`, `dryRun: true`, exactly migrations `001` through `014` in filename order, and empty `seeds` and `roles` lists. It proposed no Vault update, destructive reset, bootstrap, or `database-setup.sql`. The non-secret output is stored with the protected dump as `migration-dry-run.txt`.
+
+This is planning evidence only. It did not apply migrations or establish authorization for a future non-dry-run command. Rerun the same dry-run immediately before an approved migration window and stop on any difference.
 
 ## Approved execution sequence
 
