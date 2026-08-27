@@ -255,6 +255,13 @@ export async function installLeagueFixtures(
   page: Page,
   { commissioner }: { commissioner: boolean },
 ) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => undefined },
+    })
+  })
+
   await page.route('**/api/admin/auth**', async (route) => {
     await fulfillJson(route, { isAdmin: commissioner, success: true })
   })

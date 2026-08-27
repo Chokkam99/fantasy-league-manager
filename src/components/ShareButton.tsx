@@ -17,6 +17,30 @@ interface ShareMutationPayload {
   success: boolean
 }
 
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value)
+      return
+    } catch {
+      // Fall through for browsers that expose the API but deny permission.
+    }
+  }
+
+  const field = document.createElement('textarea')
+  field.value = value
+  field.setAttribute('readonly', '')
+  field.style.position = 'fixed'
+  field.style.opacity = '0'
+  document.body.appendChild(field)
+  field.select()
+  const copied = document.execCommand?.('copy') === true
+  field.remove()
+  if (!copied) {
+    throw new Error('The link was created, but this browser blocked copying. Try again from a secure browser window.')
+  }
+}
+
 export default function ShareButton({ leagueId, season, label = 'Copy player link', className = '', labelClassName = '' }: ShareButtonProps) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -35,7 +59,7 @@ export default function ShareButton({ leagueId, season, label = 'Copy player lin
       if (!response.ok || !payload.share_path) {
         throw new Error(payload.error || 'The player link could not be created.')
       }
-      await navigator.clipboard.writeText(new URL(payload.share_path, window.location.origin).toString())
+      await copyText(new URL(payload.share_path, window.location.origin).toString())
       setTone('success')
       setMessage(`${season} player link copied.`)
     } catch (caught) {
