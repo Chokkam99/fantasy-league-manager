@@ -124,6 +124,12 @@ test.describe('responsive league journeys', () => {
       await page.getByRole('button', { name: 'Copy player link' }).click()
     }
     await expect(page.getByText('2026 player link copied.')).toBeVisible()
+    const dismissToast = page.getByRole('button', { name: 'Dismiss notification' })
+    const dismissToastBox = await dismissToast.boundingBox()
+    expect(dismissToastBox).not.toBeNull()
+    expect(dismissToastBox!.width).toBeLessThanOrEqual(32)
+    expect(dismissToastBox!.height).toBeLessThanOrEqual(32)
+    await dismissToast.click()
     if (isMobile(testInfo)) {
       await page.keyboard.press('Escape')
     }
@@ -154,11 +160,25 @@ test.describe('responsive league journeys', () => {
     await expect(
       page.getByRole('button', { name: 'Sync completed week' }),
     ).toBeVisible()
+    const syncButton = page.getByRole('button', { name: 'Sync completed week' })
+    const syncButtonBox = await syncButton.boundingBox()
+    expect(syncButtonBox).not.toBeNull()
+    expect(syncButtonBox!.height).toBeLessThanOrEqual(42)
+    if (!isMobile(testInfo)) {
+      expect(syncButtonBox!.width).toBeLessThanOrEqual(260)
+    }
+    await page.getByRole('button', { name: 'Need a different week?' }).click()
+    const selectedWeek = page.getByLabel('Selected week')
+    const selectedWeekBox = await selectedWeek.boundingBox()
+    expect(selectedWeekBox).not.toBeNull()
+    expect(selectedWeekBox!.width).toBeLessThanOrEqual(128)
 
     await openPrimaryNav(page, 'Prizes')
     await expectHeading(page, 'League money')
+    await expect(page.getByRole('heading', { name: 'Final & bonus prizes' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Payout tally' })).toBeVisible()
-    await expect(page.getByLabel('Recipient').first()).toBeVisible()
+    await expect(page.getByLabel(/^Recipient for /).first()).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: 'Paid: 1st place' })).toBeVisible()
 
     await openPrimaryNav(page, 'Overview')
     await expectHeading(page, 'Season overview')
@@ -186,6 +206,10 @@ test.describe('responsive league journeys', () => {
       await openPrimaryNav(page, 'Rules')
     }
     await expectHeading(page, 'League rules')
+    await expect(page.getByRole('link', { name: 'View prize details' })).toHaveCSS(
+      'color',
+      'rgb(255, 255, 255)',
+    )
 
     await openLeagueAction(page, 'League settings')
     await expectHeading(page, 'League settings')
@@ -229,7 +253,7 @@ test.describe('responsive league journeys', () => {
     await openPrimaryNav(page, 'Prizes')
     await expectHeading(page, 'League money')
     await expect(page.getByRole('heading', { name: 'Payout tally' })).toBeVisible()
-    await expect(page.getByLabel('Recipient')).toHaveCount(0)
+    await expect(page.getByLabel(/^Recipient for /)).toHaveCount(0)
 
     if (isMobile(testInfo)) {
       await openLeagueAction(page, 'League roster')

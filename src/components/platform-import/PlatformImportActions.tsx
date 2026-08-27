@@ -31,8 +31,12 @@ export function PlatformImportActions({
 }: PlatformImportActionsProps) {
   return (
     <div className="p-4 sm:p-6">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Button disabled={isBusy} onClick={() => onRunImport('sync', 'latest')}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Button
+          disabled={isBusy}
+          onClick={() => onRunImport('sync', 'latest')}
+          size="sm"
+        >
           {operation === 'sync'
             ? 'Syncing…'
             : syncHasError
@@ -42,6 +46,7 @@ export function PlatformImportActions({
         <Button
           disabled={isBusy}
           onClick={() => onRunImport('preview', 'latest')}
+          size="sm"
           variant="secondary"
         >
           {operation === 'preview' ? 'Loading preview…' : 'Preview completed week'}
@@ -74,27 +79,46 @@ export function PlatformImportActions({
           <label className="block text-sm font-semibold text-app-text" htmlFor="manual-import-week">
             Selected week
           </label>
-          <select
-            className="mt-1 min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base text-app-text sm:max-w-52 sm:text-sm"
-            id="manual-import-week"
-            onChange={(event) => onManualWeekChange(Number(event.target.value))}
-            value={manualWeek}
-          >
-            {Array.from({ length: totalWeeks }, (_, index) => index + 1).map(
-              (week) => (
-                <option key={week} value={week}>Week {week}</option>
-              ),
-            )}
-          </select>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="relative mt-1 w-32">
+            <select
+              className="min-h-11 w-full appearance-none rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface py-2 pl-3 pr-9 text-base text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft sm:text-sm"
+              id="manual-import-week"
+              onChange={(event) => onManualWeekChange(Number(event.target.value))}
+              value={manualWeek}
+            >
+              {Array.from({ length: totalWeeks }, (_, index) => index + 1).map(
+                (week) => (
+                  <option key={week} value={week}>Week {week}</option>
+                ),
+              )}
+            </select>
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-text-muted"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path d="m7 10 5 5 5-5" />
+            </svg>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
               disabled={isBusy}
               onClick={() => onRunImport('preview', manualWeek)}
+              size="sm"
               variant="secondary"
             >
               Preview week {manualWeek}
             </Button>
-            <Button disabled={isBusy} onClick={() => onRunImport('sync', manualWeek)}>
+            <Button
+              disabled={isBusy}
+              onClick={() => onRunImport('sync', manualWeek)}
+              size="sm"
+            >
               Import week {manualWeek}
             </Button>
           </div>

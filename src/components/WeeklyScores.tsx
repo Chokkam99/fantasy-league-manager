@@ -276,16 +276,19 @@ export default function WeeklyScores({
             </div>
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex">
               <label className="sr-only" htmlFor="weekly-score-week">Week</label>
-              <select
-                className="min-h-11 min-w-0 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base font-semibold text-app-text sm:text-sm"
-                id="weekly-score-week"
-                onChange={(event) => changeWeek(Number(event.target.value))}
-                value={selectedWeek}
-              >
-                {Array.from({ length: totalWeeks }, (_, index) => index + 1).map((week) => (
-                  <option key={week} value={week}>Week {week}</option>
-                ))}
-              </select>
+              <div className="relative w-28 shrink-0">
+                <select
+                  className="min-h-11 w-full appearance-none rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface py-2 pl-3 pr-9 text-base font-semibold text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft sm:text-sm"
+                  id="weekly-score-week"
+                  onChange={(event) => changeWeek(Number(event.target.value))}
+                  value={selectedWeek}
+                >
+                  {Array.from({ length: totalWeeks }, (_, index) => index + 1).map((week) => (
+                    <option key={week} value={week}>Week {week}</option>
+                  ))}
+                </select>
+                <SelectChevron />
+              </div>
               {!readOnly && !isEditing && (
                 <Button disabled={isDataLoading || members.length === 0} onClick={beginEditing} variant="secondary">
                   Edit scores
@@ -531,5 +534,22 @@ export default function WeeklyScores({
         tone="warning"
       />
     </>
+  )
+}
+
+function SelectChevron() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-text-muted"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="m7 10 5 5 5-5" />
+    </svg>
   )
 }

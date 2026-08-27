@@ -1,5 +1,4 @@
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import type { FinanceAward } from '@/lib/financeClient'
 import type { PrizeMember } from '@/lib/prizes'
@@ -22,7 +21,6 @@ interface SeasonAwardCardsProps {
     status: 'paid' | 'pending',
   ) => void
   onRecipientChange: (award: FinanceAward, memberId: string | null) => void
-  paidPayoutAmount: number
   schemaReady: boolean
 }
 
@@ -33,118 +31,123 @@ export function SeasonAwardCards({
   members,
   onPayoutStatusChange,
   onRecipientChange,
-  paidPayoutAmount,
   schemaReady,
 }: SeasonAwardCardsProps) {
   return (
-    <Card className="mt-6 min-w-0 p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <Card className="mt-6 min-w-0 overflow-hidden">
+      <div className="border-b border-app-border p-4 sm:p-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
             Season awards
           </p>
           <h2 className="mt-1 text-xl font-bold text-app-text">
-            Final prize recipients
+            Final &amp; bonus prizes
           </h2>
           <p className="mt-1 text-sm text-app-text-muted">
-            See who receives each prize and whether the money was sent.
+            {canManagePayouts
+              ? 'Assign each winner and check off the payout when it is sent.'
+              : 'Final placements and any extra season awards.'}
           </p>
         </div>
-        {schemaReady && awards.some((award) => award.payout) && (
-          <div className="text-right">
-            <p className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">
-              Payout progress
-            </p>
-            <p className="mt-1 font-bold text-app-text">
-              {currency.format(paidPayoutAmount)} sent
-            </p>
-          </div>
-        )}
       </div>
 
       {awards.length > 0 ? (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div>
+          <div className="hidden grid-cols-[minmax(0,1fr)_minmax(12rem,1fr)_6rem_3rem] gap-3 bg-app-surface-subtle px-6 py-2.5 text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted sm:grid">
+            <span>Prize</span>
+            <span>Recipient</span>
+            <span className="text-right">Amount</span>
+            <span className="text-center">Paid</span>
+          </div>
           {awards.map((awardView) => {
             const { award, payout, recipient } = awardView
             const isBusy =
               busyFinanceId === awardView.id || busyFinanceId === payout?.id
+            const isPaid = payout?.status === 'paid'
 
             return (
               <article
-                className="flex min-w-0 flex-col rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface-subtle p-4"
+                className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-app-border px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,1fr)_6rem_3rem] sm:px-6"
                 key={awardView.id}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-app-text">{awardView.label}</h3>
-                    <p className="mt-0.5 text-lg font-bold text-app-brand">
-                      {currency.format(awardView.amount)}
-                    </p>
-                  </div>
-                  <AwardStatusBadge status={awardView.status} />
+                <div className="min-w-0 sm:col-start-1 sm:row-start-1">
+                  <h3 className="truncate text-sm font-semibold text-app-text">
+                    {awardView.label}
+                  </h3>
                 </div>
 
-                {recipient && (
-                  <div className="mt-4 border-t border-app-border pt-3">
-                    <p className="truncate font-semibold text-app-text">
-                      {recipient.team_name}
-                    </p>
-                    <p className="mt-0.5 truncate text-sm text-app-text-muted">
-                      {recipient.manager_name}
-                    </p>
-                  </div>
-                )}
-
-                {canManagePayouts && award && (
-                  <div className="mt-auto grid gap-2 pt-4">
-                    <label
-                      className="text-xs font-semibold text-app-text-muted"
-                      htmlFor={`recipient-${award.id}`}
-                    >
-                      Recipient
-                    </label>
-                    <select
-                      className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft sm:text-sm"
-                      disabled={isBusy}
-                      id={`recipient-${award.id}`}
-                      onChange={(event) =>
-                        onRecipientChange(award, event.target.value || null)
-                      }
-                      value={payout?.league_member_id || ''}
-                    >
-                      <option value="">Not assigned</option>
-                      {members.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.team_name} — {member.manager_name}
-                        </option>
-                      ))}
-                    </select>
-                    {payout && (
-                      <Button
+                <div className="col-start-1 row-start-2 min-w-0 sm:col-start-2 sm:row-start-1">
+                  {canManagePayouts && award ? (
+                    <>
+                      <label className="sr-only" htmlFor={`recipient-${award.id}`}>
+                        Recipient for {awardView.label}
+                      </label>
+                      <select
+                        className="min-h-10 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft sm:text-sm"
                         disabled={isBusy}
-                        onClick={() =>
-                          onPayoutStatusChange(
-                            payout.id,
-                            payout.status === 'paid' ? 'pending' : 'paid',
-                          )
+                        id={`recipient-${award.id}`}
+                        onChange={(event) =>
+                          onRecipientChange(award, event.target.value || null)
                         }
-                        variant={payout.status === 'paid' ? 'secondary' : 'primary'}
+                        value={payout?.league_member_id || ''}
                       >
-                        {isBusy
-                          ? 'Updating…'
-                          : payout.status === 'paid'
-                            ? 'Mark payout pending'
-                            : 'Mark payout paid'}
-                      </Button>
-                    )}
-                  </div>
-                )}
+                        <option value="">Not assigned</option>
+                        {members.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.team_name} — {member.manager_name}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : recipient ? (
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-app-text">
+                        {recipient.team_name}
+                      </p>
+                      <p className="truncate text-xs text-app-text-muted">
+                        {recipient.manager_name}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-app-text-muted">Not assigned</p>
+                  )}
+                </div>
+
+                <p className="col-start-2 row-start-1 text-right text-sm font-bold tabular-nums text-app-text sm:col-start-3">
+                  {currency.format(awardView.amount)}
+                </p>
+
+                <div className="col-start-2 row-start-2 flex justify-end sm:col-start-4 sm:row-start-1 sm:justify-center">
+                  {canManagePayouts ? (
+                    <input
+                      aria-label={`Paid: ${awardView.label}`}
+                      checked={isPaid}
+                      className="h-5 w-5 accent-app-brand"
+                      disabled={!payout || isBusy}
+                      onChange={() => {
+                        if (!payout) return
+                        onPayoutStatusChange(
+                          payout.id,
+                          isPaid ? 'pending' : 'paid',
+                        )
+                      }}
+                      title={
+                        payout
+                          ? `Mark ${awardView.label} ${isPaid ? 'pending' : 'paid'}`
+                          : 'Assign a recipient first'
+                      }
+                      type="checkbox"
+                    />
+                  ) : (
+                    <AwardStatusBadge status={awardView.status} />
+                  )}
+                </div>
               </article>
             )
           })}
         </div>
       ) : (
-        <div className="mt-5 rounded-[var(--app-radius-sm)] border border-dashed border-app-border p-6 text-center">
+        <div className="p-8 text-center">
           <p className="font-semibold text-app-text">No final prizes configured</p>
           {schemaReady && (
             <p className="mt-1 text-sm text-app-text-muted">
@@ -155,7 +158,7 @@ export function SeasonAwardCards({
       )}
 
       {!schemaReady && canManagePayouts && (
-        <p className="mt-4 text-xs leading-5 text-app-text-muted">
+        <p className="border-t border-app-border px-4 py-3 text-xs leading-5 text-app-text-muted sm:px-6">
           Recipient and payment tracking will appear here when payout tools are available.
         </p>
       )}

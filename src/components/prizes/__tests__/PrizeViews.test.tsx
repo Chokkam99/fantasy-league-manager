@@ -47,7 +47,6 @@ function view(canManagePayouts: boolean) {
       members={members}
       onPayoutStatusChange={jest.fn()}
       onRecipientChange={jest.fn()}
-      paidPayoutAmount={0}
       schemaReady
     />
   )
@@ -78,16 +77,15 @@ describe('Prize views', () => {
         members={members}
         onPayoutStatusChange={onPayoutStatusChange}
         onRecipientChange={onRecipientChange}
-        paidPayoutAmount={0}
         schemaReady
       />,
     )
 
     await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Recipient' }),
+      screen.getByRole('combobox', { name: 'Recipient for Champion' }),
       'member-two',
     )
-    await user.click(screen.getByRole('button', { name: 'Mark payout paid' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Paid: Champion' }))
     expect(onRecipientChange).toHaveBeenCalledWith(award, 'member-two')
     expect(onPayoutStatusChange).toHaveBeenCalledWith('payout-one', 'paid')
   })

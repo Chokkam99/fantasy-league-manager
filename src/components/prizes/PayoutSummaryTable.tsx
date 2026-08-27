@@ -28,7 +28,7 @@ export function PayoutSummaryTable({
           </p>
           <h2 className="mt-1 text-xl font-bold text-app-text">Payout tally</h2>
           <p className="mt-1 text-sm leading-5 text-app-text-muted">
-            Each player&apos;s weekly prizes and assigned season awards in one place.
+            Season-end totals for quick review and payout handoff.
           </p>
         </div>
         <Badge variant={assignedTotal > 0 ? 'success' : 'neutral'}>
@@ -88,6 +88,9 @@ export function PayoutSummaryTable({
           </p>
         </div>
       )}
+      <p className="border-t border-app-border px-4 py-3 text-xs leading-5 text-app-text-muted sm:px-6">
+        Weekly amounts are calculated from recorded scores. Paid checks apply to the assigned final and bonus prizes above.
+      </p>
     </Card>
   )
 }

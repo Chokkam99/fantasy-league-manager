@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Button } from '@/components/ui/Button'
+import { createPortal } from 'react-dom'
 import { Notice } from '@/components/ui/Notice'
 
 export function Toast({
@@ -27,16 +27,32 @@ export function Toast({
     return () => window.clearTimeout(timer)
   }, [duration, message])
 
-  if (!message) return null
+  if (!message || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <div className="pointer-events-none fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[80] flex justify-center md:bottom-6 md:left-auto md:right-6">
-      <Notice className="pointer-events-auto flex w-full max-w-sm items-start justify-between gap-3 shadow-[var(--app-shadow-md)]" tone={tone}>
-        <span>{message}</span>
-        <Button aria-label="Dismiss notification" onClick={onDismiss} size="icon" variant="ghost">
-          ×
-        </Button>
+      <Notice className="pointer-events-auto flex w-full max-w-sm items-center gap-2 py-2.5 pr-2 shadow-[var(--app-shadow-md)]" tone={tone}>
+        <span className="min-w-0 flex-1 leading-5">{message}</span>
+        <button
+          aria-label="Dismiss notification"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-current/70 transition-colors hover:bg-black/5 hover:text-current"
+          onClick={onDismiss}
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="m7 7 10 10M17 7 7 17" />
+          </svg>
+        </button>
       </Notice>
-    </div>
+    </div>,
+    document.body,
   )
 }

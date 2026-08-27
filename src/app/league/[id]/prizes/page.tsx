@@ -237,7 +237,6 @@ export default function PrizesPage({ params }: PrizesPageProps) {
         members={members}
         onPayoutStatusChange={handlePayoutStatus}
         onRecipientChange={handleRecipientChange}
-        paidPayoutAmount={viewModel.paidPayoutAmount}
         schemaReady={viewModel.usesCanonicalAwards}
       />
       <PayoutSummaryTable summaries={viewModel.playerWinnings} />
