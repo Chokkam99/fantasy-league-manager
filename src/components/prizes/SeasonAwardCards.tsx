@@ -104,7 +104,7 @@ export function SeasonAwardCards({
                       Recipient
                     </label>
                     <select
-                      className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-sm text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft"
+                      className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft sm:text-sm"
                       disabled={isBusy}
                       id={`recipient-${award.id}`}
                       onChange={(event) =>
@@ -156,7 +156,7 @@ export function SeasonAwardCards({
 
       {!schemaReady && canManagePayouts && (
         <p className="mt-4 text-xs leading-5 text-app-text-muted">
-          Recipient and payout controls will appear after the prepared finance migration is applied.
+          Recipient and payment tracking will appear here when payout tools are available.
         </p>
       )}
     </Card>

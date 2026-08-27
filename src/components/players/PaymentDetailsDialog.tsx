@@ -85,7 +85,7 @@ export default function PaymentDetailsDialog({
                 ref={statusRef}
                 value={status}
               >
-                <option value="pending">Pending</option>
+                <option value="pending">Unpaid</option>
                 <option value="partial">Partial</option>
                 <option value="paid">Paid</option>
               </Select>

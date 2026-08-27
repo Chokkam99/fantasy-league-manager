@@ -108,7 +108,7 @@ function MetricCard({
       </p>
       <p
         className={cn(
-          'mt-2 break-words text-2xl font-bold tracking-tight text-app-text sm:text-3xl',
+          'mt-2 break-words text-xl font-bold tracking-tight text-app-text sm:text-2xl',
           tone === 'positive' && 'text-app-success',
           tone === 'warning' && 'text-app-warning',
           valueClassName,

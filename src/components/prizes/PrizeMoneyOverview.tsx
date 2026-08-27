@@ -81,7 +81,7 @@ export function PrizeMoneyOverview({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand">
             {selectedSeason} season
           </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-app-text sm:text-4xl">
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
             League money
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
@@ -92,7 +92,7 @@ export function PrizeMoneyOverview({
       </div>
 
       <Card className="mt-6 min-w-0 overflow-hidden">
-        <section aria-labelledby="money-in-heading" className="bg-app-brand-soft/55 p-5 sm:p-6">
+        <section aria-labelledby="money-in-heading" className="bg-app-brand-soft/55 p-4 sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-success">
@@ -128,7 +128,7 @@ export function PrizeMoneyOverview({
           </p>
         </section>
 
-        <section aria-labelledby="money-out-heading" className="border-t border-app-border p-5 sm:p-6">
+        <section aria-labelledby="money-out-heading" className="border-t border-app-border p-4 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">

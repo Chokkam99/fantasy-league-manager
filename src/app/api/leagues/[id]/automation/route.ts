@@ -8,6 +8,7 @@ import { resolveESPNConfig } from '@/lib/espn/config'
 import { requestESPNData } from '@/lib/espn/request'
 import { withSeasonTeamMappings } from '@/lib/espn/team-mapping-config'
 import { getLifecycleWriteBlock } from '@/lib/lifecycleServer'
+import { normalizePlatformSyncHealth } from '@/lib/platformImport'
 import { validateActiveSeasonAccess } from '@/lib/seasonAccess'
 import {
   type AppSupabaseClient,
@@ -79,6 +80,12 @@ function sanitizedSettings(
     leagueId,
     privateLeague,
   })
+  const syncHealth = normalizePlatformSyncHealth({
+    autoSyncEnabled: Boolean(league.auto_sync_enabled),
+    lastSyncError: league.last_sync_error || null,
+    syncStatus: league.sync_status || 'none',
+    totalWeeks,
+  })
 
   return {
     auto_sync_enabled: Boolean(league.auto_sync_enabled),
@@ -87,14 +94,14 @@ function sanitizedSettings(
     has_swid: Boolean(espnConfig?.swid),
     is_configured: Boolean(espnConfig) && readiness.can_save_connection,
     last_sync_at: league.last_sync_at || null,
-    last_sync_error: league.last_sync_error || null,
+    last_sync_error: syncHealth.lastSyncError,
     latest_imported_week: latestImportedWeek,
     latest_import_run: latestImportRun,
     league_id: leagueId,
     private_league: privateLeague,
     readiness,
     season,
-    sync_status: league.sync_status || 'none',
+    sync_status: syncHealth.syncStatus,
     total_weeks: totalWeeks,
   }
 }
@@ -104,7 +111,7 @@ async function loadAutomationContext(
   leagueId: string,
   season: string,
 ) {
-  const [leagueResult, seasonResult, scoreResult, importRunResult] = await Promise.all([
+  const [leagueResult, seasonResult, scoreResult] = await Promise.all([
     database
       .from('leagues')
       .select(`
@@ -135,31 +142,31 @@ async function loadAutomationContext(
       .eq('season', season)
       .order('week_number', { ascending: false })
       .limit(1),
-    database
-      .from('import_runs')
-      .select(`
-        completed_at,
-        error_message,
-        matchup_count,
-        score_count,
-        started_at,
-        status,
-        trigger_mode,
-        week_number
-      `)
-      .eq('league_id', leagueId)
-      .eq('season', season)
-      .order('started_at', { ascending: false })
-      .limit(1),
   ])
 
   if (leagueResult.error) throw leagueResult.error
   if (seasonResult.error) throw seasonResult.error
   if (scoreResult.error) throw scoreResult.error
-  if (
-    importRunResult.error &&
-    !isMissingImportRunSchema(importRunResult.error)
-  ) {
+  const totalWeeks = seasonResult.data?.total_weeks || 17
+  const importRunResult = await database
+    .from('import_runs')
+    .select(`
+      completed_at,
+      error_message,
+      matchup_count,
+      score_count,
+      started_at,
+      status,
+      trigger_mode,
+      week_number
+    `)
+    .eq('league_id', leagueId)
+    .eq('season', season)
+    .lte('week_number', totalWeeks)
+    .order('started_at', { ascending: false })
+    .limit(1)
+
+  if (importRunResult.error && !isMissingImportRunSchema(importRunResult.error)) {
     throw importRunResult.error
   }
 

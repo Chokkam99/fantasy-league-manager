@@ -218,6 +218,32 @@ export function resolveDivisionNames(
   return [...new Set([...names, ...memberDivisions])]
 }
 
+export function groupStandingsByDivision<
+  TMember extends StandingsMember,
+>(
+  standings: StandingRow<TMember>[],
+  divisions: string[],
+) {
+  const groupedMemberIds = new Set<string>()
+  const groups = divisions.flatMap((division) => {
+    const rows = standings
+      .filter((row) => row.member.division === division)
+      .sort(compareStandingRows)
+
+    rows.forEach((row) => groupedMemberIds.add(row.member.id))
+    return rows.length > 0 ? [{ division, rows }] : []
+  })
+  const unassignedRows = standings
+    .filter((row) => !groupedMemberIds.has(row.member.id))
+    .sort(compareStandingRows)
+
+  if (unassignedRows.length > 0) {
+    groups.push({ division: 'Other', rows: unassignedRows })
+  }
+
+  return groups
+}
+
 export function calculatePlayoffSeeds(
   standings: StandingRow[],
   divisions: string[],

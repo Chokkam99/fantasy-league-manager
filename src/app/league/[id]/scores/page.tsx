@@ -201,19 +201,27 @@ export default function WeeklyScoresPage({ params }: WeeklyScoresPageProps) {
       />
 
       {!isViewOnly && (
-        <Card className="mb-8 p-4 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="font-semibold text-app-text">Season data</h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-app-text-muted">
-                Clear every weekly score only when you intend to rebuild the entire {selectedSeason} season. Saved matchup scheduling is preserved.
-              </p>
+        <details className="group mb-8 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 font-semibold text-app-text sm:px-6 [&::-webkit-details-marker]:hidden">
+            Advanced season tools
+            <svg aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
+          <div className="border-t border-app-border p-4 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-semibold text-app-text">Season data</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-app-text-muted">
+                  Clear every weekly score only when you intend to rebuild the entire {selectedSeason} season. Saved matchup scheduling is preserved.
+                </p>
+              </div>
+              <Button onClick={() => setShowClearConfirm(true)} variant="danger">
+                Clear season scores
+              </Button>
             </div>
-            <Button onClick={() => setShowClearConfirm(true)} variant="danger">
-              Clear season scores
-            </Button>
           </div>
-        </Card>
+        </details>
       )}
 
       <ConfirmDialog

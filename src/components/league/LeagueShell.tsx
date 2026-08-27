@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import AdminLogin from '@/components/AdminLogin'
 import SeasonSelector from '@/components/SeasonSelector'
 import ShareButton from '@/components/ShareButton'
 import {
@@ -267,7 +266,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
 
   return (
     <LeagueShellContext.Provider value={shellContext}>
-      <div className="min-h-screen bg-app-canvas pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <div className="min-h-screen bg-app-canvas pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0" data-league-shell>
       <header className="sticky top-0 z-40 border-b border-app-border bg-app-surface/95 backdrop-blur">
         <div className="mx-auto flex min-h-[4.5rem] max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
           <Link
@@ -280,7 +279,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
 
           <div className="min-w-0 flex-1">
             <Link
-              className="block truncate text-base font-bold text-app-text sm:text-lg"
+              className="flex min-h-11 items-center truncate text-base font-bold text-app-text sm:block sm:min-h-0 sm:text-lg"
               href={buildHref()}
             >
               {league?.name || 'League office'}
@@ -307,12 +306,6 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
               season={selectedSeason}
             />
           )}
-          <div className="hidden shrink-0 sm:block">
-            <AdminLogin
-              isAdmin={isAdmin}
-              onAuthChange={handleAdminAuthChange}
-            />
-          </div>
           <LeagueActionsMenu
             isAdmin={isAdmin}
             leagueId={leagueId}
@@ -409,7 +402,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
                 className={cn(
                   'flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[0.6875rem] font-semibold transition-colors',
                   isActive
-                    ? 'text-app-brand'
+                    ? 'bg-app-brand-soft text-app-brand-strong'
                     : 'text-app-text-muted hover:bg-app-surface-subtle hover:text-app-text',
                 )}
                 href={buildHref(item.segment)}

@@ -2,7 +2,7 @@ import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react
 import { cn } from '@/lib/cn'
 
 export const formControlClassName =
-  'min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-app-text outline-none transition focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft disabled:cursor-not-allowed disabled:bg-app-surface-subtle disabled:text-app-text-muted'
+  'min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base text-app-text outline-none transition focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft disabled:cursor-not-allowed disabled:bg-app-surface-subtle disabled:text-app-text-muted sm:text-sm'
 
 export function FormField({
   children,

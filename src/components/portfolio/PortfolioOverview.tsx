@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import type { PortfolioSummary } from '@/lib/portfolio'
 
@@ -8,29 +7,23 @@ const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
 })
 
-export function PortfolioOverview({
-  onCreateLeague,
-  summary,
-}: {
-  onCreateLeague: () => void
-  summary: PortfolioSummary
-}) {
+export function PortfolioOverview({ summary }: { summary: PortfolioSummary }) {
   return (
     <>
-      <section aria-label="Portfolio summary" className="grid grid-cols-3 gap-3">
+      <section aria-label="Portfolio summary" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Card className="p-3 sm:p-5">
           <p className="text-xs font-semibold text-app-text-muted">Active leagues</p>
-          <p className="mt-1 text-2xl font-bold text-app-text">
+          <p className="mt-1 text-xl font-bold text-app-text sm:text-2xl">
             {summary.activeLeagueCount}
           </p>
         </Card>
         <Card className="p-3 sm:p-5">
           <p className="text-xs font-semibold text-app-text-muted">Players tracked</p>
-          <p className="mt-1 text-2xl font-bold text-app-text">
+          <p className="mt-1 text-xl font-bold text-app-text sm:text-2xl">
             {summary.totalPlayers}
           </p>
         </Card>
-        <Card className="p-3 sm:p-5">
+        <Card className="col-span-2 p-3 sm:col-span-1 sm:p-5">
           <p className="text-xs font-semibold text-app-text-muted">Dues collected</p>
           <p className="mt-1 text-base font-bold tracking-tight text-app-success sm:text-2xl">
             {currency.format(summary.collectedAmount)}
@@ -51,17 +44,12 @@ export function PortfolioOverview({
         </div>
       )}
 
-      <div className="mt-6 flex items-end justify-between gap-4">
+      <div className="mt-6">
         <div>
-          <h2 className="text-xl font-bold text-app-text sm:text-2xl">Your leagues</h2>
+          <h2 className="text-lg font-bold text-app-text sm:text-xl">Your leagues</h2>
           <p className="mt-1 text-sm text-app-text-muted">
             Current seasons and league health at a glance.
           </p>
-        </div>
-        <div className="hidden sm:block">
-          <Button onClick={onCreateLeague} variant="secondary">
-            Create another
-          </Button>
         </div>
       </div>
     </>

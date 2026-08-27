@@ -15,7 +15,7 @@ function RosterMetric({ label, value }: { label: string; value: string }) {
       <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-app-text-muted">
         {label}
       </dt>
-      <dd className="mt-1 break-words text-2xl font-bold tracking-tight text-app-text">
+      <dd className="mt-1 break-words text-xl font-bold tracking-tight text-app-text sm:text-2xl">
         {value}
       </dd>
     </div>
@@ -62,12 +62,12 @@ export function PlayersOverview({
   return (
     <>
       <Card className="overflow-hidden">
-        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand">
               {selectedSeason} season
             </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-app-text sm:text-4xl">
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
               {isViewOnly ? 'League roster' : 'Players & dues'}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
@@ -101,8 +101,8 @@ export function PlayersOverview({
                 label="Needs attention"
                 value={
                   partialPlayers > 0
-                    ? `${pendingPlayers} pending · ${partialPlayers} partial`
-                    : `${pendingPlayers} pending`
+                    ? `${pendingPlayers} unpaid · ${partialPlayers} partial`
+                    : `${pendingPlayers} unpaid`
                 }
               />
               <RosterMetric
@@ -126,7 +126,7 @@ export function PlayersOverview({
                 <path d="m16 16 4 4" />
               </svg>
               <input
-                className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface pl-10 pr-3 text-sm text-app-text outline-none transition focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft"
+                className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface pl-10 pr-3 text-base text-app-text outline-none transition focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft sm:text-sm"
                 id="player-search"
                 onChange={(event) => onSearchChange(event.target.value)}
                 placeholder="Search manager, team, or season"
@@ -139,7 +139,7 @@ export function PlayersOverview({
           {!isViewOnly && (
             <div
               aria-label="Filter roster by dues status"
-              className="grid grid-cols-2 rounded-[var(--app-radius-sm)] bg-app-surface-subtle p-1 min-[420px]:grid-cols-4"
+              className="grid grid-cols-4 gap-0.5 rounded-[var(--app-radius-sm)] bg-app-surface-subtle p-1"
               role="group"
             >
               {(['all', 'pending', 'partial', 'paid'] as DuesFilter[]).map(
@@ -147,7 +147,7 @@ export function PlayersOverview({
                   <button
                     aria-pressed={duesFilter === filter}
                     className={cn(
-                      'min-h-11 rounded-lg px-3 text-sm font-semibold capitalize transition-colors',
+                      'min-h-10 rounded-lg px-2 text-[0.8125rem] font-semibold capitalize transition-colors',
                       duesFilter === filter
                         ? 'bg-app-surface text-app-text shadow-sm'
                         : 'text-app-text-muted hover:text-app-text',
@@ -156,7 +156,7 @@ export function PlayersOverview({
                     onClick={() => onDuesFilterChange(filter)}
                     type="button"
                   >
-                    {filter}
+                    {filter === 'pending' ? 'Unpaid' : filter}
                   </button>
                 ),
               )}

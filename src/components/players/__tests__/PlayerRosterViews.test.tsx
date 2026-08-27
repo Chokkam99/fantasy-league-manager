@@ -101,12 +101,14 @@ describe('Players roster views', () => {
       />,
     )
 
-    expect(screen.getByText('$50.00 partial')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Mark Manager One paid' }),
+    ).toHaveTextContent('Partial')
     expect(screen.getByText('Previous teams: Old Team')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Mark paid' }))
-    await user.click(screen.getByRole('button', { name: 'Payment details' }))
-    await user.click(screen.getByRole('button', { name: 'Remove from season' }))
-    await user.click(screen.getByRole('button', { name: 'Add to 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Mark Manager One paid' }))
+    await user.click(screen.getByRole('button', { name: 'Payment details for Manager One' }))
+    await user.click(screen.getByRole('button', { name: 'Remove Manager One from 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Add Manager Two to 2026' }))
     expect(onPaymentChange).toHaveBeenCalledWith(currentPlayer)
     expect(onOpenPayment).toHaveBeenCalledWith(currentPlayer)
     expect(onDeactivate).toHaveBeenCalledWith(currentPlayer)
@@ -127,7 +129,7 @@ describe('Players roster views', () => {
         selectedSeason="2026"
       />,
     )
-    expect(screen.queryByText('$50.00 partial')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Manager One/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })

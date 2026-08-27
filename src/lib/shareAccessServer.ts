@@ -66,7 +66,7 @@ export async function authorizeLeagueRead(
   if (isMissingShareSchema(result.error)) {
     return {
       access: null,
-      error: 'Scoped player sharing will be available after the prepared database migration is applied.',
+      error: 'Player links are not available yet. Your league data is unaffected.',
       status: 409,
     }
   }

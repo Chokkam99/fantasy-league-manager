@@ -18,6 +18,10 @@ export default defineConfig({
       use: { viewport: { height: 844, width: 390 } },
     },
     {
+      name: 'tablet-768',
+      use: { viewport: { height: 1024, width: 768 } },
+    },
+    {
       name: 'desktop-chrome',
       use: { viewport: { height: 900, width: 1280 } },
     },

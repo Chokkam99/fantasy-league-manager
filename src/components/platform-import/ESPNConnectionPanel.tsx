@@ -19,7 +19,7 @@ interface ESPNConnectionPanelProps {
 }
 
 const inputClass =
-  'mt-1 min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 font-normal text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20'
+  'mt-1 min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base font-normal text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20 sm:text-sm'
 
 export function ESPNConnectionPanel({
   draft,

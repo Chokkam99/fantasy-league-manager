@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 
@@ -99,13 +100,13 @@ export function Dialog({
     }
   }, [initialFocusRef, open])
 
-  if (!open) return null
+  if (!open || typeof document === 'undefined') return null
 
   const closeFromBackdrop = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget && !busy) onClose()
   }
 
-  return (
+  return createPortal(
     <div
       className={cn(
         'fixed inset-0 z-[70] flex justify-center bg-black/50',
@@ -161,6 +162,7 @@ export function Dialog({
         <div className="mt-5">{children}</div>
         {footer && <div className="mt-6">{footer}</div>}
       </section>
-    </div>
+    </div>,
+    document.body,
   )
 }

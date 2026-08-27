@@ -28,6 +28,7 @@ export default function LeagueActionsMenu({
   season,
 }: LeagueActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isPlayerAccessOpen, setIsPlayerAccessOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
@@ -35,11 +36,13 @@ export default function LeagueActionsMenu({
     if (!isOpen) return
 
     const closeOnOutsideClick = (event: MouseEvent) => {
+      if (isPlayerAccessOpen) return
       if (!menuRef.current?.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
     const closeOnEscape = (event: KeyboardEvent) => {
+      if (isPlayerAccessOpen) return
       if (event.key === 'Escape') {
         setIsOpen(false)
         triggerRef.current?.focus()
@@ -53,10 +56,10 @@ export default function LeagueActionsMenu({
       document.removeEventListener('mousedown', closeOnOutsideClick)
       document.removeEventListener('keydown', closeOnEscape)
     }
-  }, [isOpen])
+  }, [isOpen, isPlayerAccessOpen])
 
   return (
-    <div className={isAdmin ? 'relative' : 'relative sm:hidden'} ref={menuRef}>
+    <div className="relative" ref={menuRef}>
       <Button
         aria-controls="mobile-league-actions"
         aria-expanded={isOpen}
@@ -82,7 +85,7 @@ export default function LeagueActionsMenu({
       {isOpen && (
         <div
           aria-label="League actions"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface p-2 shadow-[var(--app-shadow-md)]"
+          className={`absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface p-2 shadow-[var(--app-shadow-md)] ${isPlayerAccessOpen ? 'invisible pointer-events-none' : ''}`}
           id="mobile-league-actions"
         >
           <Link
@@ -104,7 +107,7 @@ export default function LeagueActionsMenu({
               <circle cx="9" cy="8" r="3" />
               <path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.5M17 14a5 5 0 0 1 3.5 4.8" />
             </svg>
-            Players and dues
+            {isAdmin ? 'Players and dues' : 'League roster'}
           </Link>
           <Link
             className="flex min-h-11 items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle sm:hidden"
@@ -117,7 +120,7 @@ export default function LeagueActionsMenu({
             League rules
           </Link>
           {isAdmin && (
-            <>
+            <div className="mt-1 border-t border-app-border pt-1">
               <Link
                 className="flex min-h-11 w-full items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-left text-sm font-semibold text-app-text hover:bg-app-surface-subtle"
                 href={seasonSetupUrl}
@@ -139,17 +142,22 @@ export default function LeagueActionsMenu({
                 </svg>
                 League settings
               </Link>
-            </>
+            </div>
           )}
           {isAdmin && (
             <ShareButton
               className="w-full justify-start border-0 px-3 shadow-none sm:hidden"
               label="Player access"
               leagueId={leagueId}
+              onClose={() => {
+                setIsPlayerAccessOpen(false)
+                setIsOpen(false)
+              }}
+              onOpen={() => setIsPlayerAccessOpen(true)}
               season={season}
             />
           )}
-          <div className="mt-1 border-t border-app-border pt-1 sm:hidden">
+          <div className="mt-1 border-t border-app-border pt-1">
             <AdminLogin
               display="menu"
               isAdmin={isAdmin}

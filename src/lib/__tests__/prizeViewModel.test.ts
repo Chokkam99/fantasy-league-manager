@@ -46,6 +46,8 @@ describe('prize page view model', () => {
       collectedFees: 100,
       expectedFees: 200,
       outstandingFees: 100,
+      paidPlayers: 1,
+      partialPlayers: 0,
       usesCanonicalAwards: false,
     })
     expect(model.seasonAwards[0]).toMatchObject({

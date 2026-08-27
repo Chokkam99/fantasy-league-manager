@@ -149,16 +149,16 @@ export function buildPrizeViewModel({
     expectedFees,
     finalRules,
     outstandingFees,
-    paidPlayers: finance?.payments
-      ? finance.payments.filter((payment) => payment.status === 'paid').length
+    paidPlayers: usesCanonicalAwards
+      ? finance?.payments?.filter((payment) => payment.status === 'paid').length || 0
       : prizePlan.paidPlayers,
     paidPayoutAmount:
       (finance?.payouts || [])
         .filter((payout) => payout.status === 'paid')
         .reduce((total, payout) => total + payout.amount_cents, 0) / 100,
-    partialPlayers:
-      finance?.payments?.filter((payment) => payment.status === 'partial')
-        .length || 0,
+    partialPlayers: usesCanonicalAwards
+      ? finance?.payments?.filter((payment) => payment.status === 'partial').length || 0
+      : members.filter((member) => member.payment_status === 'partial').length,
     prizePlan,
     seasonAwards,
     usesCanonicalAwards,

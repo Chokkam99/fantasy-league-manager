@@ -3,12 +3,12 @@
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
-import { FormField, TextInput } from '@/components/ui/FormField'
+import { TextInput } from '@/components/ui/FormField'
 import { Notice } from '@/components/ui/Notice'
 import { authenticateAdmin, logoutAdmin } from '@/lib/adminAuth'
 
 interface AdminLoginProps {
-  display?: 'icon' | 'menu'
+  display?: 'icon' | 'menu' | 'panel'
   isAdmin: boolean
   onAuthChange: (isAdmin: boolean) => void
 }
@@ -46,7 +46,7 @@ export default function AdminLogin({
         setError(result.error || 'Unable to sign in.')
       }
     } catch {
-      setError('Authentication failed')
+      setError('Sign-in failed. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -58,26 +58,84 @@ export default function AdminLogin({
   }
 
   if (isAdmin) {
+    const isMenu = display === 'menu'
     return (
-      <div className={display === 'menu' ? 'w-full' : 'flex items-center'}>
+      <div className={isMenu ? 'w-full' : 'flex items-center'}>
         <button
-          aria-label="Log out of commissioner mode"
+          aria-label="Log out"
           onClick={handleLogout}
-          className={display === 'menu'
+          className={isMenu
             ? 'flex min-h-11 w-full items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle'
-            : 'min-h-11 rounded-[var(--app-radius-sm)] px-3 text-xs font-semibold text-app-text-muted hover:bg-app-surface-subtle hover:text-app-text'}
+            : 'flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--app-radius-sm)] text-app-text-muted hover:bg-app-surface-subtle hover:text-app-text'}
           title="Log out"
         >
-          {display === 'menu' && (
-            <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" />
-            </svg>
-          )}
-          {display === 'menu' ? 'Log out of commissioner mode' : 'Log out'}
+          <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" />
+          </svg>
+          {isMenu && 'Log out'}
         </button>
       </div>
     )
   }
+
+  const loginForm = (inline: boolean) => (
+    <form
+      aria-busy={isLoading}
+      className="space-y-4"
+      onSubmit={handleLogin}
+    >
+      <div>
+        <label
+          className="sr-only"
+          htmlFor={inline ? 'commissioner-password-panel' : 'commissioner-password'}
+        >
+          Commissioner password
+        </label>
+        <div className="relative">
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-app-text-muted"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="M7 11V7a5 5 0 0 1 10 0v4M6 11h12v10H6z" />
+          </svg>
+          <TextInput
+            autoComplete="current-password"
+            className="pl-10"
+            id={inline ? 'commissioner-password-panel' : 'commissioner-password'}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Password"
+            ref={passwordRef}
+            type="password"
+            value={password}
+          />
+        </div>
+      </div>
+
+      {error && <Notice tone="danger">{error}</Notice>}
+
+      {inline ? (
+        <Button
+          className="w-full"
+          disabled={isLoading || !password.trim()}
+          type="submit"
+        >
+          {isLoading ? 'Signing in…' : 'Continue'}
+        </Button>
+      ) : (
+        <div>
+          <Button className="w-full" disabled={isLoading || !password.trim()} type="submit">
+            {isLoading ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </div>
+      )}
+    </form>
+  )
+
+  if (display === 'panel') return loginForm(true)
 
   return (
     <>
@@ -98,35 +156,13 @@ export default function AdminLogin({
       <Dialog
         busy={isLoading}
         closeLabel="Close commissioner login"
-        description="Sign in to manage scores, players, dues, and league settings."
+        description="Enter the private league password to continue."
         initialFocusRef={passwordRef}
         onClose={closeLogin}
         open={showLogin}
-        title="Commissioner login"
+        title="Commissioner sign in"
       >
-            <form className="space-y-4" onSubmit={handleLogin}>
-              <FormField htmlFor="commissioner-password" label="Password">
-                <TextInput
-                  id="commissioner-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter commissioner password"
-                  ref={passwordRef}
-                />
-              </FormField>
-              
-              {error && <Notice tone="danger">{error}</Notice>}
-              
-              <div className="grid grid-cols-2 gap-3">
-                <Button disabled={isLoading} onClick={closeLogin} variant="secondary">
-                  Cancel
-                </Button>
-                <Button disabled={isLoading || !password.trim()} type="submit">
-                  {isLoading ? 'Logging in...' : 'Login'}
-                </Button>
-              </div>
-            </form>
+        {loginForm(false)}
       </Dialog>
     </>
   )

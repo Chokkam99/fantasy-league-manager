@@ -57,6 +57,41 @@ export function nextManualImportWeek(settings: PlatformSettingsForDraft) {
   )
 }
 
+export function normalizePlatformSyncHealth({
+  autoSyncEnabled,
+  lastSyncError,
+  syncStatus,
+  totalWeeks,
+}: {
+  autoSyncEnabled: boolean
+  lastSyncError: string | null
+  syncStatus: string
+  totalWeeks: number
+}) {
+  const maximumWeek = Math.max(Math.trunc(Number(totalWeeks) || 0), 1)
+  const weekReferences = lastSyncError
+    ? Array.from(
+        lastSyncError.matchAll(
+          /(?:\bweek\s*(\d+)\b|\b(\d+)(?:st|nd|rd|th)\s+week\b)/gi,
+        ),
+        (match) => Number(match[1] || match[2]),
+      )
+    : []
+  const isOutOfRangeError = weekReferences.some(
+    (week) => Number.isInteger(week) && week > maximumWeek,
+  )
+
+  return {
+    lastSyncError: isOutOfRangeError ? null : lastSyncError,
+    syncStatus:
+      isOutOfRangeError && syncStatus === 'error'
+        ? autoSyncEnabled
+          ? 'active'
+          : 'disabled'
+        : syncStatus,
+  }
+}
+
 export function getPlatformImportHealth({
   isConfigured,
   isLoading,

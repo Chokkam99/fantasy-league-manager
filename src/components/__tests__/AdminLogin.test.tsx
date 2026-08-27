@@ -45,14 +45,14 @@ describe('AdminLogin', () => {
     await openLogin(user)
 
     expect(
-      screen.getByRole('dialog', { name: 'Commissioner login' }),
+      screen.getByRole('dialog', { name: 'Commissioner sign in' }),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toHaveAttribute(
+    expect(screen.getByLabelText('Commissioner password')).toHaveAttribute(
       'type',
       'password',
     )
     expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Login' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeDisabled()
   })
 
   it('authenticates with the server route and closes after success', async () => {
@@ -60,8 +60,8 @@ describe('AdminLogin', () => {
     const { onAuthChange } = renderLogin()
     await openLogin(user)
 
-    await user.type(screen.getByLabelText('Password'), 'league-secret')
-    await user.click(screen.getByRole('button', { name: 'Login' }))
+    await user.type(screen.getByLabelText('Commissioner password'), 'league-secret')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await waitFor(() => {
       expect(mockAuthenticateAdmin).toHaveBeenCalledWith('league-secret')
@@ -79,9 +79,9 @@ describe('AdminLogin', () => {
     const { onAuthChange } = renderLogin()
     await openLogin(user)
 
-    const password = screen.getByLabelText('Password')
+    const password = screen.getByLabelText('Commissioner password')
     await user.type(password, 'league-secret')
-    await user.click(screen.getByRole('button', { name: 'Login' }))
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(
       await screen.findByRole('alert'),
@@ -96,11 +96,11 @@ describe('AdminLogin', () => {
     renderLogin()
     await openLogin(user)
 
-    await user.type(screen.getByLabelText('Password'), 'league-secret')
-    await user.click(screen.getByRole('button', { name: 'Login' }))
+    await user.type(screen.getByLabelText('Commissioner password'), 'league-secret')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Authentication failed',
+      'Sign-in failed. Please try again.',
     )
   })
 
@@ -115,11 +115,11 @@ describe('AdminLogin', () => {
     renderLogin()
     await openLogin(user)
 
-    await user.type(screen.getByLabelText('Password'), 'league-secret')
-    await user.click(screen.getByRole('button', { name: 'Login' }))
+    await user.type(screen.getByLabelText('Commissioner password'), 'league-secret')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
-    expect(screen.getByRole('button', { name: 'Logging in...' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Signing in…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Close commissioner login' })).toBeDisabled()
 
     resolveLogin({ success: true })
     await waitFor(() => {
@@ -127,7 +127,7 @@ describe('AdminLogin', () => {
     })
   })
 
-  it('clears password and errors when cancelled', async () => {
+  it('clears password and errors when closed', async () => {
     const user = userEvent.setup()
     mockAuthenticateAdmin.mockResolvedValue({
       error: 'Incorrect password',
@@ -136,14 +136,14 @@ describe('AdminLogin', () => {
     renderLogin()
     await openLogin(user)
 
-    await user.type(screen.getByLabelText('Password'), 'wrong')
-    await user.click(screen.getByRole('button', { name: 'Login' }))
+    await user.type(screen.getByLabelText('Commissioner password'), 'wrong')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
     expect(await screen.findByRole('alert')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Close commissioner login' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await openLogin(user)
-    expect(screen.getByLabelText('Password')).toHaveValue('')
+    expect(screen.getByLabelText('Commissioner password')).toHaveValue('')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -155,12 +155,30 @@ describe('AdminLogin', () => {
     ).toHaveTextContent('Commissioner login')
   })
 
+  it('renders a direct inline sign-in form for the landing panel', async () => {
+    const user = userEvent.setup()
+    const { onAuthChange } = renderLogin({ display: 'panel' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const password = screen.getByLabelText('Commissioner password')
+    expect(password).toHaveAttribute('autocomplete', 'current-password')
+    await user.type(password, 'league-secret')
+    await user.click(
+      screen.getByRole('button', { name: 'Continue' }),
+    )
+
+    await waitFor(() => {
+      expect(mockAuthenticateAdmin).toHaveBeenCalledWith('league-secret')
+      expect(onAuthChange).toHaveBeenCalledWith(true)
+    })
+  })
+
   it('logs the commissioner out and reports the auth change', async () => {
     const user = userEvent.setup()
     const { onAuthChange } = renderLogin({ isAdmin: true })
 
     await user.click(
-      screen.getByRole('button', { name: 'Log out of commissioner mode' }),
+      screen.getByRole('button', { name: 'Log out' }),
     )
 
     expect(mockLogoutAdmin).toHaveBeenCalledTimes(1)

@@ -1,6 +1,7 @@
 import {
   calculatePlayoffSeeds,
   calculateStandings,
+  groupStandingsByDivision,
   orderStandingsByPlayoffPicture,
   resolveDivisionNames,
 } from '@/lib/standings'
@@ -69,6 +70,46 @@ describe('standings calculations', () => {
     expect(standings.find((row) => row.member.id === 'b')?.weekly_wins).toBe(0.5)
   })
 
+  it('recalculates records and points when postseason weeks are included', () => {
+    const scores = [
+      { member_id: 'a', points: 110, week_number: 1 },
+      { member_id: 'b', points: 90, week_number: 1 },
+      { member_id: 'a', points: 80, week_number: 2 },
+      { member_id: 'b', points: 120, week_number: 2 },
+    ]
+    const matchups = [
+      {
+        is_tie: false,
+        team1_member_id: 'a',
+        team1_score: 110,
+        team2_member_id: 'b',
+        team2_score: 90,
+        week_number: 1,
+        winner_member_id: 'a',
+      },
+      {
+        is_tie: false,
+        team1_member_id: 'a',
+        team1_score: 80,
+        team2_member_id: 'b',
+        team2_score: 120,
+        week_number: 2,
+        winner_member_id: 'b',
+      },
+    ]
+
+    expect(calculateStandings(members.slice(0, 2), scores, matchups, 1)[0]).toMatchObject({
+      losses: 0,
+      points_for: 110,
+      wins: 1,
+    })
+    expect(calculateStandings(members.slice(0, 2), scores, matchups, 2)[0]).toMatchObject({
+      losses: 1,
+      points_for: 210,
+      wins: 1,
+    })
+  })
+
   it('seeds division winners before wildcards and keeps the cut line contiguous', () => {
     const standings = calculateStandings(
       members,
@@ -96,5 +137,24 @@ describe('standings calculations', () => {
       'East',
       'West',
     ])
+  })
+
+  it('groups regular-season rows by division and keeps unassigned teams visible', () => {
+    const standings = calculateStandings(
+      [...members, { division: null, id: 'e', manager_name: 'Emery', team_name: 'E' }],
+      [],
+      [],
+      14,
+    )
+
+    const groups = groupStandingsByDivision(standings, ['West', 'East'])
+
+    expect(groups.map((group) => group.division)).toEqual([
+      'West',
+      'East',
+      'Other',
+    ])
+    expect(groups[0].rows.map((row) => row.member.id)).toEqual(['c', 'd'])
+    expect(groups[2].rows.map((row) => row.member.id)).toEqual(['e'])
   })
 })

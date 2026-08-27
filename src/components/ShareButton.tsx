@@ -12,6 +12,8 @@ interface ShareButtonProps {
   label?: string
   className?: string
   labelClassName?: string
+  onClose?: () => void
+  onOpen?: () => void
 }
 
 interface ShareMutationPayload extends ShareLinkStatus {
@@ -24,7 +26,7 @@ function storageKey(leagueId: string, season: string) {
   return `fantasy-share-link:${leagueId}:${season}`
 }
 
-export default function ShareButton({ leagueId, season, label = 'Share', className = '', labelClassName = '' }: ShareButtonProps) {
+export default function ShareButton({ leagueId, season, label = 'Share', className = '', labelClassName = '', onClose, onOpen }: ShareButtonProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<ShareLinkStatus | null>(null)
@@ -59,8 +61,14 @@ export default function ShareButton({ leagueId, season, label = 'Share', classNa
   }
 
   const openDialog = () => {
+    onOpen?.()
     setOpen(true)
     void loadStatus()
+  }
+
+  const closeDialog = () => {
+    setOpen(false)
+    onClose?.()
   }
 
   const createOrReplace = async () => {
@@ -122,7 +130,7 @@ export default function ShareButton({ leagueId, season, label = 'Share', classNa
 
   return (
     <>
-      <button aria-label={label} className={`flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 font-semibold text-app-text transition-colors hover:bg-app-surface-subtle ${className}`} onClick={openDialog} type="button">
+      <button aria-label={label} className={`flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-sm font-semibold text-app-text transition-colors hover:bg-app-surface-subtle ${className}`} onClick={openDialog} type="button">
         <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path d="M8.7 13.3a3 3 0 1 0 0-2.6m0 2.6 6.6 3.4m-6.6-6 6.6-3.4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
           <circle cx="18" cy="6" r="3" strokeWidth="2" />
@@ -137,7 +145,7 @@ export default function ShareButton({ leagueId, season, label = 'Share', classNa
         description="Anyone with this season-specific link can view its roster, standings, scores, rules, and prize allocation. They cannot edit league data or open commissioner settings."
         eyebrow={`${season} season`}
         mobileSheet
-        onClose={() => setOpen(false)}
+        onClose={closeDialog}
         open={open}
         title="Player access"
       >

@@ -35,7 +35,14 @@ function completedWeek(week: number) {
   }
 }
 
-function databaseFixture() {
+function databaseFixture(
+  importRuns: Array<{
+    league_id: string
+    season: string
+    status: string
+    week_number: number
+  }> = [],
+) {
   return {
     from: jest.fn((table: string) => {
       if (table === 'leagues') {
@@ -79,6 +86,19 @@ function databaseFixture() {
                   { id: 'member-1', league_id: 'league-1', season: '2026' },
                   { id: 'member-2', league_id: 'league-1', season: '2026' },
                 ],
+                error: null,
+              }),
+            })),
+          })),
+        }
+      }
+
+      if (table === 'import_runs') {
+        return {
+          select: jest.fn(() => ({
+            in: jest.fn(() => ({
+              eq: jest.fn().mockResolvedValue({
+                data: importRuns,
                 error: null,
               }),
             })),
@@ -136,6 +156,7 @@ describe('weekly score cron route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.success).toBe(true)
+    expect(mockGetLatestCompletedWeek).toHaveBeenCalledWith(17)
     expect(payload.imported).toMatchObject([
       { purpose: 'correction', week: 7 },
       { purpose: 'primary', week: 8 },
@@ -146,6 +167,34 @@ describe('weekly score cron route', () => {
         triggerMode,
       ),
     ).toEqual(['scheduled_correction', 'scheduled'])
+  })
+
+  it('stops scheduled ESPN checks after the configured final week succeeds', async () => {
+    mockCreateServerSupabaseClient.mockReturnValue(
+      databaseFixture([
+        {
+          league_id: 'league-1',
+          season: '2026',
+          status: 'succeeded',
+          week_number: 17,
+        },
+      ]),
+    )
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/cron/import-weekly-scores', {
+        headers: { authorization: 'Bearer test-cron-secret' },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.success).toBe(true)
+    expect(payload.skipped).toMatchObject([
+      { reason: expect.stringContaining('configured week 17') },
+    ])
+    expect(mockGetLatestCompletedWeek).not.toHaveBeenCalled()
+    expect(mockPreviewWeek).not.toHaveBeenCalled()
   })
 
   it('reports a correction failure as a warning and still imports the primary week', async () => {

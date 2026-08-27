@@ -16,9 +16,43 @@ async function expectNoDocumentOverflow(page: Page) {
     .toEqual({ body: true, document: true })
 }
 
+async function expectTypographyScale(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const mobile = window.innerWidth < 640
+        const limits: Record<string, number> = {
+          H1: mobile ? 24 : 36,
+          H2: mobile ? 20 : 24,
+          H3: mobile ? 18 : 20,
+          BUTTON: 16,
+          INPUT: 16,
+          SELECT: 16,
+          TEXTAREA: 16,
+        }
+
+        return [...document.querySelectorAll('h1, h2, h3, button, input, select, textarea')]
+          .filter((element) => {
+            const box = element.getBoundingClientRect()
+            const style = window.getComputedStyle(element)
+            return box.width > 0 && box.height > 0 && style.visibility !== 'hidden'
+          })
+          .flatMap((element) => {
+            const limit = limits[element.tagName]
+            const size = Number.parseFloat(window.getComputedStyle(element).fontSize)
+            return limit && size > limit
+              ? [`${element.tagName.toLowerCase()} ${size}px > ${limit}px: ${element.textContent?.trim().slice(0, 40) || element.getAttribute('aria-label') || ''}`]
+              : []
+          })
+      }),
+    )
+    .toEqual([])
+}
+
 async function expectHeading(page: Page, name: string | RegExp) {
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   await expectNoDocumentOverflow(page)
+  await expectTypographyScale(page)
 }
 
 function isMobile(testInfo: TestInfo) {
@@ -41,6 +75,27 @@ async function openLeagueAction(page: Page, label: string) {
 }
 
 test.describe('responsive league journeys', () => {
+  test('signed-out home keeps context before a compact sign-in', async ({
+    page,
+  }) => {
+    await installLeagueFixtures(page, { commissioner: false })
+    await page.goto('/')
+    await expectHeading(page, 'Keep every league in one place.')
+
+    const headingBox = await page
+      .getByRole('heading', { level: 1, name: 'Keep every league in one place.' })
+      .boundingBox()
+    const password = page.getByLabel('Commissioner password')
+    const passwordBox = await password.boundingBox()
+
+    expect(headingBox).not.toBeNull()
+    expect(passwordBox).not.toBeNull()
+    expect(headingBox!.y).toBeLessThan(passwordBox!.y)
+    await expect(password).toHaveAttribute('placeholder', 'Password')
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    await expect(page.getByText('Use the private password for this league office.')).toHaveCount(0)
+  })
+
   test('commissioner can traverse every primary management view', async ({
     page,
   }, testInfo) => {
@@ -69,12 +124,31 @@ test.describe('responsive league journeys', () => {
       await page.getByRole('button', { name: 'Player access' }).click()
     }
     await expect(page.getByRole('dialog', { name: 'Player access' })).toBeVisible()
+    if (isMobile(testInfo)) {
+      await expect(page.locator('[aria-label="League actions"]')).toBeHidden()
+    }
     await expect(page.getByRole('button', { name: 'Create & copy link' })).toBeVisible()
     await expectNoDocumentOverflow(page)
     await page.getByRole('button', { name: 'Close player access' }).click()
 
     await openPrimaryNav(page, 'Standings')
-    await expectHeading(page, 'Playoff picture')
+    await expectHeading(page, 'Standings')
+    await expect(
+      page.getByRole('region', { name: 'Standings by division' }),
+    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'East' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'West' })).toBeVisible()
+    await page.getByRole('button', { name: 'Full season' }).click()
+    await expect(
+      page.getByRole('heading', {
+        level: 2,
+        name: 'Standings through the playoffs',
+      }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('region', { name: 'Standings by division' }),
+    ).toHaveCount(0)
+    await expectNoDocumentOverflow(page)
 
     await openPrimaryNav(page, 'Scores')
     await expectHeading(page, 'Weekly scores')
@@ -97,6 +171,15 @@ test.describe('responsive league journeys', () => {
     }
     await expectHeading(page, 'Players & dues')
     await expect(page.getByRole('button', { name: 'Add player' })).toBeVisible()
+    const duesFilter = page.getByRole('group', { name: 'Filter roster by dues status' })
+    await expect(duesFilter.getByRole('button')).toHaveCount(4)
+    expect((await duesFilter.boundingBox())!.height).toBeLessThanOrEqual(48)
+    await expect(page.getByText('Manage player')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Mark Alex Smith unpaid' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Mark Taylor Reed paid' })).toHaveText('Partial')
+    await expect(page.getByRole('button', { name: 'Payment details for Alex Smith' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Remove Alex Smith from 2026' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add Casey Patel to 2026' })).toBeVisible()
 
     if (isMobile(testInfo)) {
       await openLeagueAction(page, 'League rules')
@@ -131,7 +214,10 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'Season overview')
 
     await openPrimaryNav(page, 'Standings')
-    await expectHeading(page, 'Playoff picture')
+    await expectHeading(page, 'Standings')
+    await expect(
+      page.getByRole('region', { name: 'Standings by division' }),
+    ).toBeVisible()
 
     await openPrimaryNav(page, 'Scores')
     await expectHeading(page, 'Weekly scores')
@@ -145,7 +231,7 @@ test.describe('responsive league journeys', () => {
     await expect(page.getByLabel('Recipient')).toHaveCount(0)
 
     if (isMobile(testInfo)) {
-      await openLeagueAction(page, 'Players and dues')
+      await openLeagueAction(page, 'League roster')
     } else {
       await openPrimaryNav(page, 'Players')
     }

@@ -30,7 +30,7 @@ function isCommissioner(request: NextRequest) {
 
 function schemaPending() {
   return responseError(
-    'Scoped player sharing will be available after the prepared database migration is applied.',
+    'Player links are not available yet. Your league data is unaffected.',
     409,
   )
 }

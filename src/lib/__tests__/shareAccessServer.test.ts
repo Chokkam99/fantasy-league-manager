@@ -116,7 +116,7 @@ describe('server league-read authorization', () => {
       authorizeLeagueRead(request(), database.database, 'friends', '2026'),
     ).resolves.toEqual({
       access: null,
-      error: 'Scoped player sharing will be available after the prepared database migration is applied.',
+      error: 'Player links are not available yet. Your league data is unaffected.',
       status: 409,
     })
   })

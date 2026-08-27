@@ -87,7 +87,7 @@ const prizeLabels: Record<string, string> = {
 }
 
 const inputClass =
-  'min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-sm text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20 disabled:bg-app-surface-subtle disabled:text-app-text-muted'
+  'min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20 disabled:bg-app-surface-subtle disabled:text-app-text-muted sm:text-sm'
 
 function prizeLabel(key: string) {
   return (
@@ -563,7 +563,7 @@ export default function SeasonSetupForm({
           {error && <Notice className="mt-4" tone="danger">{error}</Notice>}
         </div>
 
-        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 mt-4 flex flex-col-reverse gap-2 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface/95 p-3 shadow-[var(--app-shadow-md)] backdrop-blur sm:bottom-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col-reverse gap-2 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface p-3 shadow-[var(--app-shadow-sm)] sm:sticky sm:bottom-4 sm:z-20 sm:flex-row sm:items-center sm:justify-between sm:bg-app-surface/95 sm:shadow-[var(--app-shadow-md)] sm:backdrop-blur">
           <p className="px-1 text-sm text-app-text-muted">
             {configuredTeamCount} teams · {currency.format(moneySummary.balance)} remaining
           </p>

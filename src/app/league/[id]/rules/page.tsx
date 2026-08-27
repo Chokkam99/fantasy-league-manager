@@ -47,7 +47,7 @@ function RuleMetric({ detail, label }: { detail: string; label: string }) {
       <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-app-text-muted">
         {label}
       </dt>
-      <dd className="mt-1 break-words text-xl font-bold tracking-tight text-app-text sm:text-2xl">
+      <dd className="mt-1 break-words text-lg font-bold tracking-tight text-app-text sm:text-xl">
         {detail}
       </dd>
     </div>
@@ -126,13 +126,13 @@ export default function RulesPage({ params }: RulesPageProps) {
       )}
 
       <Card className="overflow-hidden">
-        <div className="p-5 sm:p-7">
+        <div className="p-4 sm:p-7">
           <div>
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand">
                 {selectedSeason} season
               </p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-app-text sm:text-4xl">
+              <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
                 League rules
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">

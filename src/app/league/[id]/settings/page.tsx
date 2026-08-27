@@ -144,7 +144,7 @@ export default function LeagueSettingsPage({ params }: SettingsPageProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-app-brand">Commissioner</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-app-text">League settings</h1>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">League settings</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted">Archive old seasons or the entire league without deleting scores, standings, players, dues, or payouts.</p>
         </div>
         <Button onClick={() => router.push(overviewUrl)} variant="secondary">Back to league</Button>
@@ -155,9 +155,9 @@ export default function LeagueSettingsPage({ params }: SettingsPageProps) {
 
       {!snapshot?.schema_ready ? (
         <Card className="mt-6 p-6 text-center sm:p-8">
-          <Badge variant="neutral">Prepared locally</Badge>
-          <h2 className="mt-4 text-xl font-bold text-app-text">Archiving is not active yet</h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-app-text-muted">These controls will become available after the prepared lifecycle migration is reviewed and applied. No database change is being made now.</p>
+          <Badge variant="neutral">Coming soon</Badge>
+          <h2 className="mt-4 text-xl font-bold text-app-text">Season archiving is not available yet</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-app-text-muted">Your saved seasons and league history are unaffected. Archive controls will appear here when this feature is ready.</p>
         </Card>
       ) : (
         <>
@@ -189,7 +189,7 @@ export default function LeagueSettingsPage({ params }: SettingsPageProps) {
           <section aria-labelledby="season-lifecycle-heading" className="mt-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">Season history</p>
-              <h2 className="mt-1 text-2xl font-bold text-app-text" id="season-lifecycle-heading">Season archive</h2>
+              <h2 className="mt-1 text-xl font-bold text-app-text sm:text-2xl" id="season-lifecycle-heading">Season archive</h2>
               <p className="mt-1 text-sm leading-6 text-app-text-muted">Archived seasons stay selectable and readable. The active season cannot be archived.</p>
             </div>
             <Card className="mt-4 divide-y divide-app-border overflow-hidden">

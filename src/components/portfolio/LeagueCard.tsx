@@ -41,13 +41,13 @@ export function LeagueCard({ league }: { league: PortfolioLeague }) {
 
   return (
     <Card className="group flex min-w-0 flex-col overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-app-brand/30 hover:shadow-[var(--app-shadow-md)]">
-      <div className="flex flex-1 flex-col p-5 sm:p-6">
+      <div className="flex flex-1 flex-col p-4 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-app-text-muted">
               {league.current_season} season
             </p>
-            <h2 className="mt-1 truncate text-xl font-bold text-app-text sm:text-2xl">
+            <h2 className="mt-1 truncate text-lg font-bold text-app-text sm:text-xl">
               {league.name}
             </h2>
           </div>
@@ -56,7 +56,7 @@ export function LeagueCard({ league }: { league: PortfolioLeague }) {
           </Badge>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-4">
+        <div className="mt-5 grid grid-cols-2 gap-4 sm:mt-6">
           <div>
             <p className="text-xs font-semibold text-app-text-muted">Latest scores</p>
             <p className="mt-1 text-lg font-bold text-app-text">

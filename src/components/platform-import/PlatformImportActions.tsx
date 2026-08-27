@@ -75,7 +75,7 @@ export function PlatformImportActions({
             Selected week
           </label>
           <select
-            className="mt-1 min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-app-text sm:max-w-52"
+            className="mt-1 min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base text-app-text sm:max-w-52 sm:text-sm"
             id="manual-import-week"
             onChange={(event) => onManualWeekChange(Number(event.target.value))}
             value={manualWeek}

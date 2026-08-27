@@ -36,7 +36,7 @@ export default function AddPlayerDialog({
     <Dialog
       busy={busy}
       closeLabel="Close add player dialog"
-      description={<>Add a new manager and team to the {season} roster. Dues start as pending.</>}
+      description={<>Add a new manager and team to the {season} roster. Dues start as unpaid.</>}
       initialFocusRef={managerInputRef}
       onClose={onClose}
       open={open}

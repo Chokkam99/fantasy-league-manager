@@ -1,4 +1,8 @@
+'use client'
+
+import { useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import type { WeeklyPrizeResult } from '@/lib/prizes'
 
@@ -20,6 +24,10 @@ export function WeeklyPrizeWinners({
   results,
   totalWeeks,
 }: WeeklyPrizeWinnersProps) {
+  const [showAll, setShowAll] = useState(false)
+  const visibleResults = showAll ? results : results.slice(0, 6)
+  const hiddenResultCount = Math.max(results.length - visibleResults.length, 0)
+
   return (
     <Card className="mt-6 min-w-0 overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-app-border p-5 sm:p-6">
@@ -39,7 +47,7 @@ export function WeeklyPrizeWinners({
 
       {results.length > 0 ? (
         <ol className="divide-y divide-app-border">
-          {results.map((result) => (
+          {visibleResults.map((result) => (
             <li
               className="grid min-w-0 gap-3 p-4 sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:items-center sm:px-6"
               key={result.week}
@@ -96,6 +104,13 @@ export function WeeklyPrizeWinners({
               </div>
             </li>
           ))}
+          {results.length > 6 && (
+            <li className="p-4 text-center sm:px-6">
+              <Button onClick={() => setShowAll((visible) => !visible)} variant="secondary">
+                {showAll ? 'Show recent winners only' : `Show ${hiddenResultCount} earlier winners`}
+              </Button>
+            </li>
+          )}
         </ol>
       ) : (
         <div className="p-8 text-center sm:p-10">

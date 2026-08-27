@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     }
 
     const leagueIds = configuredLeagues.map((league) => league.id)
-    const [seasonsResult, membersResult] = await Promise.all([
+    const [seasonsResult, membersResult, importRunsResult] = await Promise.all([
       database
         .from('league_seasons')
         .select('league_id, season, total_weeks')
@@ -83,10 +83,16 @@ export async function GET(request: NextRequest) {
         .select('id, league_id, season')
         .in('league_id', leagueIds)
         .eq('is_active', true),
+      database
+        .from('import_runs')
+        .select('league_id, season, status, week_number')
+        .in('league_id', leagueIds)
+        .eq('status', 'succeeded'),
     ])
 
     if (seasonsResult.error) throw seasonsResult.error
     if (membersResult.error) throw membersResult.error
+    if (importRunsResult.error) throw importRunsResult.error
 
     const imported = []
     const skipped = []
@@ -112,15 +118,34 @@ export async function GET(request: NextRequest) {
             season.season === league.current_season,
         )
         const maximumWeek = seasonConfig?.total_weeks || 17
+        const finalWeekAlreadyImported = (importRunsResult.data || []).some(
+          (run) =>
+            run.league_id === league.id &&
+            run.season === league.current_season &&
+            run.week_number === maximumWeek,
+        )
+
+        if (finalWeekAlreadyImported) {
+          skipped.push({
+            league_id: league.id,
+            league_name: league.name,
+            reason: `Season is complete through configured week ${maximumWeek}. Use on-demand sync for any later correction.`,
+          })
+          continue
+        }
+
         const espnService = new ESPNImportService(
           league.id,
           league.current_season,
           espnConfig,
           database,
         )
-        const completedWeek = await espnService.getLatestCompletedWeek(
+        const latestCompletedWeek = await espnService.getLatestCompletedWeek(
           maximumWeek,
         )
+        const completedWeek = latestCompletedWeek
+          ? Math.min(latestCompletedWeek, maximumWeek)
+          : null
 
         if (!completedWeek) {
           skipped.push({

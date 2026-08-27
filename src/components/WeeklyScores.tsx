@@ -277,7 +277,7 @@ export default function WeeklyScores({
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex">
               <label className="sr-only" htmlFor="weekly-score-week">Week</label>
               <select
-                className="min-h-11 min-w-0 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-sm font-semibold text-app-text"
+                className="min-h-11 min-w-0 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base font-semibold text-app-text sm:text-sm"
                 id="weekly-score-week"
                 onChange={(event) => changeWeek(Number(event.target.value))}
                 value={selectedWeek}
@@ -339,13 +339,13 @@ export default function WeeklyScores({
                   key={member.id}
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-app-text">{member.manager_name}</span>
-                    <span className="mt-0.5 block truncate text-xs text-app-text-muted">{member.team_name}</span>
+                    <span className="block truncate text-sm font-semibold text-app-text">{member.team_name}</span>
+                    <span className="mt-0.5 block truncate text-xs text-app-text-muted">{member.manager_name}</span>
                   </span>
                   <span className="relative">
                     <input
                       aria-label={`Score for ${member.manager_name}`}
-                      className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 pr-8 text-right font-mono font-semibold text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20"
+                      className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 pr-8 text-right font-mono text-base font-semibold text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20 sm:text-sm"
                       inputMode="decimal"
                       onChange={(event) =>
                         setDraftScores((current) => ({
@@ -392,14 +392,14 @@ export default function WeeklyScores({
                     {weeklyLeaders.length > 1 ? 'Tied weekly leaders' : 'Weekly leader'}
                   </p>
                   <p className="mt-1 font-semibold text-app-text">
-                    {weeklyLeaders.map(({ member }) => member.manager_name).join(' · ')}
+                    {weeklyLeaders.map(({ member }) => member.team_name).join(' · ')}
                   </p>
                   <p className="mt-0.5 text-sm text-app-text-muted">
-                    {weeklyLeaders.map(({ member }) => member.team_name).join(' · ')}
+                    {weeklyLeaders.map(({ member }) => member.manager_name).join(' · ')}
                   </p>
                 </div>
                 <div className="sm:text-right">
-                  <p className="font-mono text-2xl font-bold text-app-brand-strong">
+                  <p className="font-mono text-xl font-bold text-app-brand-strong sm:text-2xl">
                     {formatPoints(weeklyLeaders[0].points)}
                   </p>
                   {weeklyPrize > 0 && (
@@ -432,10 +432,10 @@ export default function WeeklyScores({
                     </span>
                     <span className="min-w-0">
                       <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold text-app-text">{member.manager_name}</span>
+                        <span className="truncate text-sm font-semibold text-app-text">{member.team_name}</span>
                         {rank === 1 && <Badge variant="success">Leader</Badge>}
                       </span>
-                      <span className="mt-0.5 block truncate text-xs text-app-text-muted">{member.team_name}</span>
+                      <span className="mt-0.5 block truncate text-xs text-app-text-muted">{member.manager_name}</span>
                     </span>
                     <span className="shrink-0 text-right font-mono text-base font-bold text-app-text sm:text-lg">
                       {formatPoints(points)}
@@ -505,10 +505,10 @@ export default function WeeklyScores({
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-app-text">{team.member?.manager_name || 'Unknown player'}</p>
+                          <p className="truncate text-sm font-semibold text-app-text">{team.member?.team_name || 'Unknown team'}</p>
                           {team.won && <Badge variant="success">Winner</Badge>}
                         </div>
-                        <p className="mt-0.5 truncate text-xs text-app-text-muted">{team.member?.team_name || 'Unmapped team'}</p>
+                        <p className="mt-0.5 truncate text-xs text-app-text-muted">{team.member?.manager_name || 'Unmapped player'}</p>
                       </div>
                       <p className="font-mono text-lg font-bold text-app-text">{formatPoints(team.points)}</p>
                     </div>

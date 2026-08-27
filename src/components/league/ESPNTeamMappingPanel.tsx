@@ -96,7 +96,7 @@ export function ESPNTeamMappingPanel({
                 League player
                 <select
                   aria-label={`League player for ${team.espn_team_name}`}
-                  className="mt-1 min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-sm font-normal normal-case tracking-normal text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20"
+                  className="mt-1 min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base font-normal normal-case tracking-normal text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20 sm:text-sm"
                   disabled={isSaving}
                   onChange={(event) =>
                     setSelections((current) => ({

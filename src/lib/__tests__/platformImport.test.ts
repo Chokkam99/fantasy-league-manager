@@ -3,6 +3,7 @@ import {
   formatPlatformSyncError,
   getPlatformImportHealth,
   nextManualImportWeek,
+  normalizePlatformSyncHealth,
 } from '@/lib/platformImport'
 import type { AutomationSettingsSnapshot } from '@/lib/platformImportClient'
 
@@ -77,5 +78,28 @@ describe('platform import presentation model', () => {
     expect(formatPlatformSyncError('TypeError: fetch failed for ESPN week 8')).toBe(
       'ESPN could not be reached for week 8. Retry when the connection is available.',
     )
+  })
+
+  it('ignores stale errors beyond the configured final week', () => {
+    expect(
+      normalizePlatformSyncHealth({
+        autoSyncEnabled: true,
+        lastSyncError: 'ESPN week 18 failed import validation.',
+        syncStatus: 'error',
+        totalWeeks: 17,
+      }),
+    ).toEqual({ lastSyncError: null, syncStatus: 'active' })
+
+    expect(
+      normalizePlatformSyncHealth({
+        autoSyncEnabled: true,
+        lastSyncError: 'ESPN week 17 failed import validation.',
+        syncStatus: 'error',
+        totalWeeks: 17,
+      }),
+    ).toEqual({
+      lastSyncError: 'ESPN week 17 failed import validation.',
+      syncStatus: 'error',
+    })
   })
 })

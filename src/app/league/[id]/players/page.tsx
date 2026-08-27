@@ -305,7 +305,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       )}
       {financeError && !isViewOnly && (
         <Notice className="mb-5" role="alert" tone="warning">
-          {financeError} Basic paid and pending controls remain available.
+          {financeError} Basic paid and unpaid controls remain available.
         </Notice>
       )}
       <Toast message={notice} onDismiss={() => setNotice(null)} />
