@@ -87,9 +87,8 @@ describe('UI Workflows Integration Tests', () => {
           // Simulate API call
           try {
             await new Promise(resolve => setTimeout(resolve, 500)) // Simulate delay
-            console.log('League created:', formData)
             mockPush('/league/new-league-id')
-          } catch (error) {
+          } catch {
             setErrors({ submit: 'Failed to create league. Please try again.' })
           } finally {
             setIsSubmitting(false)
@@ -337,7 +336,7 @@ describe('UI Workflows Integration Tests', () => {
 
           try {
             // Validate scores
-            const invalidScores = Object.entries(scores).filter(([_, score]) => {
+            const invalidScores = Object.entries(scores).filter(([, score]) => {
               const num = parseFloat(score)
               return isNaN(num) || num < 0
             })
@@ -349,7 +348,7 @@ describe('UI Workflows Integration Tests', () => {
             // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 500))
             setSaveStatus('success')
-          } catch (error) {
+          } catch {
             setSaveStatus('error')
           } finally {
             setIsSaving(false)
@@ -579,7 +578,10 @@ describe('UI Workflows Integration Tests', () => {
                         key={item.name}
                         href={item.href}
                         data-testid={`mobile-nav-link-${item.name.toLowerCase()}`}
-                        onClick={() => setIsMobileMenuOpen(false)}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          setIsMobileMenuOpen(false)
+                        }}
                       >
                         {item.name}
                       </a>
@@ -657,7 +659,7 @@ describe('UI Workflows Integration Tests', () => {
               }, 300)
             )
             setData({ standings: ['Team A', 'Team B'] })
-          } catch (err) {
+          } catch {
             setError('Failed to load data. Please try again.')
           } finally {
             setLoading(false)

@@ -1,655 +1,255 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import React from 'react'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import WeeklyScores from '../WeeklyScores'
-import { supabase } from '@/lib/supabase'
+import WeeklyScores from '@/components/WeeklyScores'
+import type { LeagueMember, WeeklyScore } from '@/lib/supabase'
 
-// Mock Supabase
-jest.mock('@/lib/supabase')
-const mockSupabase = supabase as jest.Mocked<typeof supabase>
+let mockScoresResult: { data: WeeklyScore[] | null; error: unknown }
+let mockMatchupsResult: { data: unknown[] | null; error: unknown }
+const mockLoadWeeklyScoresData = jest.fn()
 
-// Mock useSeasonConfig hook
+const mockRefetchSeasonConfig = jest.fn()
+jest.mock('@/lib/weeklyScoresClient', () => ({
+  loadWeeklyScoresData: (...args: unknown[]) =>
+    mockLoadWeeklyScoresData(...args),
+}))
 jest.mock('@/hooks/useSeasonConfig', () => ({
-  useSeasonConfig: jest.fn(() => ({
+  useSeasonConfig: () => ({
+    error: null,
+    loading: false,
+    refetch: mockRefetchSeasonConfig,
     seasonConfig: {
-      playoff_start_week: 15,
       total_weeks: 17,
-      weekly_prize_amount: 25,
-      prize_structure: {
-        first: 300,
-        second: 200,
-        third: 100
-      }
-    }
-  }))
+      weekly_prize_amount: 10,
+    },
+  }),
 }))
 
-const mockMembers = [
+const members: LeagueMember[] = [
   {
-    id: 'member1',
-    manager_name: 'John Doe',
-    team_name: 'Team Alpha',
-    league_id: 'test-league',
-    season: '2022',
-    division: 'East'
+    division: 'East',
+    id: 'member-1',
+    is_active: true,
+    joined_at: null,
+    league_id: 'league-1',
+    manager_name: 'Alex Smith',
+    payment_status: 'paid',
+    season: '2026',
+    team_name: 'Sunday Scaries',
+    updated_at: null,
   },
   {
-    id: 'member2', 
-    manager_name: 'Jane Smith',
-    team_name: 'Team Beta',
-    league_id: 'test-league',
-    season: '2022',
-    division: 'West'
-  }
+    division: 'West',
+    id: 'member-2',
+    is_active: true,
+    joined_at: null,
+    league_id: 'league-1',
+    manager_name: 'Jordan Lee',
+    payment_status: 'pending',
+    season: '2026',
+    team_name: 'Waiver Warriors',
+    updated_at: null,
+  },
 ]
 
-const mockWeeklyScores = [
+const scores: WeeklyScore[] = [
   {
-    id: 'score1',
-    member_id: 'member1',
-    points: 125.50,
+    created_at: null,
+    id: 'score-1',
+    is_final_score: true,
+    is_playoff_week: false,
+    league_id: 'league-1',
+    member_id: 'member-1',
+    points: 121.5,
+    season: '2026',
     week_number: 1,
-    season: '2022',
-    league_id: 'test-league'
+    week_status: 'completed',
   },
   {
-    id: 'score2',
-    member_id: 'member2',
+    created_at: null,
+    id: 'score-2',
+    is_final_score: true,
+    is_playoff_week: false,
+    league_id: 'league-1',
+    member_id: 'member-2',
     points: 130.25,
+    season: '2026',
     week_number: 1,
-    season: '2022',
-    league_id: 'test-league'
-  }
+    week_status: 'completed',
+  },
 ]
 
-const mockMatchups = [
+const matchups = [
   {
-    id: 'matchup1',
-    league_id: 'test-league',
-    season: '2022',
-    week_number: 1,
-    team1_member_id: 'member1',
-    team2_member_id: 'member2',
-    team1_score: 125.50,
-    team2_score: 130.25,
-    winner_member_id: 'member2',
+    id: 'matchup-1',
     is_tie: false,
-    created_at: '2022-01-01T00:00:00Z',
-    updated_at: '2022-01-01T00:00:00Z'
-  }
+    team1_member_id: 'member-1',
+    team1_score: 121.5,
+    team2_member_id: 'member-2',
+    team2_score: 130.25,
+    winner_member_id: 'member-2',
+  },
 ]
 
-describe('WeeklyScores Component', () => {
+function renderScores(props: Partial<React.ComponentProps<typeof WeeklyScores>> = {}) {
+  return render(
+    <WeeklyScores
+      initialWeek={1}
+      leagueId="league-1"
+      members={members}
+      season="2026"
+      {...props}
+    />,
+  )
+}
+
+describe('WeeklyScores', () => {
+  const originalFetch = global.fetch
+  const mockFetch = jest.fn()
+
   beforeEach(() => {
     jest.clearAllMocks()
-    
-    // Setup default Supabase mocks
-    mockSupabase.from.mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      insert: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      delete: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      lte: jest.fn().mockReturnThis(),
-      order: jest.fn().mockReturnThis(),
-    } as any)
-  })
-
-  describe('Rendering', () => {
-    it('should render weekly scores component', () => {
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-        />
-      )
-
-      expect(screen.getByText('📊 Weekly Scores')).toBeInTheDocument()
+    mockScoresResult = { data: scores, error: null }
+    mockMatchupsResult = { data: matchups, error: null }
+    mockLoadWeeklyScoresData.mockImplementation(async () => {
+      if (mockScoresResult.error) throw mockScoresResult.error
+      if (mockMatchupsResult.error) throw mockMatchupsResult.error
+      return {
+        matchups: mockMatchupsResult.data || [],
+        scores: mockScoresResult.data || [],
+      }
     })
-
-    it('should render member names and team names', async () => {
-      mockSupabase.from().select().mockResolvedValue({
-        data: mockWeeklyScores,
-        error: null
-      })
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-        />
-      )
-
-      await waitFor(() => {
-        expect(screen.getByText('John Doe')).toBeInTheDocument()
-        expect(screen.getByText('Team Alpha')).toBeInTheDocument()
-        expect(screen.getByText('Jane Smith')).toBeInTheDocument()
-        expect(screen.getByText('Team Beta')).toBeInTheDocument()
-      })
-    })
-
-    it('should render loading state', () => {
-      mockSupabase.from().select().mockReturnValue({
-        ...mockSupabase.from().select(),
-        // Simulate pending promise
-        then: jest.fn()
-      } as any)
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-        />
-      )
-
-      expect(screen.getByText('Loading week scores...')).toBeInTheDocument()
+    global.fetch = mockFetch
+    mockFetch.mockResolvedValue({
+      json: async () => ({ message: 'Week updated.', success: true }),
+      ok: true,
     })
   })
 
-  describe('Score Input', () => {
-    it('should allow score input when not read-only', async () => {
-      mockSupabase.from().select().mockResolvedValue({
-        data: [],
-        error: null
-      })
+  afterAll(() => {
+    global.fetch = originalFetch
+  })
 
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
+  it('renders a ranked weekly result and final head-to-head matchup', async () => {
+    renderScores()
 
-      await waitFor(() => {
-        const scoreInput = screen.getAllByRole('textbox')[0]
-        expect(scoreInput).not.toHaveAttribute('readonly')
-      })
+    expect(
+      await screen.findByRole('heading', { name: 'Week 1 ranking' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('Weekly leader')).toBeInTheDocument()
+    expect(screen.getAllByText('Jordan Lee').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('130.25').length).toBeGreaterThan(0)
+    expect(screen.getByText('$10 weekly prize')).toBeInTheDocument()
+    expect(screen.getByText('Final')).toBeInTheDocument()
+    expect(screen.getByText('Winner')).toBeInTheDocument()
+  })
+
+  it('shows the published empty state without edit controls in read-only mode', async () => {
+    mockScoresResult = { data: [], error: null }
+    mockMatchupsResult = { data: [], error: null }
+    renderScores({ readOnly: true })
+
+    expect(
+      await screen.findByText('No scores recorded for week 1'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('The commissioner has not published this week yet.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit scores' })).not.toBeInTheDocument()
+  })
+
+  it('requires a valid score for every active player before saving', async () => {
+    const user = userEvent.setup()
+    mockScoresResult = { data: [], error: null }
+    mockMatchupsResult = { data: [], error: null }
+    renderScores()
+
+    await user.click(await screen.findByRole('button', { name: 'Edit scores' }))
+    await user.type(screen.getByLabelText('Score for Alex Smith'), '101.25')
+    await user.click(screen.getByRole('button', { name: 'Save week 1' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Enter a valid score for every active player before saving.',
+    )
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('sends manual scores through the protected server route', async () => {
+    const user = userEvent.setup()
+    mockScoresResult = { data: [], error: null }
+    mockMatchupsResult = { data: [], error: null }
+    renderScores()
+
+    await user.click(await screen.findByRole('button', { name: 'Edit scores' }))
+    await user.type(screen.getByLabelText('Score for Alex Smith'), '101.25')
+    await user.type(screen.getByLabelText('Score for Jordan Lee'), '99.5')
+    await user.click(screen.getByRole('button', { name: 'Save week 1' }))
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/leagues/league-1/scores/manual',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      action: 'save_week',
+      scores: [
+        { member_id: 'member-1', points: 101.25 },
+        { member_id: 'member-2', points: 99.5 },
+      ],
+      season: '2026',
+      week: 1,
     })
+    expect(await screen.findByText('Week updated.')).toBeInTheDocument()
+  })
 
-    it('should prevent score input when read-only', async () => {
-      mockSupabase.from().select().mockResolvedValue({
-        data: mockWeeklyScores,
-        error: null
-      })
+  it('requires confirmation before clearing a populated week', async () => {
+    const user = userEvent.setup()
+    renderScores()
 
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={true}
-        />
-      )
+    await user.click(await screen.findByRole('button', { name: 'Edit scores' }))
+    await user.click(screen.getByRole('button', { name: 'Clear this week' }))
 
-      await waitFor(() => {
-        const scoreInputs = screen.getAllByDisplayValue(/\d+/)
-        scoreInputs.forEach(input => {
-          expect(input).toHaveAttribute('readonly')
-        })
-      })
-    })
+    expect(
+      screen.getByRole('dialog', { name: 'Clear week 1 scores?' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Clear week 1' }))
 
-    it('should update score state on input change', async () => {
-      const user = userEvent.setup()
-      
-      mockSupabase.from().select().mockResolvedValue({
-        data: [],
-        error: null
-      })
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
-
-      await waitFor(() => {
-        const scoreInput = screen.getAllByRole('textbox')[0]
-        expect(scoreInput).toBeInTheDocument()
-      })
-
-      const scoreInput = screen.getAllByRole('textbox')[0]
-      await user.clear(scoreInput)
-      await user.type(scoreInput, '125.50')
-
-      expect(scoreInput).toHaveValue('125.50')
-    })
-
-    it('should validate numeric input only', async () => {
-      const user = userEvent.setup()
-      
-      mockSupabase.from().select().mockResolvedValue({
-        data: [],
-        error: null
-      })
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
-
-      await waitFor(() => {
-        const scoreInput = screen.getAllByRole('textbox')[0]
-        expect(scoreInput).toBeInTheDocument()
-      })
-
-      const scoreInput = screen.getAllByRole('textbox')[0]
-      await user.clear(scoreInput)
-      await user.type(scoreInput, 'abc123')
-
-      // Should only contain the numeric part
-      expect(scoreInput).toHaveValue('123')
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      action: 'clear_week',
+      season: '2026',
+      week: 1,
     })
   })
 
-  describe('Save Functionality', () => {
-    it('should save scores successfully', async () => {
-      const user = userEvent.setup()
-      
-      mockSupabase.from().select().mockResolvedValue({
-        data: [],
-        error: null
-      })
+  it('reloads when the commissioner selects another week', async () => {
+    const user = userEvent.setup()
+    renderScores()
 
-      // Mock successful delete and insert
-      mockSupabase.from().delete().mockResolvedValue({
-        data: null,
-        error: null
-      })
-      
-      mockSupabase.from().insert().mockResolvedValue({
-        data: mockWeeklyScores,
-        error: null
-      })
+    await screen.findByRole('heading', { name: 'Week 1 ranking' })
+    expect(mockLoadWeeklyScoresData).toHaveBeenCalledTimes(1)
+    await user.selectOptions(screen.getByLabelText('Week'), '2')
 
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
-
-      await waitFor(() => {
-        const scoreInput = screen.getAllByRole('textbox')[0]
-        expect(scoreInput).toBeInTheDocument()
-      })
-
-      // Input a score
-      const scoreInput = screen.getAllByRole('textbox')[0]
-      await user.clear(scoreInput)
-      await user.type(scoreInput, '125.50')
-
-      // Click save button
-      const saveButton = screen.getByText('💾 Save Week 1')
-      await user.click(saveButton)
-
-      await waitFor(() => {
-        expect(mockSupabase.from).toHaveBeenCalledWith('weekly_scores')
-      })
-    })
-
-    it('should handle save errors gracefully', async () => {
-      const user = userEvent.setup()
-      
-      mockSupabase.from().select().mockResolvedValue({
-        data: [],
-        error: null
-      })
-
-      // Mock save error
-      mockSupabase.from().insert().mockResolvedValue({
-        data: null,
-        error: { message: 'Save failed', code: 'TEST_ERROR' }
-      })
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
-
-      await waitFor(() => {
-        const scoreInput = screen.getAllByRole('textbox')[0]
-        expect(scoreInput).toBeInTheDocument()
-      })
-
-      // Input a score
-      const scoreInput = screen.getAllByRole('textbox')[0]
-      await user.clear(scoreInput)
-      await user.type(scoreInput, '125.50')
-
-      // Click save button
-      const saveButton = screen.getByText('💾 Save Week 1')
-      await user.click(saveButton)
-
-      // Should show error message
-      await waitFor(() => {
-        expect(global.alert).toHaveBeenCalledWith('Error saving scores. Please try again.')
-      })
-    })
+    expect(
+      await screen.findByRole('heading', { name: 'Week 2 ranking' }),
+    ).toBeInTheDocument()
+    await waitFor(() => expect(mockLoadWeeklyScoresData).toHaveBeenCalledTimes(2))
   })
 
-  describe('Matchups Display', () => {
-    it('should render matchups when available', async () => {
-      // Mock weekly scores
-      mockSupabase.from().select().mockImplementation((table) => {
-        const chainable = {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          lte: jest.fn().mockReturnThis(),
-          order: jest.fn().mockReturnThis(),
-        }
+  it('shows a retryable error when either weekly query fails', async () => {
+    const user = userEvent.setup()
+    mockScoresResult = { data: null, error: new Error('offline') }
+    renderScores()
 
-        // Return different data based on which table is being queried
-        if (table === 'weekly_scores') {
-          chainable.mockResolvedValue = jest.fn().mockResolvedValue({
-            data: mockWeeklyScores,
-            error: null
-          })
-        } else if (table === 'matchup_results_with_scores') {
-          chainable.mockResolvedValue = jest.fn().mockResolvedValue({
-            data: mockMatchups,
-            error: null
-          })
-        }
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This week could not be loaded.',
+    )
 
-        return chainable as any
-      })
+    mockScoresResult = { data: [], error: null }
+    mockMatchupsResult = { data: [], error: null }
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
 
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-        />
-      )
-
-      await waitFor(() => {
-        expect(screen.getByText('🥊 Week 1 Matchups')).toBeInTheDocument()
-      })
-    })
-
-    it('should display matchup scores correctly', async () => {
-      mockSupabase.from.mockImplementation((table: string) => ({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        mockResolvedValue: table === 'matchup_results_with_scores' 
-          ? { data: mockMatchups, error: null }
-          : { data: mockWeeklyScores, error: null }
-      } as any))
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-        />
-      )
-
-      await waitFor(() => {
-        expect(screen.getByText('125.50')).toBeInTheDocument()
-        expect(screen.getByText('130.25')).toBeInTheDocument()
-      })
-    })
-
-    it('should show swap button for admin users when not read-only', async () => {
-      mockSupabase.from.mockImplementation((table: string) => ({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        mockResolvedValue: table === 'matchup_results_with_scores' 
-          ? { data: mockMatchups, error: null }
-          : { data: mockWeeklyScores, error: null }
-      } as any))
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
-
-      await waitFor(() => {
-        expect(screen.getByTitle('Swap scores between teams')).toBeInTheDocument()
-      })
-    })
-
-    it('should not show swap button in read-only mode', async () => {
-      mockSupabase.from.mockImplementation((table: string) => ({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        mockResolvedValue: table === 'matchup_results_with_scores' 
-          ? { data: mockMatchups, error: null }
-          : { data: mockWeeklyScores, error: null }
-      } as any))
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={true}
-        />
-      )
-
-      await waitFor(() => {
-        expect(screen.queryByTitle('Swap scores between teams')).not.toBeInTheDocument()
-      })
-    })
-  })
-
-  describe('Week Navigation', () => {
-    it('should call onWeekChange when week is changed', () => {
-      const mockOnWeekChange = jest.fn()
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={mockOnWeekChange}
-          season="2022"
-        />
-      )
-
-      // Find and interact with week selector
-      const weekSelector = screen.getByDisplayValue('1')
-      fireEvent.change(weekSelector, { target: { value: '2' } })
-
-      expect(mockOnWeekChange).toHaveBeenCalledWith(2)
-    })
-
-    it('should handle week validation', () => {
-      const mockOnWeekChange = jest.fn()
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={mockOnWeekChange}
-          season="2022"
-        />
-      )
-
-      // Try to set invalid week
-      const weekSelector = screen.getByDisplayValue('1')
-      fireEvent.change(weekSelector, { target: { value: '25' } })
-
-      // Should not call onWeekChange with invalid week
-      expect(mockOnWeekChange).not.toHaveBeenCalledWith(25)
-    })
-  })
-
-  describe('Clear Week Functionality', () => {
-    it('should show clear confirmation dialog', async () => {
-      const user = userEvent.setup()
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
-
-      const clearButton = screen.getByText('🗑️ Clear Week')
-      await user.click(clearButton)
-
-      expect(screen.getByText('Are you sure you want to clear all scores for Week 1?')).toBeInTheDocument()
-    })
-
-    it('should clear week when confirmed', async () => {
-      const user = userEvent.setup()
-
-      mockSupabase.from().delete().mockResolvedValue({
-        data: null,
-        error: null
-      })
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
-
-      const clearButton = screen.getByText('🗑️ Clear Week')
-      await user.click(clearButton)
-
-      const confirmButton = screen.getByText('Yes, Clear Week')
-      await user.click(confirmButton)
-
-      await waitFor(() => {
-        expect(mockSupabase.from).toHaveBeenCalledWith('weekly_scores')
-      })
-    })
-
-    it('should not clear week when cancelled', async () => {
-      const user = userEvent.setup()
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-          readOnly={false}
-        />
-      )
-
-      const clearButton = screen.getByText('🗑️ Clear Week')
-      await user.click(clearButton)
-
-      const cancelButton = screen.getByText('Cancel')
-      await user.click(cancelButton)
-
-      expect(screen.queryByText('Are you sure you want to clear all scores for Week 1?')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('Error Handling', () => {
-    it('should handle weekly scores loading errors', async () => {
-      mockSupabase.from().select().mockResolvedValue({
-        data: null,
-        error: { message: 'Loading error', code: 'TEST_ERROR' }
-      })
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-        />
-      )
-
-      // Should not crash and should show some fallback content
-      expect(screen.getByText('📊 Weekly Scores')).toBeInTheDocument()
-    })
-
-    it('should handle matchups loading errors', async () => {
-      // Mock weekly scores success but matchups failure
-      mockSupabase.from.mockImplementation((table: string) => ({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        mockResolvedValue: table === 'matchup_results_with_scores' 
-          ? { data: null, error: { message: 'Matchups error' } }
-          : { data: mockWeeklyScores, error: null }
-      } as any))
-
-      render(
-        <WeeklyScores 
-          leagueId="test-league"
-          members={mockMembers}
-          selectedWeek={1}
-          onWeekChange={jest.fn()}
-          season="2022"
-        />
-      )
-
-      // Should still render weekly scores section
-      await waitFor(() => {
-        expect(screen.getByText('📊 Weekly Scores')).toBeInTheDocument()
-      })
-    })
+    expect(
+      await screen.findByText('No scores recorded for week 1'),
+    ).toBeInTheDocument()
   })
 })

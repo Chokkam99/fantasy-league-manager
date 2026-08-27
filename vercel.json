@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/import-weekly-scores",
-      "schedule": "0 10 * * 2"
+      "schedule": "0 9 * * 3"
     }
   ]
 }

@@ -1,409 +1,251 @@
 'use client'
 
-import { useState, useEffect, use, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase, League, LeagueMember } from '@/lib/supabase'
-import ShareButton from '@/components/ShareButton'
-import SeasonSelector from '@/components/SeasonSelector'
-import PlayerParticipationHistory from '@/components/PlayerParticipationHistory'
-import AdminLogin from '@/components/AdminLogin'
+import Link from 'next/link'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
+import { useLeagueShell } from '@/components/league/LeagueShellContext'
+import { OverviewHeader } from '@/components/overview/OverviewHeader'
+import { OverviewMoneyCard } from '@/components/overview/OverviewMoneyCard'
+import {
+  OverviewSidebar,
+  type OverviewAttentionItem,
+} from '@/components/overview/OverviewSidebar'
+import { SeasonProgressCard } from '@/components/overview/SeasonProgressCard'
+import { StandingsPreviewCard } from '@/components/overview/StandingsPreviewCard'
+import { Button } from '@/components/ui/Button'
+import { PageSkeleton, PageState } from '@/components/ui/PageState'
 import { useSeasonConfig } from '@/hooks/useSeasonConfig'
-import { checkAdminAuth } from '@/lib/adminAuth'
+import {
+  buildOverviewAttentionReasons,
+  buildOverviewViewModel,
+} from '@/lib/overview'
+import {
+  loadOverviewData,
+  type OverviewDataSnapshot,
+} from '@/lib/overviewClient'
 
 interface LeagueDetailsProps {
-  params: Promise<{
-    id: string
-  }>
+  params: Promise<{ id: string }>
+}
+
+function OverviewSkeleton() {
+  return (
+    <PageSkeleton
+      cardClassName="h-32"
+      cardCount={4}
+      gridClassName="grid-cols-1 min-[340px]:grid-cols-2 lg:grid-cols-4"
+      label="Loading league overview"
+    />
+  )
+}
+
+const emptyData: OverviewDataSnapshot = {
+  finance: null,
+  financeError: null,
+  matchups: [],
+  members: [],
+  scores: [],
+  standingsError: null,
 }
 
 export default function LeagueDetails({ params }: LeagueDetailsProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const resolvedParams = use(params)
-  const [league, setLeague] = useState<League | null>(null)
-  const [members, setMembers] = useState<LeagueMember[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [selectedSeason, setSelectedSeason] = useState<string>(searchParams.get('season') || '')
-  const [availableSeasons, setAvailableSeasons] = useState<string[]>([])
-  const [isViewOnly, setIsViewOnly] = useState(true) // Default to view-only
-  const [isAdmin, setIsAdmin] = useState(false)
-  
-  // Use season config hook for dynamic values
-  const { seasonConfig } = useSeasonConfig(resolvedParams.id, selectedSeason)
+  const { id } = use(params)
+  const {
+    isLeagueLoading,
+    isViewOnly,
+    league,
+    leagueLoadError,
+    reloadLeague,
+    selectedSeason,
+    shareToken,
+  } = useLeagueShell()
+  const [data, setData] = useState<OverviewDataSnapshot>(emptyData)
+  const [isDataLoading, setIsDataLoading] = useState(true)
+  const [dataError, setDataError] = useState<string | null>(null)
+  const {
+    error: seasonConfigError,
+    loading: isSeasonConfigLoading,
+    refetch: refetchSeasonConfig,
+    seasonConfig,
+  } = useSeasonConfig(id, selectedSeason)
 
-  // Check for admin authentication and view-only mode
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // First check for explicit readonly mode
-      const isReadOnly = localStorage.getItem('fantasy-readonly-mode') === 'true'
-      const readOnlyLeague = localStorage.getItem('fantasy-readonly-league')
-      const urlReadOnly = searchParams.get('readonly') === 'true'
-      
-      // Set readonly mode if URL parameter is present
-      if (urlReadOnly) {
-        localStorage.setItem('fantasy-readonly-mode', 'true')
-        localStorage.setItem('fantasy-readonly-league', resolvedParams.id)
-        setIsViewOnly(true)
-        setIsAdmin(false) // Force non-admin in view-only mode
-      } else if (isReadOnly && readOnlyLeague === resolvedParams.id) {
-        setIsViewOnly(true)
-        setIsAdmin(false) // Force non-admin in view-only mode
-      } else {
-        // Only check admin auth if not in view-only mode
-        checkAdminAuth().then((adminAuthenticated) => {
-          setIsAdmin(adminAuthenticated)
-          setIsViewOnly(!adminAuthenticated)
-        })
-      }
-    }
-  }, [resolvedParams.id, searchParams])
+  const fetchOverviewData = useCallback(async () => {
+    if (!selectedSeason) return
+    setIsDataLoading(true)
+    setDataError(null)
 
-  const fetchLeagueData = useCallback(async () => {
     try {
-      // Fetch league details
-      const { data: leagueData, error: leagueError } = await supabase
-        .from('leagues')
-        .select('*')
-        .eq('id', resolvedParams.id)
-        .single()
-
-      if (leagueError) {
-        console.error('Failed to fetch league:', leagueError.message)
-        throw new Error(`Failed to fetch league: ${leagueError.message || 'Unknown error'}`)
-      }
-
-      setLeague(leagueData)
-
-      // Set selected season to current season if not set
-      const currentSeason = selectedSeason || leagueData.current_season
-      if (!selectedSeason) {
-        setSelectedSeason(currentSeason)
-      }
-
-      // Fetch available seasons
-      const { data: seasonsData } = await supabase
-        .from('league_members')
-        .select('season')
-        .eq('league_id', resolvedParams.id)
-      
-      const seasons = [...new Set(seasonsData?.map(s => s.season).filter(Boolean) || [])]
-      setAvailableSeasons(seasons)
-
-
-      // Fetch league members for selected season
-      let { data: membersData, error: membersError } = await supabase
-        .from('league_members')
-        .select('*')
-        .eq('league_id', resolvedParams.id)
-        .eq('season', currentSeason)
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-
-      // If league_members fails, try members table as fallback
-      if (membersError) {
-        const { data: altMembersData, error: altMembersError } = await supabase
-          .from('members')
-          .select('*')
-          .eq('league_id', resolvedParams.id)
-          .order('updated_at', { ascending: false })
-        
-        if (!altMembersError) {
-          membersData = altMembersData
-          membersError = altMembersError
-        }
-      }
-
-      if (membersError) {
-        console.error('Could not fetch members:', membersError.message)
-      }
-
-      setMembers(membersData || [])
-    } catch (err) {
-      console.error('Error fetching league data:', err)
-      // Don't redirect immediately, let user see the error
-      // router.push('/')
+      setData(await loadOverviewData(id, selectedSeason))
+    } catch (error) {
+      const message = getErrorMessage(error, 'The overview could not be loaded.')
+      setDataError(message)
+      console.error('Failed to load league overview:', message)
     } finally {
-      setIsLoading(false)
+      setIsDataLoading(false)
     }
-  }, [resolvedParams.id, selectedSeason])
-
-
-  const handleSeasonChange = (season: string) => {
-    setSelectedSeason(season)
-    setRefreshKey(prev => prev + 1)
-    // Update URL to reflect season change
-    const currentPath = window.location.pathname
-    const urlParams = new URLSearchParams()
-    urlParams.set('season', season)
-    router.replace(`${currentPath}?${urlParams.toString()}`)
-  }
-
-
-  const handleAdminAuthChange = (authenticated: boolean) => {
-    setIsAdmin(authenticated)
-    
-    if (authenticated) {
-      // When logging in as admin, clear readonly mode and switch to edit mode
-      localStorage.removeItem('fantasy-readonly-mode')
-      localStorage.removeItem('fantasy-readonly-league')
-      setIsViewOnly(false)
-    } else {
-      // When logging out, switch back to view-only mode
-      setIsViewOnly(true)
-    }
-  }
+  }, [id, selectedSeason])
 
   useEffect(() => {
-    fetchLeagueData()
-  }, [fetchLeagueData, refreshKey])
+    const loadTimer = window.setTimeout(fetchOverviewData, 0)
+    return () => window.clearTimeout(loadTimer)
+  }, [fetchOverviewData])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-orange-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading league details...</div>
-      </div>
-    )
+  const settings = useMemo(
+    () => ({
+      divisions: seasonConfig?.divisions,
+      draft_food_cost: seasonConfig?.draft_food_cost || 0,
+      fee_amount: seasonConfig?.fee_amount || 0,
+      playoff_spots: seasonConfig?.playoff_spots || 0,
+      playoff_start_week: seasonConfig?.playoff_start_week || 0,
+      prize_structure: seasonConfig?.prize_structure || {},
+      total_weeks: seasonConfig?.total_weeks || 0,
+      weekly_prize_amount: seasonConfig?.weekly_prize_amount || 0,
+    }),
+    [seasonConfig],
+  )
+  const overview = useMemo(
+    () =>
+      buildOverviewViewModel({
+        finance: data.finance,
+        matchups: data.matchups,
+        members: data.members,
+        scores: data.scores,
+        settings,
+      }),
+    [data, settings],
+  )
+
+  if (isLeagueLoading || isDataLoading || isSeasonConfigLoading) {
+    return <OverviewSkeleton />
   }
 
   if (!league) {
+    return <LeagueUnavailable error={leagueLoadError} onRetry={reloadLeague} />
+  }
+
+  if (dataError) {
     return (
-      <div className="min-h-screen bg-orange-50 flex items-center justify-center">
-        <div className="text-red-600">League not found</div>
-      </div>
+      <PageState
+        action={<Button onClick={fetchOverviewData}>Try again</Button>}
+        description="The season summary could not be assembled, so totals and progress are hidden rather than showing incomplete values."
+        eyebrow={`${selectedSeason} season`}
+        title="Overview data couldn’t be loaded"
+        tone="danger"
+      />
     )
   }
 
-  const totalMembers = members.length
-  const paidMembers = members.filter(m => m.payment_status === 'paid').length
-  const feeAmount = seasonConfig?.fee_amount ?? 0
-  const totalCollected = paidMembers * feeAmount
-  const totalPossible = totalMembers * feeAmount
+  const buildPageHref = (segment: string) => {
+    const query = new URLSearchParams({ season: selectedSeason })
+    if (shareToken) query.set('share', shareToken)
+    return `/league/${id}/${segment}?${query.toString()}`
+  }
+
+  if (data.members.length === 0) {
+    return (
+      <PageState
+        action={!isViewOnly ? (
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-[var(--app-radius-sm)] bg-app-brand px-4 text-sm font-semibold text-white"
+            href={buildPageHref('players')}
+          >
+            Add season players
+          </Link>
+        ) : undefined}
+        description={
+          isViewOnly
+            ? 'The commissioner has not published a roster or season results yet.'
+            : 'Add the active roster to begin tracking dues, scores, standings, and prizes.'
+        }
+        eyebrow={`${selectedSeason} season`}
+        title="This season hasn’t started"
+      />
+    )
+  }
+
+  const syncHasError = league.sync_status === 'error'
+  const syncIsConnected = Boolean(
+    league.platform_type || league.platform_league_id,
+  )
+  const attentionItems: OverviewAttentionItem[] = buildOverviewAttentionReasons({
+    financeError: data.financeError,
+    overview,
+    seasonConfigError,
+    syncError: syncHasError
+      ? league.last_sync_error || 'The last score sync failed'
+      : null,
+  }).map((reason) => ({
+    href: buildPageHref(reason.target),
+    label: reason.label,
+  }))
 
   return (
-    <div className="min-h-screen bg-orange-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {!isViewOnly && (
-              <button
-                onClick={() => router.push('/')}
-                className="text-claude-text-secondary hover:text-claude-text"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-claude-text cursor-pointer hover:text-claude-text-secondary transition-colors" onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}?${urlParams.toString()}`)
-                }}>
-                  {league.name}
-                </h1>
-                {isViewOnly && (
-                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
-                    🔍 View Only
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4">
-                <SeasonSelector
-                  currentSeason={selectedSeason}
-                  onSeasonChange={handleSeasonChange}
-                  availableSeasons={availableSeasons}
-                  disabled={false}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <AdminLogin 
-              isAdmin={isAdmin} 
-              onAuthChange={handleAdminAuthChange} 
-            />
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <button
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors bg-white text-claude-text shadow-sm"
-              >
-                Home
-              </button>
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}/standings?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Standings
-              </button>
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}/scores?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Weekly Scores
-              </button>
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}/players?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Players
-              </button>
-            </div>
-            <ShareButton 
-              shareUrl={`${window.location.origin}/league/${resolvedParams.id}?readonly=true&season=${selectedSeason}`}
-              label="Share League"
-              className="text-sm"
-            />
-          </div>
-        </div>
-      </header>
+    <main className="mx-auto min-w-0 max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <OverviewHeader
+        overview={overview}
+        scoresHref={buildPageHref('scores')}
+        selectedSeason={selectedSeason}
+        totalWeeks={settings.total_weeks}
+      />
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-claude-surface p-4 rounded-lg border border-claude-border">
-            <h3 className="text-xs font-medium text-claude-text-secondary mb-1">Total Members</h3>
-            <p className="text-2xl font-bold text-claude-text">{totalMembers}</p>
-          </div>
-          <div className="bg-claude-surface p-4 rounded-lg border border-claude-border">
-            <h3 className="text-xs font-medium text-claude-text-secondary mb-1">Paid Members</h3>
-            <p className="text-2xl font-bold text-claude-success">{paidMembers}</p>
-          </div>
-          <div className="bg-claude-surface p-4 rounded-lg border border-claude-border">
-            <h3 className="text-xs font-medium text-claude-text-secondary mb-1">League Fee</h3>
-            <p className="text-2xl font-bold text-claude-text">${feeAmount}</p>
-          </div>
-          <div className="bg-claude-surface p-4 rounded-lg border border-claude-border">
-            <h3 className="text-xs font-medium text-claude-text-secondary mb-1">Prize Pool</h3>
-            <p className="text-2xl font-bold text-claude-primary">${totalCollected}</p>
-            <p className="text-xs text-claude-text-light">of ${totalPossible}</p>
-          </div>
+      {seasonConfigError && (
+        <div
+          className="mt-6 rounded-[var(--app-radius-md)] border border-app-warning/30 bg-app-warning-soft p-4 text-sm leading-6 text-app-text"
+          role="status"
+        >
+          {seasonConfigError} Money and schedule values below use safe display defaults until the season is configured.
+          <Button className="mt-3" onClick={refetchSeasonConfig} size="sm" variant="secondary">
+            Retry season settings
+          </Button>
+        </div>
+      )}
+
+      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.85fr)]">
+        <div className="min-w-0 space-y-6">
+          <SeasonProgressCard
+            autoSyncEnabled={Boolean(league.auto_sync_enabled)}
+            isViewOnly={isViewOnly}
+            lastSyncAt={league.last_sync_at}
+            overview={overview}
+            syncHasError={syncHasError}
+            syncIsConnected={syncIsConnected}
+            totalWeeks={settings.total_weeks}
+          />
+          <StandingsPreviewCard
+            loadError={data.standingsError}
+            standings={overview.standings}
+            standingsHref={buildPageHref('standings')}
+          />
+          <OverviewMoneyCard
+            overview={overview}
+            prizesHref={buildPageHref('prizes')}
+          />
         </div>
 
-        {/* Payout Structure */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">💰 Payout Structure</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Total Pot */}
-            <div className="space-y-3">
-              <h3 className="font-medium text-gray-800">Total Collection</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Entry Fees ({totalMembers} × ${feeAmount})</span>
-                  <span className="font-medium">${totalPossible}</span>
-                </div>
-                {(seasonConfig?.draft_food_cost || 0) > 0 && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>Draft Food (already spent)</span>
-                    <span>-${seasonConfig?.draft_food_cost}</span>
-                  </div>
-                )}
-                <div className="border-t pt-2 flex justify-between font-semibold">
-                  <span>Available Prize Pool</span>
-                  <span className="text-green-600">${totalPossible - (seasonConfig?.draft_food_cost || 0)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Prize Breakdown */}
-            <div className="space-y-3">
-              <h3 className="font-medium text-gray-800">Prize Distribution</h3>
-              <div className="space-y-2 text-sm">
-                {seasonConfig && (
-                  <>
-                    {seasonConfig.weekly_prize_amount > 0 && (
-                      <div className="flex justify-between">
-                        <span>Weekly Top Scorer ({seasonConfig.total_weeks} weeks × ${seasonConfig.weekly_prize_amount})</span>
-                        <span>${seasonConfig.total_weeks * seasonConfig.weekly_prize_amount}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span>1st Place</span>
-                      <span>${seasonConfig.prize_structure.first}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>2nd Place</span>
-                      <span>${seasonConfig.prize_structure.second}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>3rd Place</span>
-                      <span>${seasonConfig.prize_structure.third}</span>
-                    </div>
-                    {(seasonConfig.prize_structure.fourth || 0) > 0 && (
-                      <div className="flex justify-between">
-                        <span>4th Place</span>
-                        <span>${seasonConfig.prize_structure.fourth}</span>
-                      </div>
-                    )}
-                    {(seasonConfig.prize_structure.highest_points || 0) > 0 && (
-                      <div className="flex justify-between">
-                        <span>Highest Points For</span>
-                        <span>${seasonConfig.prize_structure.highest_points}</span>
-                      </div>
-                    )}
-                    {(seasonConfig.prize_structure.highest_weekly || 0) > 0 && (
-                      <div className="flex justify-between">
-                        <span>Highest Weekly Score</span>
-                        <span>${seasonConfig.prize_structure.highest_weekly}</span>
-                      </div>
-                    )}
-                    {(seasonConfig.prize_structure.lowest_weekly || 0) > 0 && (
-                      <div className="flex justify-between">
-                        <span>Lowest Weekly Score</span>
-                        <span>${seasonConfig.prize_structure.lowest_weekly}</span>
-                      </div>
-                    )}
-                    <div className="border-t pt-2 flex justify-between font-semibold">
-                      <span>Total Prizes</span>
-                      <span>${
-                        (seasonConfig.weekly_prize_amount > 0 ? seasonConfig.total_weeks * seasonConfig.weekly_prize_amount : 0) +
-                        seasonConfig.prize_structure.first +
-                        seasonConfig.prize_structure.second +
-                        seasonConfig.prize_structure.third +
-                        (seasonConfig.prize_structure.fourth || 0) +
-                        (seasonConfig.prize_structure.highest_points || 0) +
-                        (seasonConfig.prize_structure.highest_weekly || 0) +
-                        (seasonConfig.prize_structure.lowest_weekly || 0)
-                      }</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Player Participation History */}
-        <PlayerParticipationHistory leagueId={resolvedParams.id} />
-
-        {/* Member management moved to dedicated page */}
-      </main>
-
-    </div>
+        <OverviewSidebar
+          attentionItems={attentionItems}
+          historyHref={buildPageHref('players')}
+          isViewOnly={isViewOnly}
+          overview={overview}
+          playoffSpots={settings.playoff_spots}
+          playoffStartWeek={settings.playoff_start_week}
+          rulesHref={buildPageHref('rules')}
+          standingsHref={buildPageHref('standings')}
+        />
+      </div>
+    </main>
   )
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message
+  }
+  return fallback
 }

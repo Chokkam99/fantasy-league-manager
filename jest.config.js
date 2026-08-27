@@ -44,7 +44,11 @@ const config = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   
   // Ignore patterns
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
+  testPathIgnorePatterns: [
+    '<rootDir>/.next/',
+    '<rootDir>/e2e/',
+    '<rootDir>/node_modules/',
+  ],
   
   // Clear mocks between tests
   clearMocks: true,

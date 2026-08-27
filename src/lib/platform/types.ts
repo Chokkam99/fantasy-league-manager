@@ -50,6 +50,7 @@ export interface ImportResult {
   success: boolean
   imported_scores: number
   imported_matchups: number
+  import_run_id: string
   message: string
 }
 
@@ -66,4 +67,5 @@ export interface PlatformImportService {
   importWeek(week: number): Promise<ImportResult>
   testConnection(): Promise<boolean>
   getCurrentWeek(): Promise<number>
+  getLatestCompletedWeek(maximumWeek?: number): Promise<number | null>
 }

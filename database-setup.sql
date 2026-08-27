@@ -1,7 +1,18 @@
--- Fantasy League Manager - Complete Database Setup
--- Run this file once to set up a new database from scratch
+-- LEGACY REFERENCE ONLY — DO NOT RUN.
+-- This file does not reproduce either deployed-v0 or the target schema.
+-- Use supabase/bootstrap/deployed-v0.sql followed immediately by every file in
+-- supabase/migrations for a new empty database. Existing production already is
+-- deployed-v0 and must use only the reviewed forward-migration rollout.
 --
--- Usage: psql "your-supabase-connection-string" -f database-setup.sql
+-- The deliberate transaction failure below prevents accidental execution of
+-- the stale DDL that remains in this file for historical comparison.
+
+begin;
+do $$
+begin
+    raise exception 'database-setup.sql is retired; follow docs/schema/fresh-schema-reconciliation.md';
+end;
+$$;
 
 -- ============================================================================
 -- TABLES

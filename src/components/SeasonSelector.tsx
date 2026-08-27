@@ -8,6 +8,7 @@ interface SeasonSelectorProps {
   availableSeasons?: string[]
   className?: string
   disabled?: boolean
+  showLabel?: boolean
 }
 
 export default function SeasonSelector({ 
@@ -15,22 +16,30 @@ export default function SeasonSelector({
   onSeasonChange, 
   availableSeasons = [],
   className = '',
-  disabled = false
+  disabled = false,
+  showLabel = true,
 }: SeasonSelectorProps) {
-  // Only show seasons that have data, or fall back to current year if none available
   const currentYear = new Date().getFullYear().toString()
-  const seasonsToShow = availableSeasons.length > 0 
-    ? availableSeasons.sort((a, b) => parseInt(b) - parseInt(a)) // Sort descending (newest first)
-    : [currentYear] // Fallback to current year if no data
+  const selectedSeason = currentSeason || currentYear
+  const seasonsToShow = [...new Set([...availableSeasons, selectedSeason])]
+    .filter(Boolean)
+    .sort((a, b) => parseInt(b) - parseInt(a))
+  const selectedSeasonIsSaved = availableSeasons.includes(selectedSeason)
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <label className="text-sm font-medium text-gray-700">Season:</label>
+      <label
+        className={showLabel ? 'text-sm font-medium text-app-text-muted' : 'sr-only'}
+        htmlFor="league-season-selector"
+      >
+        Season
+      </label>
       <select
-        value={currentSeason}
+        id="league-season-selector"
+        value={selectedSeason}
         onChange={(e) => onSeasonChange(e.target.value)}
         disabled={disabled}
-        className="border border-gray-300 rounded px-3 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+        className="min-h-10 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-sm font-semibold text-app-text shadow-sm disabled:cursor-not-allowed disabled:bg-app-surface-subtle"
       >
         {seasonsToShow.map(season => (
           <option 
@@ -38,6 +47,9 @@ export default function SeasonSelector({
             value={season}
           >
             {season}
+            {season === selectedSeason && !selectedSeasonIsSaved
+              ? ' (not configured)'
+              : ''}
           </option>
         ))}
       </select>

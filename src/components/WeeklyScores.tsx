@@ -1,439 +1,535 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { supabase, LeagueMember, WeeklyScore } from '@/lib/supabase'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Notice } from '@/components/ui/Notice'
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
 import { useSeasonConfig } from '@/hooks/useSeasonConfig'
+import type { ScoreRosterMember } from '@/lib/scoresClient'
+import {
+  loadWeeklyScoresData,
+  type WeeklyMatchupSummary,
+  type WeeklyScoreSummary,
+} from '@/lib/weeklyScoresClient'
+import { buildWeeklyRanking } from '@/lib/weeklyRanking'
 
-interface Matchup {
-  id: string
-  league_id: string
-  season: string
-  week_number: number
-  team1_member_id: string
-  team2_member_id: string
-  team1_score: number | null  // These come from the view now
-  team2_score: number | null  // These come from the view now
-  winner_member_id: string | null  // Calculated by the view
-  is_tie: boolean  // Calculated by the view
+interface ManualScoreResponse {
+  error?: string
+  message?: string
+  success: boolean
+  week?: number
 }
 
 interface WeeklyScoresProps {
+  initialWeek?: number
   leagueId: string
-  members: LeagueMember[]
-  season?: string
+  members: ScoreRosterMember[]
   readOnly?: boolean
+  season?: string
 }
 
-export default function WeeklyScores({ leagueId, members, season, readOnly = false }: WeeklyScoresProps) {
-  const [selectedWeek, setSelectedWeek] = useState(1)
-  const [scores, setScores] = useState<Record<string, number>>({})
-  const [isLoading, setIsLoading] = useState(false)
-  const [weeklyScores, setWeeklyScores] = useState<WeeklyScore[]>([])
-  const [matchups, setMatchups] = useState<Matchup[]>([])
-  const [showClearWeekConfirm, setShowClearWeekConfirm] = useState(false)
+type Notice = { kind: 'error' | 'success'; message: string } | null
+
+function formatPoints(points: number | null) {
+  return points === null ? '—' : points.toFixed(2)
+}
+
+export default function WeeklyScores({
+  initialWeek = 1,
+  leagueId,
+  members,
+  readOnly = false,
+  season,
+}: WeeklyScoresProps) {
+  const currentSeason = season || members[0]?.season || ''
+  const {
+    error: seasonConfigError,
+    refetch: refetchSeasonConfig,
+    seasonConfig,
+  } = useSeasonConfig(leagueId, currentSeason)
+  const [selectedWeek, setSelectedWeek] = useState(initialWeek)
+  const [weeklyScores, setWeeklyScores] = useState<WeeklyScoreSummary[]>([])
+  const [matchups, setMatchups] = useState<WeeklyMatchupSummary[]>([])
+  const [draftScores, setDraftScores] = useState<Record<string, string>>({})
+  const [isDataLoading, setIsDataLoading] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
-  
-  // Determine current season from props or fallback to member data
-  const currentSeason = season || (members.length > 0 ? members[0].season : '')
-  const { seasonConfig } = useSeasonConfig(leagueId, currentSeason)
+  const [showClearWeekConfirm, setShowClearWeekConfirm] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice>(null)
 
-  const loadWeeklyScores = useCallback(async () => {
+  const loadWeekData = useCallback(async () => {
+    if (!currentSeason) return
+
+    setIsDataLoading(true)
+    setLoadError(null)
+
     try {
-      const { data, error } = await supabase
-        .from('weekly_scores')
-        .select('*')
-        .eq('league_id', leagueId)
-        .eq('week_number', selectedWeek)
-        .eq('season', currentSeason)
+      const snapshot = await loadWeeklyScoresData(
+        leagueId,
+        currentSeason,
+        selectedWeek,
+      )
+      const loadedScores = snapshot.scores
+      const scoreByMember = new Map(
+        loadedScores.map((score) => [score.member_id, Number(score.points)]),
+      )
 
-      if (error) throw error
-
-      setWeeklyScores(data || [])
-      
-      // Transform database scores into form state object
-      const scoresObj: Record<string, number> = {}
-      data?.forEach(score => {
-        scoresObj[score.member_id] = Number(score.points)
-      })
-      setScores(scoresObj)
-
+      setWeeklyScores(loadedScores)
+      setMatchups(snapshot.matchups)
+      setDraftScores(
+        Object.fromEntries(
+          members.map((member) => [
+            member.id,
+            scoreByMember.has(member.id)
+              ? String(scoreByMember.get(member.id))
+              : '',
+          ]),
+        ),
+      )
     } catch (error) {
-      console.error('Error loading weekly scores:', error)
-    }
-  }, [leagueId, selectedWeek, currentSeason])
-
-  const loadMatchups = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('matchup_results_with_scores')
-        .select('*')
-        .eq('league_id', leagueId)
-        .eq('week_number', selectedWeek)
-        .eq('season', currentSeason)
-
-      if (error) throw error
-      setMatchups(data || [])
-    } catch (error) {
-      console.error('Error loading matchups:', error)
-    }
-  }, [leagueId, selectedWeek, currentSeason])
-
-  // Load weekly scores and matchups whenever week or season changes
-  useEffect(() => {
-    loadWeeklyScores()
-    loadMatchups()
-  }, [loadWeeklyScores, loadMatchups])
-
-
-  const handleScoreChange = (memberId: string, points: string) => {
-    const numPoints = parseFloat(points) || 0
-    setScores(prev => ({
-      ...prev,
-      [memberId]: numPoints
-    }))
-  }
-
-  const updateMatchupResults = async () => {
-    try {
-      // Get all matchups for this week
-      const { data: matchups, error: matchupsError } = await supabase
-        .from('matchups')
-        .select('*')
-        .eq('league_id', leagueId)
-        .eq('season', currentSeason)
-        .eq('week_number', selectedWeek)
-
-      if (matchupsError) {
-        console.error('Error fetching matchups:', matchupsError)
-        return
-      }
-
-      if (!matchups || matchups.length === 0) {
-        console.log('No matchups found for this week')
-        return
-      }
-
-      // NOTE: No need to update matchup results anymore!
-      // The matchup_results_with_scores view automatically calculates winners from weekly_scores
-
-      console.log(`Updated ${matchups.length} matchups for week ${selectedWeek}`)
-    } catch (error) {
-      console.error('Error updating matchup results:', error)
-    }
-  }
-
-  const saveWeeklyScores = async () => {
-    setIsLoading(true)
-    try {
-      // Use upsert to safely update scores without losing data
-      const scoresToUpsert = Object.entries(scores).map(([memberId, points]) => ({
-        league_id: leagueId,
-        member_id: memberId,
-        week_number: selectedWeek,
-        season: currentSeason,
-        points: points
-      }))
-
-      const { error } = await supabase
-        .from('weekly_scores')
-        .upsert(scoresToUpsert, {
-          onConflict: 'league_id,season,week_number,member_id'
-        })
-
-      if (error) throw error
-
-      // Update matchup results automatically
-      await updateMatchupResults()
-
-      alert(`Week ${selectedWeek} scores and matchup results saved successfully!`)
-      loadWeeklyScores()
-
-    } catch (error) {
-      console.error('Error saving scores:', error)
-      alert('Error saving scores. Please try again.')
+      console.error('Failed to load weekly scores:', error)
+      setLoadError('This week could not be loaded. Try again in a moment.')
     } finally {
-      setIsLoading(false)
+      setIsDataLoading(false)
     }
-  }
+  }, [currentSeason, leagueId, members, selectedWeek])
 
-  const clearWeekScores = async () => {
-    setIsClearing(true)
-    try {
-      // First clear the weekly scores
-      const { error: scoresError } = await supabase
-        .from('weekly_scores')
-        .delete()
-        .eq('league_id', leagueId)
-        .eq('week_number', selectedWeek)
-        .eq('season', currentSeason)
+  useEffect(() => {
+    loadWeekData()
+  }, [loadWeekData])
 
-      if (scoresError) {
-        console.error('Error clearing week scores:', scoresError)
-        alert('Error clearing week scores. Please try again.')
+  useEffect(() => {
+    const refreshImportedWeek = (event: Event) => {
+      const importedWeek = (event as CustomEvent<{ week?: number }>).detail?.week
+
+      if (importedWeek && importedWeek !== selectedWeek) {
+        setSelectedWeek(importedWeek)
+        setIsEditing(false)
         return
       }
 
-      // NOTE: No need to clear matchup results anymore!  
-      // Matchup results are calculated automatically from weekly_scores
+      loadWeekData()
+    }
 
-      alert(`Week ${selectedWeek} scores and matchup results cleared successfully!`)
-      setScores({})
-      loadWeeklyScores()
-    } catch (err) {
-      console.error('Error clearing week data:', err)
-      alert('Error clearing week data. Please try again.')
+    window.addEventListener('league-scores-imported', refreshImportedWeek)
+    return () =>
+      window.removeEventListener('league-scores-imported', refreshImportedWeek)
+  }, [loadWeekData, selectedWeek])
+
+  const scoreByMember = useMemo(
+    () =>
+      new Map(
+        weeklyScores.map((score) => [score.member_id, Number(score.points)]),
+      ),
+    [weeklyScores],
+  )
+
+  const rankedMembers = useMemo(() => {
+    return buildWeeklyRanking(members, weeklyScores)
+  }, [members, weeklyScores])
+
+  const weeklyLeaders = rankedMembers.filter((entry) => entry.rank === 1)
+  const completedScoreCount = weeklyScores.filter((score) =>
+    Number.isFinite(Number(score.points)),
+  ).length
+  const totalWeeks = seasonConfig?.total_weeks || 17
+  const weeklyPrize = seasonConfig?.weekly_prize_amount || 0
+
+  const changeWeek = (week: number) => {
+    setSelectedWeek(week)
+    setIsEditing(false)
+    setNotice(null)
+  }
+
+  const beginEditing = () => {
+    setDraftScores(
+      Object.fromEntries(
+        members.map((member) => [
+          member.id,
+          scoreByMember.has(member.id)
+            ? String(scoreByMember.get(member.id))
+            : '',
+        ]),
+      ),
+    )
+    setNotice(null)
+    setIsEditing(true)
+  }
+
+  const cancelEditing = () => {
+    setIsEditing(false)
+    setNotice(null)
+  }
+
+  const saveWeek = async () => {
+    const scores = members.map((member) => ({
+      member_id: member.id,
+      points: Number(draftScores[member.id]),
+      raw: draftScores[member.id]?.trim() || '',
+    }))
+
+    if (
+      scores.some(
+        (score) => !score.raw || !Number.isFinite(score.points),
+      )
+    ) {
+      setNotice({
+        kind: 'error',
+        message: 'Enter a valid score for every active player before saving.',
+      })
+      return
+    }
+
+    setIsSaving(true)
+    setNotice(null)
+
+    try {
+      const response = await fetch(`/api/leagues/${leagueId}/scores/manual`, {
+        body: JSON.stringify({
+          action: 'save_week',
+          scores: scores.map(({ member_id, points }) => ({ member_id, points })),
+          season: currentSeason,
+          week: selectedWeek,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+      const payload = (await response.json()) as ManualScoreResponse
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'The week could not be saved.')
+      }
+
+      setIsEditing(false)
+      setNotice({
+        kind: 'success',
+        message: payload.message || `Week ${selectedWeek} scores saved.`,
+      })
+      await loadWeekData()
+    } catch (error) {
+      setNotice({
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'The week could not be saved.',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const clearWeek = async () => {
+    setIsClearing(true)
+    setNotice(null)
+
+    try {
+      const response = await fetch(`/api/leagues/${leagueId}/scores/manual`, {
+        body: JSON.stringify({
+          action: 'clear_week',
+          season: currentSeason,
+          week: selectedWeek,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+      const payload = (await response.json()) as ManualScoreResponse
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'The week could not be cleared.')
+      }
+
+      setShowClearWeekConfirm(false)
+      setIsEditing(false)
+      setNotice({
+        kind: 'success',
+        message: payload.message || `Week ${selectedWeek} scores cleared.`,
+      })
+      await loadWeekData()
+    } catch (error) {
+      setNotice({
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'The week could not be cleared.',
+      })
     } finally {
       setIsClearing(false)
-      setShowClearWeekConfirm(false)
     }
   }
 
-  // Find weekly winner
-  const weeklyWinner = weeklyScores.length > 0 
-    ? weeklyScores.reduce((max, score) => score.points > max.points ? score : max)
-    : null
-
-  const winnerMember = weeklyWinner 
-    ? members.find(m => m.id === weeklyWinner.member_id)
-    : null
-
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">📊 Weekly Scores</h2>
-        
-        {/* Week Selection Dropdown */}
-        <div className="flex items-center gap-3">
-          <label className="text-sm font-medium text-gray-700">Week:</label>
-          <select
-            value={selectedWeek}
-            onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-            className="border border-gray-300 rounded px-3 py-1 text-sm"
-          >
-            {Array.from({ length: 17 }, (_, i) => i + 1).map(week => (
-              <option key={week} value={week}>Week {week}</option>
-            ))}
-          </select>
-          {!readOnly && (
-            <button
-              onClick={() => setShowClearWeekConfirm(true)}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors border-0"
-              disabled={weeklyScores.length === 0}
-            >
-              Clear Week
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Weekly Winner Display - only show if weekly prizes are configured */}
-      {weeklyWinner && winnerMember && (seasonConfig?.weekly_prize_amount || 0) > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
+    <>
+      <Card className="mb-6 overflow-hidden">
+        <div className="border-b border-app-border p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h3 className="font-medium text-green-800">🏆 Week {selectedWeek} Winner</h3>
-              <p className="text-green-700">{winnerMember.manager_name} ({winnerMember.team_name})</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand-strong">
+                Weekly results
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-app-text">
+                Week {selectedWeek} ranking
+              </h2>
+              <p className="mt-1 text-sm text-app-text-muted">
+                {completedScoreCount} of {members.length} scores recorded
+              </p>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-green-800">{weeklyWinner.points}</div>
-              <div className="text-sm text-green-600">Wins ${seasonConfig?.weekly_prize_amount || 0}</div>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex">
+              <label className="sr-only" htmlFor="weekly-score-week">Week</label>
+              <select
+                className="min-h-11 min-w-0 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-sm font-semibold text-app-text"
+                id="weekly-score-week"
+                onChange={(event) => changeWeek(Number(event.target.value))}
+                value={selectedWeek}
+              >
+                {Array.from({ length: totalWeeks }, (_, index) => index + 1).map((week) => (
+                  <option key={week} value={week}>Week {week}</option>
+                ))}
+              </select>
+              {!readOnly && !isEditing && (
+                <Button disabled={isDataLoading || members.length === 0} onClick={beginEditing} variant="secondary">
+                  Edit scores
+                </Button>
+              )}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Scores Table */}
-      <div className="overflow-hidden rounded-lg border border-gray-200 mb-6">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rank
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Manager
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Team Name
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Score
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {members
-                .map((member) => ({
-                  ...member,
-                  currentScore: Number(scores[member.id]) || 0
-                }))
-                .sort((a, b) => b.currentScore - a.currentScore)
-                .map((member, index) => (
-                  <tr key={member.id} className={index < 3 ? 'bg-amber-50' : 'hover:bg-gray-50'}>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {index === 0 && member.currentScore > 0 && (
-                          <span className="text-yellow-500 text-lg mr-2">🏆</span>
-                        )}
-                        {index === 1 && member.currentScore > 0 && (
-                          <span className="text-gray-400 text-lg mr-2">🥈</span>
-                        )}
-                        {index === 2 && member.currentScore > 0 && (
-                          <span className="text-yellow-600 text-lg mr-2">🥉</span>
-                        )}
-                        <span className="text-sm font-medium text-gray-900">#{index + 1}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{member.manager_name}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm text-gray-600">{member.team_name}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right">
-                      {readOnly ? (
-                        <div className="text-base font-medium text-gray-900">
-                          {member.currentScore > 0 ? member.currentScore.toFixed(2) : '—'}
-                        </div>
-                      ) : (
-                        <input
-                          type="number"
-                          step="0.1"
-                          placeholder="0.0"
-                          value={scores[member.id] || ''}
-                          onChange={(e) => handleScoreChange(member.id, e.target.value)}
-                          className="w-24 px-2 py-1 text-right text-base font-medium border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                        />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {seasonConfigError && (
+          <Notice className="mx-4 mt-4 sm:mx-6" tone="warning">
+            {seasonConfigError} Week count and weekly-prize values use safe display defaults.
+            <Button className="mt-3" onClick={refetchSeasonConfig} size="sm" variant="secondary">
+              Retry season settings
+            </Button>
+          </Notice>
+        )}
 
-      {/* Save Button - only show in edit mode */}
-      {!readOnly && (
-        <div className="flex justify-end">
-          <button
-            onClick={saveWeeklyScores}
-            disabled={isLoading || members.length === 0}
-            className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50"
+        {notice && (
+          <Notice
+            className="mx-4 mt-4 sm:mx-6"
+            tone={notice.kind === 'error' ? 'danger' : 'success'}
           >
-            {isLoading ? 'Saving...' : `Save Week ${selectedWeek} Scores`}
-          </button>
-        </div>
-      )}
+            {notice.message}
+          </Notice>
+        )}
 
-      {/* Matchups Section */}
-      {matchups.length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">🏈 Week {selectedWeek} Matchups</h3>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            {matchups.map((matchup, index) => {
-              const team1Member = members.find(m => m.id === matchup.team1_member_id)
-              const team2Member = members.find(m => m.id === matchup.team2_member_id)
-              const team1Score = matchup.team1_score ?? 0
-              const team2Score = matchup.team2_score ?? 0
-              
-              // Determine styling based on winner
-              const team1IsWinner = matchup.winner_member_id === matchup.team1_member_id
-              const team2IsWinner = matchup.winner_member_id === matchup.team2_member_id
-              const isTie = matchup.is_tie
-              
-              return (
-                <div key={matchup.id} className={`flex items-center justify-between py-3 px-4 ${
-                  index < matchups.length - 1 ? 'border-b border-gray-100' : ''
-                } hover:bg-gray-50`}>
-                  {/* Team 1 */}
-                  <div className="flex items-center flex-1">
-                    <div className="text-right flex-1 mr-3">
-                      <div className={`font-medium ${
-                        team1IsWinner ? 'text-green-700' : 'text-gray-900'
-                      }`}>
-                        {team1Member?.manager_name || 'Unknown Team'}
-                        {team1IsWinner && <span className="ml-1 text-green-600">🏆</span>}
-                        {isTie && team1Score > 0 && <span className="ml-1 text-yellow-600">🤝</span>}
-                      </div>
-                      <div className="text-sm text-gray-600 text-right">
-                        {team1Member?.team_name || 'Unknown Team'}
-                      </div>
-                    </div>
-                    <div className={`text-lg font-bold w-16 text-right ${
-                      team1IsWinner ? 'text-green-700' : 
-                      isTie && team1Score > 0 ? 'text-yellow-700' : 
-                      'text-gray-900'
-                    }`}>
-                      {team1Score > 0 ? team1Score.toFixed(2) : '—'}
-                    </div>
-                  </div>
+        {loadError && (
+          <Notice className="m-4 sm:m-6" tone="danger">
+            {loadError}
+            <Button className="mt-3" onClick={loadWeekData} size="sm" variant="secondary">Try again</Button>
+          </Notice>
+        )}
 
-                  {/* Score separator */}
-                  <div className="mx-4 flex items-center">
-                    <div className="text-gray-400 font-medium">—</div>
-                  </div>
+        {!loadError && isDataLoading && (
+          <SkeletonGroup label="Loading weekly results" className="space-y-3 p-4 sm:p-6">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton className="h-16" key={index} />
+            ))}
+          </SkeletonGroup>
+        )}
 
-                  {/* Team 2 */}
-                  <div className="flex items-center flex-1">
-                    <div className={`text-lg font-bold w-16 text-left ${
-                      team2IsWinner ? 'text-green-700' : 
-                      isTie && team2Score > 0 ? 'text-yellow-700' : 
-                      'text-gray-900'
-                    }`}>
-                      {team2Score > 0 ? team2Score.toFixed(2) : '—'}
-                    </div>
-                    <div className="flex-1 ml-3">
-                      <div className={`font-medium ${
-                        team2IsWinner ? 'text-green-700' : 'text-gray-900'
-                      }`}>
-                        {team2IsWinner && <span className="mr-1 text-green-600">🏆</span>}
-                        {isTie && team2Score > 0 && <span className="mr-1 text-yellow-600">🤝</span>}
-                        {team2Member?.manager_name || 'Unknown Team'}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {team2Member?.team_name || 'Unknown Team'}
-                      </div>
-                    </div>
-                  </div>
+        {!loadError && !isDataLoading && isEditing && (
+          <div className="p-4 sm:p-6">
+            <div className="rounded-[var(--app-radius-sm)] border border-app-border">
+              {members.map((member, index) => (
+                <label
+                  className={`grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_9rem] sm:p-4 ${
+                    index > 0 ? 'border-t border-app-border' : ''
+                  }`}
+                  key={member.id}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-app-text">{member.manager_name}</span>
+                    <span className="mt-0.5 block truncate text-xs text-app-text-muted">{member.team_name}</span>
+                  </span>
+                  <span className="relative">
+                    <input
+                      aria-label={`Score for ${member.manager_name}`}
+                      className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 pr-8 text-right font-mono font-semibold text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20"
+                      inputMode="decimal"
+                      onChange={(event) =>
+                        setDraftScores((current) => ({
+                          ...current,
+                          [member.id]: event.target.value,
+                        }))
+                      }
+                      placeholder="0.00"
+                      step="0.01"
+                      type="number"
+                      value={draftScores[member.id] || ''}
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-app-text-muted">pts</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="sticky bottom-20 z-20 -mx-4 mt-4 border-y border-app-border bg-app-surface/95 p-3 shadow-[var(--app-shadow-md)] backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-between sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+              <Button
+                className="mb-2 w-full sm:mb-0 sm:w-auto"
+                disabled={isSaving || isClearing || weeklyScores.length === 0}
+                onClick={() => setShowClearWeekConfirm(true)}
+                variant="ghost"
+              >
+                Clear this week
+              </Button>
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <Button disabled={isSaving || isClearing} onClick={cancelEditing} variant="secondary">Cancel</Button>
+                <Button disabled={isSaving || isClearing} onClick={saveWeek}>
+                  {isSaving ? 'Saving…' : `Save week ${selectedWeek}`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loadError && !isDataLoading && !isEditing && (
+          <div className="p-4 sm:p-6">
+            {weeklyLeaders.length > 0 && (
+              <div className="mb-5 grid gap-3 rounded-[var(--app-radius-md)] border border-app-brand/20 bg-app-brand-soft p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-app-success">
+                    {weeklyLeaders.length > 1 ? 'Tied weekly leaders' : 'Weekly leader'}
+                  </p>
+                  <p className="mt-1 font-semibold text-app-text">
+                    {weeklyLeaders.map(({ member }) => member.manager_name).join(' · ')}
+                  </p>
+                  <p className="mt-0.5 text-sm text-app-text-muted">
+                    {weeklyLeaders.map(({ member }) => member.team_name).join(' · ')}
+                  </p>
                 </div>
+                <div className="sm:text-right">
+                  <p className="font-mono text-2xl font-bold text-app-brand-strong">
+                    {formatPoints(weeklyLeaders[0].points)}
+                  </p>
+                  {weeklyPrize > 0 && (
+                    <p className="text-xs font-semibold text-app-success">${weeklyPrize} weekly prize</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {completedScoreCount === 0 ? (
+              <div className="rounded-[var(--app-radius-sm)] border border-dashed border-app-border p-6 text-center">
+                <p className="font-semibold text-app-text">No scores recorded for week {selectedWeek}</p>
+                <p className="mt-1 text-sm leading-6 text-app-text-muted">
+                  {readOnly
+                    ? 'The commissioner has not published this week yet.'
+                    : 'Import the completed ESPN week or use Edit scores for manual entry.'}
+                </p>
+              </div>
+            ) : (
+              <ol className="overflow-hidden rounded-[var(--app-radius-sm)] border border-app-border">
+                {rankedMembers.map(({ member, points, rank }, index) => (
+                  <li
+                    className={`grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 p-3 sm:grid-cols-[3rem_minmax(0,1fr)_auto] sm:gap-4 sm:p-4 ${
+                      index > 0 ? 'border-t border-app-border' : ''
+                    } ${rank === 1 ? 'bg-app-brand-soft/60' : 'bg-app-surface'}`}
+                    key={member.id}
+                  >
+                    <span className="font-mono text-sm font-semibold text-app-text-muted">
+                      {rank ? `#${rank}` : '—'}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-app-text">{member.manager_name}</span>
+                        {rank === 1 && <Badge variant="success">Leader</Badge>}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-app-text-muted">{member.team_name}</span>
+                    </span>
+                    <span className="shrink-0 text-right font-mono text-base font-bold text-app-text sm:text-lg">
+                      {formatPoints(points)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <Card className="mb-8 overflow-hidden">
+        <div className="border-b border-app-border p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand-strong">Head to head</p>
+              <h2 className="mt-1 text-xl font-semibold text-app-text">Week {selectedWeek} matchups</h2>
+            </div>
+            <Badge variant={matchups.length > 0 ? 'neutral' : 'warning'}>
+              {matchups.length} matchup{matchups.length === 1 ? '' : 's'}
+            </Badge>
+          </div>
+        </div>
+
+        {isDataLoading ? (
+          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6">
+            {Array.from({ length: 2 }, (_, index) => (
+              <Skeleton className="h-36" key={index} />
+            ))}
+          </div>
+        ) : matchups.length === 0 ? (
+          <div className="p-6 text-center">
+            <p className="font-semibold text-app-text">No matchup schedule found</p>
+            <p className="mt-1 text-sm leading-6 text-app-text-muted">
+              Scores can still be ranked even when this week has no saved matchups.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6">
+            {matchups.map((matchup, index) => {
+              const team1 = members.find((member) => member.id === matchup.team1_member_id)
+              const team2 = members.find((member) => member.id === matchup.team2_member_id)
+              const team1Score = matchup.team1_score ?? scoreByMember.get(matchup.team1_member_id) ?? null
+              const team2Score = matchup.team2_score ?? scoreByMember.get(matchup.team2_member_id) ?? null
+              const isComplete = team1Score !== null && team2Score !== null
+              const team1Won = matchup.winner_member_id === matchup.team1_member_id
+              const team2Won = matchup.winner_member_id === matchup.team2_member_id
+
+              return (
+                <article className="rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface" key={matchup.id}>
+                  <div className="flex items-center justify-between border-b border-app-border px-3 py-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">Matchup {index + 1}</p>
+                    <Badge variant={!isComplete ? 'warning' : matchup.is_tie ? 'info' : 'success'}>
+                      {!isComplete ? 'Pending' : matchup.is_tie ? 'Tie' : 'Final'}
+                    </Badge>
+                  </div>
+                  {[
+                    { member: team1, points: team1Score, won: team1Won },
+                    { member: team2, points: team2Score, won: team2Won },
+                  ].map((team, teamIndex) => (
+                    <div
+                      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 ${
+                        teamIndex > 0 ? 'border-t border-app-border' : ''
+                      } ${team.won ? 'bg-app-brand-soft/60' : ''}`}
+                      key={team.member?.id || `unknown-${teamIndex}`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-app-text">{team.member?.manager_name || 'Unknown player'}</p>
+                          {team.won && <Badge variant="success">Winner</Badge>}
+                        </div>
+                        <p className="mt-0.5 truncate text-xs text-app-text-muted">{team.member?.team_name || 'Unmapped team'}</p>
+                      </div>
+                      <p className="font-mono text-lg font-bold text-app-text">{formatPoints(team.points)}</p>
+                    </div>
+                  ))}
+                </article>
               )
             })}
           </div>
-        </div>
-      )}
+        )}
+      </Card>
 
-      {/* Clear Week Confirmation Modal */}
-      {showClearWeekConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-orange-600 mb-4">⚠️ Clear Week {selectedWeek} Scores</h3>
-            <p className="text-gray-700 mb-4">
-              This will permanently delete all scores for <strong>Week {selectedWeek}</strong> from the database.
-            </p>
-            <p className="text-sm text-gray-600 mb-6">
-              This action cannot be undone. Are you sure you want to continue?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowClearWeekConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                disabled={isClearing}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={clearWeekScores}
-                disabled={isClearing}
-                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-0"
-              >
-                {isClearing ? 'Clearing...' : 'Yes, Clear Week'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <ConfirmDialog
+        busy={isClearing}
+        confirmLabel={`Clear week ${selectedWeek}`}
+        description={`This permanently deletes every saved score for week ${selectedWeek} of the ${currentSeason} season. Matchup scheduling remains intact, but this action cannot be undone.`}
+        onClose={() => setShowClearWeekConfirm(false)}
+        onConfirm={clearWeek}
+        open={showClearWeekConfirm}
+        title={`Clear week ${selectedWeek} scores?`}
+        tone="warning"
+      />
+    </>
   )
 }

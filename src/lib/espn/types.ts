@@ -59,4 +59,75 @@ export interface ESPNConfig {
   private_league?: boolean;
   espn_s2?: string; // For private leagues
   swid?: string; // For private leagues
+  team_mappings?: Record<string, string>; // ESPN team ID -> season member ID
+}
+
+export interface ESPNMappingTeam {
+  espn_owner_name: string
+  espn_team_id: number
+  espn_team_name: string
+}
+
+export interface ESPNMappingMember {
+  manager_name: string
+  member_id: string
+  team_name: string
+}
+
+export interface ESPNMappingAssignment {
+  espn_team_id: number
+  member_id: string
+  source: 'automatic' | 'saved'
+}
+
+export interface ESPNTeamMappingSnapshot {
+  assignments: ESPNMappingAssignment[]
+  duplicate_matches: string[]
+  is_complete: boolean
+  members: ESPNMappingMember[]
+  teams: ESPNMappingTeam[]
+  unmapped_espn_team_ids: number[]
+  unmapped_member_ids: string[]
+}
+
+export interface ESPNTeamData {
+  id: number
+  location?: string
+  nickname?: string
+  name?: string
+  owners?: string[]
+  [key: string]: unknown
+}
+
+export interface ESPNMatchupData {
+  matchupPeriodId: number
+  home?: {
+    teamId: number
+    totalPoints?: number
+  }
+  away?: {
+    teamId: number
+    totalPoints?: number
+  }
+  [key: string]: unknown
+}
+
+export interface ESPNAPIResponse {
+  teams?: ESPNTeamData[]
+  schedule?: ESPNMatchupData[]
+  settings?: {
+    name?: string
+    scheduleSettings?: {
+      matchupPeriodCount?: number
+    }
+    [key: string]: unknown
+  }
+  scoringPeriodId?: number
+  status?: Record<string, unknown>
+  members?: Array<{
+    id: string
+    firstName: string
+    lastName: string
+    [key: string]: unknown
+  }>
 }

@@ -1,131 +1,121 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase, League } from '@/lib/supabase'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { LeagueCard } from '@/components/portfolio/LeagueCard'
+import { PortfolioOverview } from '@/components/portfolio/PortfolioOverview'
+import { Button } from '@/components/ui/Button'
+import { ContentState } from '@/components/ui/PageState'
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
+import { summarizePortfolio, type PortfolioLeague } from '@/lib/portfolio'
+import { loadCommissionerPortfolio } from '@/lib/portfolioClient'
 
 interface LeaguesListProps {
+  onCreateLeague: () => void
   refresh: number
 }
 
-interface LeagueWithFee extends Omit<League, 'fee_amount'> {
-  fee_amount?: number
+function PortfolioSkeleton() {
+  return (
+    <SkeletonGroup label="Loading leagues" className="grid gap-4 lg:grid-cols-2">
+      {[0, 1].map((item) => (
+        <Skeleton className="h-80 bg-app-surface" key={item} />
+      ))}
+    </SkeletonGroup>
+  )
 }
 
-export default function LeaguesList({ refresh }: LeaguesListProps) {
-  const router = useRouter()
-  const [leagues, setLeagues] = useState<LeagueWithFee[]>([])
+export default function LeaguesList({
+  onCreateLeague,
+  refresh,
+}: LeaguesListProps) {
+  const [leagues, setLeagues] = useState<PortfolioLeague[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
 
-  const fetchLeagues = async () => {
+  const fetchLeagues = useCallback(async () => {
+    setIsLoading(true)
+    setError('')
+
     try {
-      // First fetch leagues
-      const { data: leaguesData, error: leaguesError } = await supabase
-        .from('leagues')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (leaguesError) {
-        throw leaguesError
-      }
-
-      // Then fetch season configs for each league
-      const leaguesWithFee: LeagueWithFee[] = []
-      
-      for (const league of leaguesData || []) {
-        const { data: seasonData } = await supabase
-          .from('league_seasons')
-          .select('fee_amount')
-          .eq('league_id', league.id)
-          .eq('season', league.current_season)
-          .single()
-
-        leaguesWithFee.push({
-          ...league,
-          fee_amount: seasonData?.fee_amount || 150
-        })
-      }
-
-      setLeagues(leaguesWithFee)
+      setLeagues(await loadCommissionerPortfolio())
     } catch (err) {
       console.error('Error fetching leagues:', err)
-      setError('Failed to load leagues. Please check your connection.')
+      setError('The league portfolio could not be loaded. Check your connection and try again.')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    fetchLeagues()
-  }, [refresh])
+    const loadTimer = window.setTimeout(() => {
+      fetchLeagues()
+    }, 0)
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-claude-text-secondary">Loading leagues...</div>
-      </div>
-    )
-  }
+    return () => window.clearTimeout(loadTimer)
+  }, [fetchLeagues, refresh])
+
+  const portfolioSummary = useMemo(() => summarizePortfolio(leagues), [leagues])
+  const activeLeagues = leagues.filter((league) => !league.archived_at)
+  const archivedLeagues = leagues.filter((league) => league.archived_at)
+
+  if (isLoading) return <PortfolioSkeleton />
 
   if (error) {
     return (
-      <div className="text-center py-8">
-        <div className="text-claude-error">{error}</div>
-        <button
-          onClick={fetchLeagues}
-          className="mt-2 text-claude-primary hover:underline"
-        >
-          Try again
-        </button>
-      </div>
+      <ContentState
+        action={<Button onClick={fetchLeagues} variant="secondary">Try again</Button>}
+        className="p-6 sm:p-8"
+        description={error}
+        title="Could not load leagues"
+        tone="danger"
+      />
     )
   }
 
   if (leagues.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-claude-text-secondary mb-4">No leagues created yet</div>
-        <p className="text-claude-text-light">Create your first league to get started!</p>
-      </div>
+      <ContentState
+        action={<Button onClick={onCreateLeague}>Create league</Button>}
+        description="Add a league and season to start tracking scores, dues, standings, and payouts."
+        title="Create your first league office"
+      />
     )
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-claude-text mb-6">Your Leagues</h2>
-      <div className="grid gap-4">
-        {leagues.map((league) => (
-          <div
-            key={league.id}
-            className="bg-claude-surface border border-claude-border rounded-lg p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-semibold text-claude-text mb-1">
-                  {league.name}
-                </h3>
-                <div className="flex items-center gap-2 text-sm text-claude-text-secondary">
-                  <span>{league.current_season}</span>
-                  <span>•</span>
-                  <span>Fee: ${league.fee_amount || 150}</span>
-                  <span>•</span>
-                  <span>{new Date(league.created_at).toLocaleDateString()}</span>
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  console.log('Navigating to league:', league.id)
-                  router.push(`/league/${league.id}`)
-                }}
-                className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors font-medium"
-              >
-                View Details
-              </button>
-            </div>
-          </div>
+    <div>
+      <PortfolioOverview
+        onCreateLeague={onCreateLeague}
+        summary={portfolioSummary}
+      />
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {activeLeagues.map((league) => (
+          <LeagueCard key={league.id} league={league} />
         ))}
       </div>
+
+      {archivedLeagues.length > 0 && (
+        <section className="mt-8 border-t border-app-border pt-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-app-text">Archived leagues</h2>
+              <p className="mt-1 text-sm text-app-text-muted">History stays available and can be restored from League Settings.</p>
+            </div>
+            <Button onClick={() => setShowArchived((visible) => !visible)} variant="secondary">
+              {showArchived ? 'Hide' : `Show ${archivedLeagues.length}`}
+            </Button>
+          </div>
+          {showArchived && (
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              {archivedLeagues.map((league) => (
+                <LeagueCard key={league.id} league={league} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   )
 }

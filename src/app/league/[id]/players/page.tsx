@@ -1,661 +1,420 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase, League } from '@/lib/supabase'
-import SeasonSelector from '@/components/SeasonSelector'
-import ShareButton from '@/components/ShareButton'
-import SeasonBadges from '@/components/SeasonBadges'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
+import { useLeagueShell } from '@/components/league/LeagueShellContext'
+import AddPlayerDialog from '@/components/players/AddPlayerDialog'
+import PaymentDetailsDialog from '@/components/players/PaymentDetailsDialog'
+import { PlayerRosterSections } from '@/components/players/PlayerRosterSections'
+import { PlayersOverview } from '@/components/players/PlayersOverview'
+import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Notice } from '@/components/ui/Notice'
+import { PageSkeleton, PageState } from '@/components/ui/PageState'
+import { Toast } from '@/components/ui/Toast'
+import { useSeasonConfig } from '@/hooks/useSeasonConfig'
+import type { DuesStatus } from '@/lib/finance'
+import {
+  type FinanceSnapshot,
+  performFinanceAction,
+} from '@/lib/financeClient'
+import {
+  type PlayerDirectoryEntry,
+  type PlayerMembership,
+} from '@/lib/players'
+import { performMemberAction } from '@/lib/memberClient'
+import {
+  buildPlayerRosterViewModel,
+  type DuesFilter,
+  type PlayerRosterEntry,
+} from '@/lib/playerRoster'
+import { loadPlayerRoster } from '@/lib/playerRosterClient'
 
-interface PlayerManagementProps {
-  params: Promise<{
-    id: string
-  }>
+interface PlayersPageProps {
+  params: Promise<{ id: string }>
 }
 
-interface Player {
-  id: string
-  manager_name: string
-  team_names: string[] // Changed to array to handle multiple team names
-  current_team_name?: string // Current season's team name
-  seasons: string[]
-  isParticipating: boolean
-  payment_status?: 'pending' | 'paid'
+function PlayersSkeleton() {
+  return (
+    <PageSkeleton
+      cardClassName="h-64"
+      heroClassName="h-52 bg-app-surface"
+      label="Loading players"
+    />
+  )
 }
 
-export default function PlayerManagement({ params }: PlayerManagementProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const resolvedParams = use(params)
-  const [league, setLeague] = useState<League | null>(null)
-  const [players, setPlayers] = useState<Player[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [selectedSeason, setSelectedSeason] = useState<string>(searchParams.get('season') || '')
-  const [availableSeasons, setAvailableSeasons] = useState<string[]>([])
-  const [isAddPlayerModalOpen, setIsAddPlayerModalOpen] = useState(false)
-  const [newPlayer, setNewPlayer] = useState({ manager_name: '', team_name: '' })
-  const [isSaving, setIsSaving] = useState(false)
-  const [isParticipantsExpanded, setIsParticipantsExpanded] = useState(true)
-  const [isAvailableExpanded, setIsAvailableExpanded] = useState(false)
+export default function PlayersPage({ params }: PlayersPageProps) {
+  const { id } = use(params)
+  const {
+    isLeagueLoading,
+    isViewOnly,
+    league,
+    leagueLoadError,
+    reloadLeague,
+    selectedSeason,
+  } = useLeagueShell()
+  const [memberships, setMemberships] = useState<PlayerMembership[]>([])
+  const [isDataLoading, setIsDataLoading] = useState(true)
+  const [dataError, setDataError] = useState<string | null>(null)
+  const [financeError, setFinanceError] = useState<string | null>(null)
+  const [finance, setFinance] = useState<FinanceSnapshot | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [duesFilter, setDuesFilter] = useState<DuesFilter>('all')
+  const [busyMemberId, setBusyMemberId] = useState<string | null>(null)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+  const [paymentDialogError, setPaymentDialogError] = useState<string | null>(null)
+  const [paymentDialogPlayer, setPaymentDialogPlayer] =
+    useState<PlayerRosterEntry | null>(null)
+  const [playerToDeactivate, setPlayerToDeactivate] =
+    useState<PlayerRosterEntry | null>(null)
+  const {
+    error: seasonConfigError,
+    refetch: refetchSeasonConfig,
+    seasonConfig,
+  } = useSeasonConfig(id, selectedSeason)
 
-  // Check for read-only mode
-  const [isViewOnly, setIsViewOnly] = useState(false)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isReadOnly = localStorage.getItem('fantasy-readonly-mode') === 'true'
-      const readOnlyLeague = localStorage.getItem('fantasy-readonly-league')
-      const urlReadOnly = searchParams.get('readonly') === 'true'
-      
-      if ((isReadOnly && readOnlyLeague === resolvedParams.id) || urlReadOnly) {
-        setIsViewOnly(true)
-        // Set localStorage if coming from URL parameter
-        if (urlReadOnly) {
-          localStorage.setItem('fantasy-readonly-mode', 'true')
-          localStorage.setItem('fantasy-readonly-league', resolvedParams.id)
-        }
-      }
-    }
-  }, [resolvedParams.id, searchParams])
-
-  const fetchPlayersData = async () => {
-    try {
-      setIsLoading(true)
-      
-      // Fetch league details
-      const { data: leagueData, error: leagueError } = await supabase
-        .from('leagues')
-        .select('*')
-        .eq('id', resolvedParams.id)
-        .single()
-
-      if (leagueError) throw leagueError
-      setLeague(leagueData)
-
-      // Set selected season to current season if not set
-      const effectiveSeason = selectedSeason || leagueData.current_season
-      if (!selectedSeason) {
-        setSelectedSeason(effectiveSeason)
-      }
-
-      // Fetch all members across all seasons
-      const { data: allMembers, error: membersError } = await supabase
-        .from('league_members')
-        .select('*')
-        .eq('league_id', resolvedParams.id)
-
-      if (membersError) throw membersError
-
-      // Get unique seasons
-      const seasons = [...new Set(allMembers?.map(m => m.season).filter(Boolean) || [])]
-      setAvailableSeasons(seasons)
-
-      // Group players by manager_name only (unique players)
-      const playerMap = new Map<string, Player>()
-      
-      allMembers?.forEach(member => {
-        const key = member.manager_name
-        
-        if (playerMap.has(key)) {
-          const existing = playerMap.get(key)!
-          
-          // Only add season if not already present
-          if (!existing.seasons.includes(member.season)) {
-            existing.seasons.push(member.season)
-          }
-          
-          // Add team name if not already present
-          if (!existing.team_names.includes(member.team_name)) {
-            existing.team_names.push(member.team_name)
-          }
-          
-          // Update current season data only if this member is from the selected season
-          if (member.season === effectiveSeason && member.is_active) {
-            existing.isParticipating = true
-            existing.payment_status = member.payment_status
-            existing.current_team_name = member.team_name
-            existing.id = member.id // Update to selected season's member ID
-          }
-        } else {
-          playerMap.set(key, {
-            id: member.id,
-            manager_name: member.manager_name,
-            team_names: [member.team_name],
-            current_team_name: member.season === effectiveSeason && member.is_active ? member.team_name : undefined,
-            seasons: [member.season],
-            isParticipating: member.season === effectiveSeason && member.is_active,
-            payment_status: member.season === effectiveSeason && member.is_active ? member.payment_status : undefined
-          })
-        }
-      })
-
-      // Reset participation status for players not in selected season
-      playerMap.forEach((player) => {
-        const isInSelectedSeason = allMembers?.some(m => 
-          m.manager_name === player.manager_name && 
-          m.season === effectiveSeason && 
-          m.is_active
-        )
-        
-        if (!isInSelectedSeason) {
-          player.isParticipating = false
-          player.payment_status = undefined
-          player.current_team_name = undefined
-        }
-      })
-
-      setPlayers(Array.from(playerMap.values()))
-    } catch (err) {
-      console.error('Error fetching players data:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleSeasonChange = (season: string) => {
-    setSelectedSeason(season)
-    // Update URL to reflect season change, preserving readonly parameter if present
-    const currentPath = window.location.pathname
-    const urlParams = new URLSearchParams()
-    urlParams.set('season', season)
-    if (isViewOnly) {
-      urlParams.set('readonly', 'true')
-    }
-    router.replace(`${currentPath}?${urlParams.toString()}`)
-    // fetchPlayersData() will be called automatically via useEffect when selectedSeason changes
-  }
-
-  const togglePlayerParticipation = async (player: Player) => {
+  const fetchPlayers = useCallback(async () => {
     if (!selectedSeason) return
-    
-    setIsSaving(true)
+
+    setIsDataLoading(true)
+    setDataError(null)
+    setFinanceError(null)
     try {
-      if (player.isParticipating) {
-        // Remove from season
-        await supabase
-          .from('league_members')
-          .delete()
-          .eq('league_id', resolvedParams.id)
-          .eq('season', selectedSeason)
-          .eq('manager_name', player.manager_name)
-          .eq('team_name', player.current_team_name)
-      } else {
-        // Add to season - use current team name or most recent team name
-        const teamNameToUse = player.current_team_name || player.team_names[player.team_names.length - 1]
-        await supabase
-          .from('league_members')
-          .insert({
-            league_id: resolvedParams.id,
-            manager_name: player.manager_name,
-            team_name: teamNameToUse,
-            season: selectedSeason,
-            is_active: true,
-            payment_status: 'pending'
-          })
-      }
-      
-      fetchPlayersData()
-    } catch (err) {
-      console.error('Error updating player participation:', err)
+      const snapshot = await loadPlayerRoster(id, selectedSeason)
+      setMemberships(snapshot.memberships)
+      setFinance(snapshot.finance)
+      setFinanceError(snapshot.financeError)
+    } catch (error) {
+      console.error('Failed to load players:', error)
+      setDataError(
+        error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : 'Players could not be loaded.',
+      )
+      setMemberships([])
+      setFinance(null)
     } finally {
-      setIsSaving(false)
+      setIsDataLoading(false)
     }
-  }
-
-  const togglePaymentStatus = async (player: Player) => {
-    if (!selectedSeason || !player.isParticipating || !player.current_team_name) return
-
-    setIsSaving(true)
-    try {
-      const newStatus = player.payment_status === 'paid' ? 'pending' : 'paid'
-      
-      console.log('Updating payment status:', {
-        player: player.manager_name,
-        team: player.current_team_name,
-        season: selectedSeason,
-        newStatus,
-        leagueId: resolvedParams.id
-      })
-      
-      const { data, error } = await supabase
-        .from('league_members')
-        .update({ payment_status: newStatus })
-        .eq('league_id', resolvedParams.id)
-        .eq('season', selectedSeason)
-        .eq('manager_name', player.manager_name)
-        .eq('is_active', true)
-        .select()
-
-      if (error) {
-        console.error('Supabase error updating payment status:', error)
-        throw error
-      }
-
-      console.log('Payment status updated successfully:', data)
-      
-      // Refresh the data to show the change
-      fetchPlayersData()
-    } catch (err) {
-      console.error('Error updating payment status:', err)
-      alert('Failed to update payment status. Please try again.')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const addNewPlayer = async () => {
-    if (!newPlayer.manager_name || !newPlayer.team_name || !selectedSeason) return
-
-    setIsSaving(true)
-    try {
-      await supabase
-        .from('league_members')
-        .insert({
-          league_id: resolvedParams.id,
-          manager_name: newPlayer.manager_name,
-          team_name: newPlayer.team_name,
-          season: selectedSeason,
-          is_active: true,
-          payment_status: 'pending'
-        })
-      
-      setNewPlayer({ manager_name: '', team_name: '' })
-      setIsAddPlayerModalOpen(false)
-      fetchPlayersData()
-    } catch (err) {
-      console.error('Error adding new player:', err)
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  }, [id, selectedSeason])
 
   useEffect(() => {
-    fetchPlayersData()
-  }, [resolvedParams.id, selectedSeason])
+    const loadTimer = window.setTimeout(() => fetchPlayers(), 0)
+    return () => window.clearTimeout(loadTimer)
+  }, [fetchPlayers])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-orange-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading player management...</div>
-      </div>
-    )
+  const roster = useMemo(
+    () =>
+      buildPlayerRosterViewModel({
+        duesFilter,
+        finance,
+        isViewOnly,
+        memberships,
+        search,
+        selectedSeason,
+      }),
+    [duesFilter, finance, isViewOnly, memberships, search, selectedSeason],
+  )
+  const {
+    currentPlayers,
+    filteredCurrentPlayers,
+    filteredFormerPlayers,
+    formerPlayers,
+    paidPlayers,
+    partialPlayers,
+    pendingPlayers,
+    representedSeasons,
+    returningPlayers,
+  } = roster
+
+  const handlePaymentChange = async (player: PlayerRosterEntry) => {
+    if (!player.currentMemberId || !player.paymentStatus) return
+
+    setBusyMemberId(player.currentMemberId)
+    setDataError(null)
+    setNotice(null)
+    try {
+      const payment = player.payment
+      const currentStatus = player.duesStatus
+      const nextStatus = currentStatus === 'paid' ? 'pending' : 'paid'
+
+      if (finance?.schema_ready && payment) {
+        await performFinanceAction(id, {
+          action: 'set_payment',
+          member_id: player.currentMemberId,
+          notes: payment.notes,
+          paid_amount_cents: nextStatus === 'pending' ? 0 : null,
+          payment_method: payment.payment_method,
+          season: selectedSeason,
+          status: nextStatus,
+        })
+        setNotice(`${player.managerName} marked ${nextStatus}.`)
+      } else {
+        const message = await performMemberAction(id, {
+          action: 'set_payment',
+          member_id: player.currentMemberId,
+          payment_status: nextStatus,
+          season: selectedSeason,
+        })
+        setNotice(message)
+      }
+      await fetchPlayers()
+    } catch (error) {
+      setDataError(
+        error instanceof Error ? error.message : 'Payment status could not be updated.',
+      )
+    } finally {
+      setBusyMemberId(null)
+    }
   }
+
+  const handleDetailedPayment = async (details: {
+    notes: string | null
+    paid_amount_cents: number | null
+    payment_method: string | null
+    status: DuesStatus
+  }) => {
+    const memberId = paymentDialogPlayer?.currentMemberId
+    if (!memberId) return
+
+    setBusyMemberId(memberId)
+    setPaymentDialogError(null)
+    setNotice(null)
+    try {
+      await performFinanceAction(id, {
+        action: 'set_payment',
+        member_id: memberId,
+        notes: details.notes,
+        paid_amount_cents: details.paid_amount_cents,
+        payment_method: details.payment_method,
+        season: selectedSeason,
+        status: details.status,
+      })
+      const playerName = paymentDialogPlayer.managerName
+      setPaymentDialogPlayer(null)
+      setNotice(`${playerName}’s payment details were saved.`)
+      await fetchPlayers()
+    } catch (error) {
+      setPaymentDialogError(
+        error instanceof Error ? error.message : 'Payment could not be saved.',
+      )
+    } finally {
+      setBusyMemberId(null)
+    }
+  }
+
+  const handleActivate = async (player: PlayerDirectoryEntry) => {
+    setBusyMemberId(player.sourceMemberId)
+    setDataError(null)
+    setNotice(null)
+    try {
+      const message = await performMemberAction(id, {
+        action: 'activate',
+        member_id: player.sourceMemberId,
+        season: selectedSeason,
+      })
+      setNotice(message)
+      await fetchPlayers()
+    } catch (error) {
+      setDataError(
+        error instanceof Error ? error.message : 'Player could not be added.',
+      )
+    } finally {
+      setBusyMemberId(null)
+    }
+  }
+
+  const handleAddPlayer = async (player: {
+    manager_name: string
+    team_name: string
+  }) => {
+    setIsAdding(true)
+    setAddError(null)
+    setNotice(null)
+    try {
+      const message = await performMemberAction(id, {
+        action: 'add',
+        manager_name: player.manager_name,
+        season: selectedSeason,
+        team_name: player.team_name,
+      })
+      setNotice(message)
+      setIsAddDialogOpen(false)
+      await fetchPlayers()
+    } catch (error) {
+      setAddError(
+        error instanceof Error ? error.message : 'Player could not be added.',
+      )
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  const handleDeactivate = async () => {
+    if (!playerToDeactivate?.currentMemberId) return
+
+    const memberId = playerToDeactivate.currentMemberId
+    setBusyMemberId(memberId)
+    setDataError(null)
+    setNotice(null)
+    try {
+      const message = await performMemberAction(id, {
+        action: 'deactivate',
+        member_id: memberId,
+        season: selectedSeason,
+      })
+      setNotice(message)
+      setPlayerToDeactivate(null)
+      await fetchPlayers()
+    } catch (error) {
+      setPlayerToDeactivate(null)
+      setDataError(
+        error instanceof Error ? error.message : 'Player could not be removed.',
+      )
+    } finally {
+      setBusyMemberId(null)
+    }
+  }
+
+  if (isLeagueLoading || isDataLoading) return <PlayersSkeleton />
 
   if (!league) {
+    return <LeagueUnavailable error={leagueLoadError} onRetry={reloadLeague} />
+  }
+
+  if (dataError && memberships.length === 0) {
     return (
-      <div className="min-h-screen bg-orange-50 flex items-center justify-center">
-        <div className="text-red-600">League not found</div>
-      </div>
+      <PageState
+        action={<Button onClick={fetchPlayers}>Try again</Button>}
+        description="The roster could not be loaded. Existing players and payment statuses have not been changed."
+        eyebrow={`${selectedSeason} season`}
+        title="Players couldn’t be loaded"
+        tone="danger"
+      />
     )
   }
 
-  const participatingPlayers = players
-    .filter(p => p.isParticipating)
-    .sort((a, b) => {
-      // First sort by payment status (unpaid first)
-      if (a.payment_status !== b.payment_status) {
-        if (a.payment_status === 'pending' && b.payment_status === 'paid') return -1
-        if (a.payment_status === 'paid' && b.payment_status === 'pending') return 1
-      }
-      // Then sort alphabetically by manager name
-      return a.manager_name.localeCompare(b.manager_name)
-    })
-  
-  const nonParticipatingPlayers = players
-    .filter(p => !p.isParticipating)
-    .sort((a, b) => a.manager_name.localeCompare(b.manager_name))
-
   return (
-    <div className="min-h-screen bg-orange-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                const urlParams = new URLSearchParams()
-                urlParams.set('season', selectedSeason)
-                if (isViewOnly) {
-                  urlParams.set('readonly', 'true')
-                }
-                router.push(`/league/${resolvedParams.id}?${urlParams.toString()}`)
-              }}
-              className="text-claude-text-secondary hover:text-claude-text"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-claude-text cursor-pointer hover:text-claude-text-secondary transition-colors" onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}?${urlParams.toString()}`)
-                }}>
-                  {league.name}
-                </h1>
-                {isViewOnly && (
-                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
-                    🔍 View Only
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 mt-2">
-                <SeasonSelector
-                  currentSeason={selectedSeason}
-                  onSeasonChange={handleSeasonChange}
-                  availableSeasons={availableSeasons}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Home
-              </button>
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}/standings?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Standings
-              </button>
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}/scores?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Weekly Scores
-              </button>
-              <button
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors bg-white text-claude-text shadow-sm"
-              >
-                Players
-              </button>
-            </div>
-            {!isViewOnly && (
-              <button
-                onClick={() => setIsAddPlayerModalOpen(true)}
-                className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-              >
-                Add New Player
-              </button>
-            )}
-            <ShareButton 
-              shareUrl={`${window.location.origin}/league/${resolvedParams.id}/players?readonly=true&season=${selectedSeason}`}
-              label="Share Players"
-              className="text-sm"
-            />
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-6 py-8 space-y-8">
-        {/* Season Participants */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <button
-              onClick={() => setIsParticipantsExpanded(!isParticipantsExpanded)}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h2 className="text-xl font-semibold text-gray-900">
-                {selectedSeason} Season Participants ({participatingPlayers.length})
-              </h2>
-              <svg
-                className={`w-5 h-5 transition-transform ${isParticipantsExpanded ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
-          
-          {isParticipantsExpanded && (
-            <>
-              {participatingPlayers.length === 0 ? (
-                <div className="px-6 py-12 text-center">
-                  <p className="text-gray-500 mb-4">No players for {selectedSeason} season yet</p>
-                  {!isViewOnly && (
-                    <button
-                      onClick={() => setIsAddPlayerModalOpen(true)}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Add your first player
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {participatingPlayers.map((player) => (
-                    <div key={player.manager_name} className="px-6 py-4 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900">{player.manager_name}</h3>
-                        <p className="text-gray-600">
-                          {player.current_team_name && (
-                            <span className="font-medium">{player.current_team_name}</span>
-                          )}
-                          {player.team_names.length > 1 && (
-                            <span className="text-gray-500 text-xs ml-2">
-                              (Also: {player.team_names.filter(name => name !== player.current_team_name).join(', ')})
-                            </span>
-                          )}
-                        </p>
-                        <SeasonBadges 
-                          leagueId={resolvedParams.id}
-                          managerName={player.manager_name}
-                          seasons={player.seasons}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="flex items-center gap-4">
-                        {isViewOnly ? (
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            player.payment_status === 'paid'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {player.payment_status === 'paid' ? 'Paid' : 'Pending'}
-                          </span>
-                        ) : (
-                          <>
-                            {isViewOnly ? (
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                player.payment_status === 'paid'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-yellow-100 text-yellow-700'
-                              }`}>
-                                {player.payment_status === 'paid' ? 'Paid' : 'Pending'}
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => togglePaymentStatus(player)}
-                                disabled={isSaving}
-                                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                                  player.payment_status === 'paid'
-                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                    : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                                } disabled:opacity-50`}
-                              >
-                                {player.payment_status === 'paid' ? 'Paid' : 'Pending'}
-                              </button>
-                            )}
-                            {!isViewOnly && (
-                              <button
-                                onClick={() => togglePlayerParticipation(player)}
-                                disabled={isSaving}
-                                className="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded-full text-sm font-medium transition-colors disabled:opacity-50"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Available Players */}
-        {(
-          <div className="bg-white rounded-lg border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <button
-                onClick={() => setIsAvailableExpanded(!isAvailableExpanded)}
-                className="flex items-center justify-between w-full text-left"
-              >
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Available Players ({nonParticipatingPlayers.length})
-                </h2>
-                <svg
-                  className={`w-5 h-5 transition-transform ${isAvailableExpanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            </div>
-            
-            {isAvailableExpanded && (
-              <>
-                {nonParticipatingPlayers.length === 0 ? (
-                  <div className="px-6 py-12 text-center">
-                    <p className="text-gray-500">All players are currently participating in {selectedSeason}</p>
-                    <p className="text-gray-400 text-sm mt-2">Players from previous seasons who are not in the current season will appear here</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-100">
-                    {nonParticipatingPlayers.map((player) => (
-                      <div key={player.manager_name} className="px-6 py-4 flex items-center justify-between">
-                        <div>
-                          <h3 className="font-medium text-gray-900">{player.manager_name}</h3>
-                          <p className="text-gray-600">
-                            {player.team_names.join(', ')}
-                          </p>
-                          <div className="mt-1">
-                            <p className="text-xs text-gray-500 mb-1">Previous seasons:</p>
-                            <SeasonBadges 
-                              leagueId={resolvedParams.id}
-                              managerName={player.manager_name}
-                              seasons={player.seasons}
-                            />
-                          </div>
-                        </div>
-                        {!isViewOnly && (
-                          <button
-                            onClick={() => togglePlayerParticipation(player)}
-                            disabled={isSaving}
-                            className="px-3 py-1 bg-green-100 text-green-700 hover:bg-green-200 rounded-full text-sm font-medium transition-colors disabled:opacity-50"
-                          >
-                            Add to {selectedSeason}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* Add Player Modal */}
-      {isAddPlayerModalOpen && !isViewOnly && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Add New Player</h2>
-              <button
-                onClick={() => setIsAddPlayerModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Manager Name
-                </label>
-                <input
-                  type="text"
-                  value={newPlayer.manager_name}
-                  onChange={(e) => setNewPlayer(prev => ({...prev, manager_name: e.target.value}))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="Enter manager name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Team Name
-                </label>
-                <input
-                  type="text"
-                  value={newPlayer.team_name}
-                  onChange={(e) => setNewPlayer(prev => ({...prev, team_name: e.target.value}))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="Enter team name"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsAddPlayerModalOpen(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  disabled={isSaving}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={addNewPlayer}
-                  disabled={isSaving || !newPlayer.manager_name || !newPlayer.team_name}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
-                >
-                  {isSaving ? 'Adding...' : 'Add Player'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+    <main className="mx-auto min-w-0 max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      {dataError && (
+        <Notice className="mb-5" tone="danger">{dataError}</Notice>
       )}
-    </div>
+      {financeError && !isViewOnly && (
+        <Notice className="mb-5" role="alert" tone="warning">
+          {financeError} Basic paid and pending controls remain available.
+        </Notice>
+      )}
+      <Toast message={notice} onDismiss={() => setNotice(null)} />
+      {seasonConfigError && (
+        <Notice className="mb-5" tone="warning">
+          {seasonConfigError} Expected dues use a safe $0 fee until the season is configured.
+          <Button className="mt-3" onClick={refetchSeasonConfig} size="sm" variant="secondary">
+            Retry season settings
+          </Button>
+        </Notice>
+      )}
+
+      <PlayersOverview
+        alumniCount={formerPlayers.length}
+        collectedAmount={
+          finance?.summary
+            ? finance.summary.collected_cents / 100
+            : paidPlayers * (seasonConfig?.fee_amount || 0)
+        }
+        currentPlayerCount={currentPlayers.length}
+        duesFilter={duesFilter}
+        expectedAmount={
+          finance?.summary
+            ? finance.summary.expected_cents / 100
+            : currentPlayers.length * (seasonConfig?.fee_amount || 0)
+        }
+        isViewOnly={isViewOnly}
+        onAddPlayer={() => {
+          setAddError(null)
+          setIsAddDialogOpen(true)
+        }}
+        onDuesFilterChange={setDuesFilter}
+        onSearchChange={setSearch}
+        paidPlayers={paidPlayers}
+        partialPlayers={partialPlayers}
+        pendingPlayers={pendingPlayers}
+        representedSeasons={representedSeasons}
+        returningPlayers={returningPlayers}
+        search={search}
+        selectedSeason={selectedSeason}
+      />
+
+      <PlayerRosterSections
+        busyMemberId={busyMemberId}
+        currentPlayerCount={currentPlayers.length}
+        currentPlayers={filteredCurrentPlayers}
+        formerPlayers={filteredFormerPlayers}
+        isViewOnly={isViewOnly}
+        onActivate={handleActivate}
+        onDeactivate={setPlayerToDeactivate}
+        onOpenPayment={(player) => {
+          setPaymentDialogError(null)
+          setPaymentDialogPlayer(player)
+        }}
+        onPaymentChange={handlePaymentChange}
+        search={search}
+        selectedSeason={selectedSeason}
+      />
+
+      {!isViewOnly && (
+        <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-5 text-app-text-muted">
+          League history keeps the same person together across seasons, even when their manager display or team name changes.
+        </p>
+      )}
+
+      {!isViewOnly && isAddDialogOpen && (
+        <AddPlayerDialog
+          busy={isAdding}
+          error={addError}
+          onClose={() => {
+            if (!isAdding) setIsAddDialogOpen(false)
+          }}
+          onSubmit={handleAddPlayer}
+          open={isAddDialogOpen}
+          season={selectedSeason}
+        />
+      )}
+      {!isViewOnly && paymentDialogPlayer?.currentMemberId && (() => {
+        const payment = paymentDialogPlayer.payment
+        if (!payment) return null
+        return (
+          <PaymentDetailsDialog
+            busy={busyMemberId === paymentDialogPlayer.currentMemberId}
+            error={paymentDialogError}
+            key={paymentDialogPlayer.currentMemberId}
+            onClose={() => {
+              if (!busyMemberId) setPaymentDialogPlayer(null)
+            }}
+            onSubmit={handleDetailedPayment}
+            open
+            payment={payment}
+            playerName={paymentDialogPlayer.managerName}
+          />
+        )
+      })()}
+      <ConfirmDialog
+        busy={Boolean(
+          playerToDeactivate?.currentMemberId &&
+            busyMemberId === playerToDeactivate.currentMemberId,
+        )}
+        confirmLabel="Remove from season"
+        description={`Remove ${playerToDeactivate?.managerName || 'this player'} from the ${selectedSeason} active roster? This is allowed only before they have scores or matchups; historical data is never deleted.`}
+        onClose={() => {
+          if (!busyMemberId) setPlayerToDeactivate(null)
+        }}
+        onConfirm={handleDeactivate}
+        open={Boolean(playerToDeactivate)}
+        title="Remove player from this season?"
+      />
+    </main>
   )
 }

@@ -1,12 +1,21 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase, League, LeagueMember } from '@/lib/supabase'
+import Link from 'next/link'
+import { useState, useEffect, use, useCallback } from 'react'
 import WeeklyScores from '@/components/WeeklyScores'
-import ShareButton from '@/components/ShareButton'
-import SeasonSelector from '@/components/SeasonSelector'
 import PlatformImport from '@/components/PlatformImport'
+import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
+import { useLeagueShell } from '@/components/league/LeagueShellContext'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Notice } from '@/components/ui/Notice'
+import { PageSkeleton, PageState } from '@/components/ui/PageState'
+import { Toast } from '@/components/ui/Toast'
+import {
+  loadScoresPageData,
+  type ScoreRosterMember,
+} from '@/lib/scoresClient'
 
 interface WeeklyScoresPageProps {
   params: Promise<{
@@ -15,324 +24,207 @@ interface WeeklyScoresPageProps {
 }
 
 export default function WeeklyScoresPage({ params }: WeeklyScoresPageProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const resolvedParams = use(params)
-  const [selectedSeason, setSelectedSeason] = useState<string>(searchParams.get('season') || '')
-  const [availableSeasons, setAvailableSeasons] = useState<string[]>([])
-  const [league, setLeague] = useState<League | null>(null)
-  const [members, setMembers] = useState<LeagueMember[]>([])
+  const {
+    isLeagueLoading,
+    isViewOnly,
+    league,
+    leagueLoadError,
+    reloadLeague,
+    selectedSeason,
+    shareToken,
+  } = useLeagueShell()
+  const [members, setMembers] = useState<ScoreRosterMember[]>([])
+  const [latestRecordedWeek, setLatestRecordedWeek] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
+  const [notice, setNotice] = useState<{
+    kind: 'error' | 'success'
+    message: string
+  } | null>(null)
 
-  // Check for read-only mode on component mount  
-  const [isViewOnly, setIsViewOnly] = useState(false)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isReadOnly = localStorage.getItem('fantasy-readonly-mode') === 'true'
-      const readOnlyLeague = localStorage.getItem('fantasy-readonly-league')
-      const urlReadOnly = searchParams.get('readonly') === 'true'
-      
-      if ((isReadOnly && readOnlyLeague === resolvedParams.id) || urlReadOnly) {
-        setIsViewOnly(true)
-        // Set localStorage if coming from URL parameter
-        if (urlReadOnly) {
-          localStorage.setItem('fantasy-readonly-mode', 'true')
-          localStorage.setItem('fantasy-readonly-league', resolvedParams.id)
-        }
-      }
-    }
-  }, [resolvedParams.id, searchParams])
+  const fetchLeagueData = useCallback(async () => {
+    if (!selectedSeason) return
 
-  const fetchLeagueData = async () => {
     try {
-      const { data: leagueData, error: leagueError } = await supabase
-        .from('leagues')
-        .select('*')
-        .eq('id', resolvedParams.id)
-        .single()
-
-      if (leagueError) {
-        throw new Error(`Failed to fetch league: ${leagueError.message || 'Unknown error'}`)
-      }
-
-      setLeague(leagueData)
-
-      // Set selected season to current season if not set
-      const currentSeason = selectedSeason || leagueData.current_season
-      if (!selectedSeason) {
-        setSelectedSeason(currentSeason)
-      }
-
-      // Fetch available seasons
-      const { data: seasonsData } = await supabase
-        .from('league_members')
-        .select('season')
-        .eq('league_id', resolvedParams.id)
-      
-      const seasons = [...new Set(seasonsData?.map(s => s.season).filter(Boolean) || [])]
-      setAvailableSeasons(seasons)
-
-      const { data: primaryMembersData, error: primaryMembersError } = await supabase
-        .from('league_members')
-        .select('*')
-        .eq('league_id', resolvedParams.id)
-        .eq('season', currentSeason)
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-
-      let membersData = primaryMembersData
-      
-      if (primaryMembersError) {
-        const { data: altMembersData, error: altMembersError } = await supabase
-          .from('members')
-          .select('*')
-          .eq('league_id', resolvedParams.id)
-          .order('updated_at', { ascending: false })
-        
-        if (!altMembersError) {
-          membersData = altMembersData
-        }
-      }
-
-      setMembers(membersData || [])
+      setIsLoading(true)
+      setLoadError(null)
+      const snapshot = await loadScoresPageData(
+        resolvedParams.id,
+        selectedSeason,
+      )
+      setMembers(snapshot.members)
+      setLatestRecordedWeek(snapshot.latestRecordedWeek)
     } catch (err) {
       console.error('Error fetching league data:', err)
+      setMembers([])
+      setLoadError('The active players for this season could not be loaded.')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [resolvedParams.id, selectedSeason])
 
   const clearAllScores = async () => {
     setIsClearing(true)
+    setNotice(null)
+
     try {
-      // First clear all weekly scores
-      const { error: scoresError } = await supabase
-        .from('weekly_scores')
-        .delete()
-        .eq('league_id', resolvedParams.id)
-        .eq('season', selectedSeason)
-
-      if (scoresError) {
-        console.error('Error clearing scores:', scoresError)
-        alert('Error clearing scores. Please try again.')
-        return
+      const response = await fetch(
+        `/api/leagues/${resolvedParams.id}/scores/manual`,
+        {
+          body: JSON.stringify({
+            action: 'clear_season',
+            season: selectedSeason,
+          }),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        },
+      )
+      const payload = (await response.json()) as {
+        error?: string
+        message?: string
+        success: boolean
       }
 
-      // Then clear all matchup results for this season
-      const { error: matchupError } = await supabase
-        .from('matchups')
-        .update({
-          team1_score: null,
-          team2_score: null,
-          winner_member_id: null,
-          is_tie: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('league_id', resolvedParams.id)
-        .eq('season', selectedSeason)
-
-      if (matchupError) {
-        console.error('Error clearing matchup results:', matchupError)
-        alert('Error clearing matchup results. Please try again.')
-        return
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Season scores could not be cleared.')
       }
 
-      alert(`All weekly scores and matchup results for ${selectedSeason} season have been cleared successfully!`)
-      // The WeeklyScores component will refresh automatically
-    } catch (err) {
-      console.error('Error clearing season data:', err)
-      alert('Error clearing season data. Please try again.')
+      setNotice({
+        kind: 'success',
+        message: payload.message || `${selectedSeason} season scores cleared.`,
+      })
+      window.dispatchEvent(new CustomEvent('league-scores-imported'))
+    } catch (error) {
+      setNotice({
+        kind: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Season scores could not be cleared.',
+      })
     } finally {
       setIsClearing(false)
       setShowClearConfirm(false)
     }
   }
 
-  const handleSeasonChange = (season: string) => {
-    setSelectedSeason(season)
-    // Update URL to reflect season change, preserving readonly parameter if present
-    const currentPath = window.location.pathname
-    const urlParams = new URLSearchParams()
-    urlParams.set('season', season)
-    if (isViewOnly) {
-      urlParams.set('readonly', 'true')
-    }
-    router.replace(`${currentPath}?${urlParams.toString()}`)
-    // Refetch data when season changes
-    fetchLeagueData()
-  }
-
   useEffect(() => {
     fetchLeagueData()
-  }, [resolvedParams.id, selectedSeason])
+  }, [fetchLeagueData])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-orange-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
-      </div>
-    )
+  if (isLeagueLoading || isLoading) {
+    return <PageSkeleton label="Loading scores" />
   }
 
   if (!league) {
+    return <LeagueUnavailable error={leagueLoadError} onRetry={reloadLeague} />
+  }
+
+  if (loadError) {
     return (
-      <div className="min-h-screen bg-orange-50 flex items-center justify-center">
-        <div className="text-red-600">League not found</div>
-      </div>
+      <PageState
+        action={<Button onClick={fetchLeagueData}>Try again</Button>}
+        description="Scores are hidden because the season roster could not be loaded safely. No score data has been changed."
+        eyebrow={`${selectedSeason} season`}
+        title="Scores couldn’t be loaded"
+        tone="danger"
+      />
+    )
+  }
+
+  if (members.length === 0) {
+    const query = new URLSearchParams({ season: selectedSeason })
+    if (shareToken) query.set('share', shareToken)
+
+    return (
+      <PageState
+        action={!isViewOnly ? (
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-[var(--app-radius-sm)] bg-app-brand px-4 text-sm font-semibold text-white"
+            href={`/league/${resolvedParams.id}/players?${query.toString()}`}
+          >
+            Add season players
+          </Link>
+        ) : undefined}
+        description={
+          isViewOnly
+            ? 'The commissioner has not published a roster for this season yet.'
+            : 'Add the active season roster before importing or entering weekly scores.'
+        }
+        eyebrow={`${selectedSeason} season`}
+        title="No players in this season"
+      />
     )
   }
 
   return (
-    <div className="min-h-screen bg-orange-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                const urlParams = new URLSearchParams()
-                urlParams.set('season', selectedSeason)
-                if (isViewOnly) {
-                  urlParams.set('readonly', 'true')
-                }
-                router.push(`/league/${resolvedParams.id}?${urlParams.toString()}`)
-              }}
-              className="text-claude-text-secondary hover:text-claude-text"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-claude-text cursor-pointer hover:text-claude-text-secondary transition-colors" onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}?${urlParams.toString()}`)
-                }}>
-                  {league.name}
-                </h1>
-                {isViewOnly && (
-                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
-                    🔍 View Only
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4">
-                <SeasonSelector
-                  currentSeason={selectedSeason}
-                  onSeasonChange={handleSeasonChange}
-                  availableSeasons={availableSeasons}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Home
-              </button>
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}/standings?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Standings
-              </button>
-              <button
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors bg-white text-claude-text shadow-sm"
-              >
-                Weekly Scores
-              </button>
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams()
-                  urlParams.set('season', selectedSeason)
-                  if (isViewOnly) {
-                    urlParams.set('readonly', 'true')
-                  }
-                  router.push(`/league/${resolvedParams.id}/players?${urlParams.toString()}`)
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-claude-text-secondary hover:text-claude-text hover:bg-white"
-              >
-                Players
-              </button>
-            </div>
-            {!isViewOnly && (
-              <button
-                onClick={() => setShowClearConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors border-0"
-              >
-                Clear All Scores
-              </button>
-            )}
-            <ShareButton 
-              shareUrl={`${window.location.origin}/league/${resolvedParams.id}/scores?readonly=true&season=${selectedSeason}`}
-              label="Share Scores"
-              className="text-sm"
-            />
-          </div>
-        </div>
-      </header>
+    <main className="mx-auto min-w-0 max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand-strong">
+          {selectedSeason} season
+        </p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
+          Weekly scores
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
+          Review each week&apos;s high score, full ranking, and head-to-head results.
+        </p>
+      </div>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        {!isViewOnly && (
-          <PlatformImport leagueId={resolvedParams.id} season={selectedSeason} />
-        )}
-        <WeeklyScores leagueId={resolvedParams.id} members={members} season={selectedSeason} readOnly={isViewOnly} />
-      </main>
+      {notice?.kind === 'error' && <Notice className="mb-4" tone="danger">{notice.message}</Notice>}
+      <Toast
+        message={notice?.kind === 'success' ? notice.message : null}
+        onDismiss={() => setNotice(null)}
+      />
 
-      {/* Clear All Confirmation Modal */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-red-600 mb-4">⚠️ Clear All Weekly Scores</h3>
-            <p className="text-gray-700 mb-6">
-              This will permanently delete <strong>ALL</strong> weekly scores for the <strong>{selectedSeason}</strong> season from the database. 
-              This action cannot be undone.
-            </p>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to continue?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                disabled={isClearing}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={clearAllScores}
-                disabled={isClearing}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-0"
-              >
-                {isClearing ? 'Clearing...' : 'Yes, Clear All'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {!isViewOnly && selectedSeason === league.current_season && (
+        <PlatformImport leagueId={resolvedParams.id} season={selectedSeason} />
       )}
-    </div>
+      {!isViewOnly && selectedSeason !== league.current_season && (
+        <Card className="mb-6 border-app-info/20 bg-app-info-soft p-4 sm:p-5">
+          <h2 className="font-semibold text-app-text">Score imports unavailable</h2>
+          <p className="mt-1 text-sm leading-6 text-app-text-muted">
+            ESPN imports are limited to the active {league.current_season} season so saved historical results cannot be overwritten. You can still review or manually correct {selectedSeason} scores below.
+          </p>
+        </Card>
+      )}
+      <WeeklyScores
+        initialWeek={latestRecordedWeek}
+        key={`${selectedSeason}-${latestRecordedWeek}`}
+        leagueId={resolvedParams.id}
+        members={members}
+        readOnly={isViewOnly}
+        season={selectedSeason}
+      />
+
+      {!isViewOnly && (
+        <Card className="mb-8 p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-app-text">Season data</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-app-text-muted">
+                Clear every weekly score only when you intend to rebuild the entire {selectedSeason} season. Saved matchup scheduling is preserved.
+              </p>
+            </div>
+            <Button onClick={() => setShowClearConfirm(true)} variant="danger">
+              Clear season scores
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      <ConfirmDialog
+        busy={isClearing}
+        confirmLabel={`Clear ${selectedSeason} scores`}
+        description={`This permanently deletes every weekly score for the ${selectedSeason} season. Matchup scheduling remains intact, but this action cannot be undone.`}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={clearAllScores}
+        open={showClearConfirm}
+        title={`Clear all ${selectedSeason} season scores?`}
+      />
+    </main>
   )
 }

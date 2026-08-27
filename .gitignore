@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -44,6 +46,13 @@ CLAUDE.md
 # AI/Claude-specific documentation (keep local, don't push to repo)
 .claude/
 
+# Local implementation handoff plan (shared only across local AI sessions)
+/LOCAL_IMPLEMENTATION_PLAN.md
+/LOCAL_BASELINE_SCREENSHOTS/
+
+# Supabase CLI machine-specific project linkage
+/supabase/.temp/
+
 # Temporary and local data files
 /data/
 /temp/
@@ -61,3 +70,4 @@ yarn.lock
 
 # typescript
 next-env.d.ts
+.env*

@@ -1,226 +1,106 @@
 @import "tailwindcss";
 
-/* CSS Custom Properties for consistent theming */
 :root {
-  --background: #ffffff;
-  --foreground: #1f2937;
+  --app-canvas: #f7f7f4;
+  --app-surface: #ffffff;
+  --app-surface-subtle: #f1f2ee;
+  --app-text: #18211d;
+  --app-text-muted: #637069;
+  --app-border: #dfe3df;
+  --app-brand: #176b4d;
+  --app-brand-strong: #0e5038;
+  --app-brand-soft: #e2f2eb;
+  --app-accent: #d97706;
+  --app-danger: #b42318;
+  --app-danger-soft: #fef0ed;
+  --app-warning: #a15c07;
+  --app-warning-soft: #fff4dd;
+  --app-info: #175cd3;
+  --app-info-soft: #eaf2ff;
+  --app-success: #16794d;
+  --app-radius-sm: 0.625rem;
+  --app-radius-md: 0.875rem;
+  --app-radius-lg: 1.125rem;
+  --app-shadow-sm: 0 1px 2px rgb(24 33 29 / 0.05);
+  --app-shadow-md: 0 12px 32px rgb(24 33 29 / 0.08);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-app-canvas: var(--app-canvas);
+  --color-app-surface: var(--app-surface);
+  --color-app-surface-subtle: var(--app-surface-subtle);
+  --color-app-text: var(--app-text);
+  --color-app-text-muted: var(--app-text-muted);
+  --color-app-border: var(--app-border);
+  --color-app-brand: var(--app-brand);
+  --color-app-brand-strong: var(--app-brand-strong);
+  --color-app-brand-soft: var(--app-brand-soft);
+  --color-app-accent: var(--app-accent);
+  --color-app-danger: var(--app-danger);
+  --color-app-danger-soft: var(--app-danger-soft);
+  --color-app-warning: var(--app-warning);
+  --color-app-warning-soft: var(--app-warning-soft);
+  --color-app-info: var(--app-info);
+  --color-app-info-soft: var(--app-info-soft);
+  --color-app-success: var(--app-success);
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-/* Force light mode for consistent appearance across all browsers */
 html {
   color-scheme: light only;
+  background: var(--app-canvas);
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  margin: 0;
+  overflow-x: clip;
+  background: var(--app-canvas);
+  color: var(--app-text);
+  font-family: var(--font-sans);
 }
 
-/* Global text inheritance for consistent styling */
-* {
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+a {
   color: inherit;
+  text-decoration: none;
 }
 
-/* Override light gray text colors for better readability */
-.text-gray-50,
-.text-gray-100,
-.text-gray-200 {
-  color: #374151 !important; /* Use gray-700 for sufficient contrast */
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
-/* Ensure white backgrounds maintain proper text contrast */
-.bg-white {
-  background-color: #ffffff !important;
-  color: #1f2937 !important; /* Dark gray for readability */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
 }
 
-/* 
- * Button Color Overrides
- * Uses softer, more eye-friendly colors while maintaining accessibility
- */
-
-/* Orange button colors - used for primary actions */
-.bg-orange-500 {
-  background-color: #fb923c !important; /* Muted orange for better visual comfort */
-  color: #ffffff !important;
+:focus-visible {
+  outline: 3px solid rgb(23 107 77 / 0.28);
+  outline-offset: 2px;
 }
 
-.bg-orange-600 {
-  background-color: #f97316 !important; /* Slightly darker muted orange */
-  color: #ffffff !important;
+::selection {
+  background: var(--app-brand-soft);
+  color: var(--app-brand-strong);
 }
 
-.bg-orange-700 {
-  background-color: #ea580c !important; /* Darkest muted orange */
-  color: #ffffff !important;
-}
-
-/* Red button colors - used for destructive actions */
-.bg-red-500 {
-  background-color: #f87171 !important; /* Softer red for less aggressive appearance */
-  color: #ffffff !important;
-}
-
-.bg-red-600 {
-  background-color: #ef4444 !important; /* Slightly darker soft red */
-  color: #ffffff !important;
-}
-
-.bg-red-700 {
-  background-color: #dc2626 !important; /* Darkest soft red */
-  color: #ffffff !important;
-}
-
-/* Blue, green, and slate button text colors */
-.bg-blue-500,
-.bg-blue-600,
-.bg-blue-700,
-.bg-blue-800 {
-  color: #ffffff !important;
-}
-
-.bg-green-600,
-.bg-green-700 {
-  color: #ffffff !important;
-}
-
-.bg-slate-600,
-.bg-slate-700 {
-  color: #ffffff !important;
-}
-
-/* 
- * Button Hover Effects
- * Applies to button elements only to avoid affecting other UI components
- */
-/* Orange button hover effects */
-button.bg-orange-500:hover,
-button.bg-orange-600:hover {
-  background-color: #ea580c !important; /* Darker orange on hover */
-  transform: translateY(-1px); /* Subtle lift effect */
-  transition: all 0.2s ease;
-}
-
-button.bg-orange-700:hover {
-  background-color: #c2410c !important; /* Even darker orange on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-/* Red button hover effects */
-button.bg-red-500:hover,
-button.bg-red-600:hover {
-  background-color: #dc2626 !important; /* Darker red on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-button.bg-red-700:hover {
-  background-color: #b91c1c !important; /* Even darker red on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-/* Blue button hover effects */
-button.bg-blue-500:hover,
-button.bg-blue-600:hover {
-  background-color: #2563eb !important; /* Darker blue on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-button.bg-blue-700:hover,
-button.bg-blue-800:hover {
-  background-color: #1d4ed8 !important; /* Even darker blue on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-/* Green button hover effects */
-button.bg-green-600:hover {
-  background-color: #16a34a !important; /* Darker green on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-button.bg-green-700:hover {
-  background-color: #15803d !important; /* Even darker green on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-/* Slate/gray button hover effects */
-button.bg-slate-600:hover {
-  background-color: #475569 !important; /* Darker slate on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-button.bg-slate-700:hover {
-  background-color: #334155 !important; /* Even darker slate on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-/* Neutral button hover effects */
-button.bg-white:hover {
-  background-color: #f9fafb !important; /* Light gray on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-button.bg-gray-50:hover {
-  background-color: #f3f4f6 !important; /* Slightly darker gray on hover */
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-/* 
- * Text Color Overrides
- * Ensures consistent text colors across the application
- */
-.text-claude-text,
-.text-gray-900 {
-  color: #1f2937 !important; /* gray-800 */
-}
-
-.text-claude-text-secondary,
-.text-gray-600 {
-  color: #4b5563 !important; /* gray-600 */
-}
-
-.text-claude-text-light,
-.text-gray-500 {
-  color: #6b7280 !important; /* gray-500 */
-}
-
-/* Ensure headers and important text are always dark */
-h1, h2, h3, h4, h5, h6 {
-  color: #1f2937 !important;
-}
-
-/* Fix any remaining contrast issues */
-.bg-orange-50,
-.bg-gray-50 {
-  color: #1f2937 !important;
-}
-
-/* Ensure form inputs have proper contrast */
-input, select, textarea {
-  background-color: #ffffff !important;
-  color: #1f2937 !important;
-}
-
-input::placeholder,
-select::placeholder,
-textarea::placeholder {
-  color: #9ca3af !important; /* gray-400 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
 }

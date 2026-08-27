@@ -1,7 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useRef, useState } from 'react'
+import { Button } from '@/components/ui/Button'
+import { Dialog } from '@/components/ui/Dialog'
+import { FormField, TextInput } from '@/components/ui/FormField'
+import { Notice } from '@/components/ui/Notice'
 
 interface CreateLeagueModalProps {
   isOpen: boolean
@@ -11,11 +14,11 @@ interface CreateLeagueModalProps {
 
 export default function CreateLeagueModal({ isOpen, onClose, onLeagueCreated }: CreateLeagueModalProps) {
   const [leagueName, setLeagueName] = useState('')
-  const [season, setSeason] = useState('')
+  const [season, setSeason] = useState(() => new Date().getFullYear().toString())
   const [feeAmount, setFeeAmount] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-
+  const nameRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,124 +26,110 @@ export default function CreateLeagueModal({ isOpen, onClose, onLeagueCreated }: 
     setError('')
 
     try {
-      const { error: supabaseError } = await supabase
-        .from('leagues')
-        .insert([
-          {
-            name: leagueName,
-            current_season: season || '2025',
-            fee_amount: parseFloat(feeAmount)
-          }
-        ])
-        .select()
+      const normalizedName = leagueName.trim()
+      const normalizedSeason = season.trim()
+      const parsedFeeAmount = Number(feeAmount)
 
-      if (supabaseError) {
-        throw supabaseError
+      if (!normalizedName || !/^\d{4}$/.test(normalizedSeason)) {
+        throw new Error('Enter a league name and a four-digit season.')
+      }
+
+      if (!Number.isFinite(parsedFeeAmount) || parsedFeeAmount < 0) {
+        throw new Error('League fee must be zero or greater.')
+      }
+
+      const response = await fetch('/api/leagues', {
+        body: JSON.stringify({
+          fee_amount: parsedFeeAmount,
+          name: normalizedName,
+          season: normalizedSeason,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'The league could not be created.')
       }
 
       setLeagueName('')
-      setSeason('')
+      setSeason(new Date().getFullYear().toString())
       setFeeAmount('')
       onLeagueCreated()
       onClose()
     } catch (err) {
-      console.error('Error creating league:', err)
-      setError('Failed to create league. Please try again.')
+      console.error('League creation failed:', err)
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to create league. Please try again.',
+      )
     } finally {
       setIsLoading(false)
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Create New League</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
+    <Dialog
+      busy={isLoading}
+      closeLabel="Close create league dialog"
+      description="Start with the current season and entry fee. Players and scoring can be added next."
+      initialFocusRef={nameRef}
+      onClose={onClose}
+      open={isOpen}
+      title="Create a league"
+    >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="leagueName" className="block text-sm font-medium text-gray-700 mb-2">
-              League Name
-            </label>
-            <input
+          <FormField htmlFor="leagueName" label="League name">
+            <TextInput
               type="text"
               id="leagueName"
               value={leagueName}
               onChange={(e) => setLeagueName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="Enter league name"
+              placeholder="Example: Gridiron Gurus"
+              ref={nameRef}
               required
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label htmlFor="season" className="block text-sm font-medium text-gray-700 mb-2">
-              Season
-            </label>
-            <input
+          <FormField htmlFor="season" label="Season">
+            <TextInput
               type="text"
               id="season"
               value={season}
               onChange={(e) => setSeason(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="e.g., 2024"
+              placeholder="Example: 2026"
+              inputMode="numeric"
+              pattern="\d{4}"
               required
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label htmlFor="feeAmount" className="block text-sm font-medium text-gray-700 mb-2">
-              League Fee ($)
-            </label>
-            <input
+          <FormField htmlFor="feeAmount" label="Entry fee per player">
+            <TextInput
               type="number"
               id="feeAmount"
               value={feeAmount}
               onChange={(e) => setFeeAmount(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               placeholder="0.00"
               min="0"
               step="0.01"
               required
             />
-          </div>
+          </FormField>
 
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 p-2 rounded">
-              {error}
-            </div>
-          )}
+          {error && <Notice tone="danger">{error}</Notice>}
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-              disabled={isLoading}
-            >
+          <div className="grid grid-cols-2 gap-3 pt-3">
+            <Button disabled={isLoading} onClick={onClose} variant="secondary">
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Creating...' : 'Create League'}
-            </button>
+            </Button>
+            <Button disabled={isLoading} type="submit">
+              {isLoading ? 'Creating…' : 'Create league'}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   )
 }

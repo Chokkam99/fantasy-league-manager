@@ -1,0 +1,169 @@
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { cn } from '@/lib/cn'
+import type { DuesFilter } from '@/lib/playerRoster'
+
+const currency = new Intl.NumberFormat('en-US', {
+  currency: 'USD',
+  maximumFractionDigits: 2,
+  style: 'currency',
+})
+
+function RosterMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 p-4 sm:p-5">
+      <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-app-text-muted">
+        {label}
+      </dt>
+      <dd className="mt-1 break-words text-2xl font-bold tracking-tight text-app-text">
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+interface PlayersOverviewProps {
+  alumniCount: number
+  collectedAmount: number
+  currentPlayerCount: number
+  duesFilter: DuesFilter
+  expectedAmount: number
+  isViewOnly: boolean
+  onAddPlayer: () => void
+  onDuesFilterChange: (filter: DuesFilter) => void
+  onSearchChange: (search: string) => void
+  paidPlayers: number
+  partialPlayers: number
+  pendingPlayers: number
+  representedSeasons: number
+  returningPlayers: number
+  search: string
+  selectedSeason: string
+}
+
+export function PlayersOverview({
+  alumniCount,
+  collectedAmount,
+  currentPlayerCount,
+  duesFilter,
+  expectedAmount,
+  isViewOnly,
+  onAddPlayer,
+  onDuesFilterChange,
+  onSearchChange,
+  paidPlayers,
+  partialPlayers,
+  pendingPlayers,
+  representedSeasons,
+  returningPlayers,
+  search,
+  selectedSeason,
+}: PlayersOverviewProps) {
+  return (
+    <>
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand">
+              {selectedSeason} season
+            </p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-app-text sm:text-4xl">
+              {isViewOnly ? 'League roster' : 'Players & dues'}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
+              {isViewOnly
+                ? 'Meet the current teams and explore who has participated across league seasons.'
+                : 'Track dues at a glance. Partial amounts and optional notes stay tucked into payment details.'}
+            </p>
+          </div>
+          {!isViewOnly && (
+            <Button className="w-full shrink-0 sm:w-auto" onClick={onAddPlayer}>
+              <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add player
+            </Button>
+          )}
+        </div>
+
+        <dl className="grid grid-cols-2 divide-x divide-y divide-app-border border-t border-app-border lg:grid-cols-4 lg:divide-y-0">
+          <RosterMetric label="Current players" value={String(currentPlayerCount)} />
+          {isViewOnly ? (
+            <>
+              <RosterMetric label="Returning" value={String(returningPlayers)} />
+              <RosterMetric label="League alumni" value={String(alumniCount)} />
+              <RosterMetric label="Seasons" value={String(representedSeasons)} />
+            </>
+          ) : (
+            <>
+              <RosterMetric label="Paid in full" value={String(paidPlayers)} />
+              <RosterMetric
+                label="Needs attention"
+                value={
+                  partialPlayers > 0
+                    ? `${pendingPlayers} pending · ${partialPlayers} partial`
+                    : `${pendingPlayers} pending`
+                }
+              />
+              <RosterMetric
+                label="Collected"
+                value={`${currency.format(collectedAmount)} / ${currency.format(expectedAmount)}`}
+              />
+            </>
+          )}
+        </dl>
+      </Card>
+
+      <Card className="mt-6 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0 flex-1">
+            <label className="sr-only" htmlFor="player-search">
+              Search players
+            </label>
+            <div className="relative">
+              <svg aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-app-text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16 16 4 4" />
+              </svg>
+              <input
+                className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface pl-10 pr-3 text-sm text-app-text outline-none transition focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft"
+                id="player-search"
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search manager, team, or season"
+                type="search"
+                value={search}
+              />
+            </div>
+          </div>
+
+          {!isViewOnly && (
+            <div
+              aria-label="Filter roster by dues status"
+              className="grid grid-cols-2 rounded-[var(--app-radius-sm)] bg-app-surface-subtle p-1 min-[420px]:grid-cols-4"
+              role="group"
+            >
+              {(['all', 'pending', 'partial', 'paid'] as DuesFilter[]).map(
+                (filter) => (
+                  <button
+                    aria-pressed={duesFilter === filter}
+                    className={cn(
+                      'min-h-11 rounded-lg px-3 text-sm font-semibold capitalize transition-colors',
+                      duesFilter === filter
+                        ? 'bg-app-surface text-app-text shadow-sm'
+                        : 'text-app-text-muted hover:text-app-text',
+                    )}
+                    key={filter}
+                    onClick={() => onDuesFilterChange(filter)}
+                    type="button"
+                  >
+                    {filter}
+                  </button>
+                ),
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+    </>
+  )
+}

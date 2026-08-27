@@ -1,4 +1,5 @@
 // Platform factory - automatically creates the correct client/service based on platform type
+import type { AppSupabaseClient } from '@/lib/supabaseServer'
 import { PlatformType, PlatformConfig, PlatformImportService } from './types'
 import { ESPNImportService } from '../espn/import'
 
@@ -9,17 +10,23 @@ export class PlatformFactory {
   static createImportService(
     leagueId: string, 
     season: string, 
-    config: PlatformConfig
+    config: PlatformConfig,
+    database: AppSupabaseClient,
   ): PlatformImportService {
     switch (config.platform_type) {
       case 'espn':
-        return new ESPNImportService(leagueId, season, {
-          league_id: config.league_id,
-          year: config.year,
-          private_league: config.private_league,
-          espn_s2: config.credentials?.espn_s2,
-          swid: config.credentials?.swid
-        })
+        return new ESPNImportService(
+          leagueId,
+          season,
+          {
+            league_id: config.league_id,
+            year: config.year,
+            private_league: config.private_league,
+            espn_s2: config.credentials?.espn_s2,
+            swid: config.credentials?.swid,
+          },
+          database,
+        )
       
       case 'yahoo':
         // TODO: Implement Yahoo import service

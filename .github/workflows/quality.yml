@@ -1,0 +1,64 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  cancel-in-progress: true
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, test, build, and E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --registry=https://registry.npmjs.org
+
+      - name: Install Chromium for E2E
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck application
+        run: pnpm run typecheck
+
+      - name: Run unit and component tests
+        run: pnpm test -- --runInBand
+
+      - name: Run synthetic integration tests
+        run: pnpm run test:integration -- --runInBand
+
+      - name: Build production application
+        run: pnpm run build
+
+      - name: Run responsive browser tests
+        run: pnpm run test:e2e

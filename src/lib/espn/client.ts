@@ -1,51 +1,15 @@
 // ESPN Fantasy API client wrapper
 // Uses direct HTTP requests to ESPN's Fantasy API endpoints
 
-import { ESPNLeague, ESPNWeekData, ESPNConfig } from './types';
-
-interface ESPNTeamData {
-  id: number;
-  location?: string;
-  nickname?: string;
-  name?: string;
-  owners?: string[];
-  [key: string]: unknown;
-}
-
-interface ESPNMatchupData {
-  matchupPeriodId: number;
-  home?: {
-    teamId: number;
-    totalPoints?: number;
-  };
-  away?: {
-    teamId: number;
-    totalPoints?: number;
-  };
-  [key: string]: unknown;
-}
-
-interface ESPNSettingsData {
-  name?: string;
-  scheduleSettings?: {
-    matchupPeriodCount?: number;
-  };
-  [key: string]: unknown;
-}
-
-interface ESPNAPIResponse {
-  teams?: ESPNTeamData[];
-  schedule?: ESPNMatchupData[];
-  settings?: ESPNSettingsData;
-  scoringPeriodId?: number;
-  status?: Record<string, unknown>;
-  members?: Array<{
-    id: string;
-    firstName: string;
-    lastName: string;
-    [key: string]: unknown;
-  }>;
-}
+import {
+  ESPNLeague,
+  ESPNWeekData,
+  ESPNConfig,
+  ESPNAPIResponse,
+  ESPNMatchupData,
+  ESPNTeamData,
+} from './types';
+import { findLatestCompletedWeek } from './week-selection';
 
 export class ESPNClient {
   private leagueId: string;
@@ -61,38 +25,42 @@ export class ESPNClient {
   }
 
   async makeRequest(endpoint: string, params: Record<string, string> = {}): Promise<ESPNAPIResponse> {
-    try {
-      // Use Next.js API route to bypass CORS
-      // Support both client-side and server-side contexts
-      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
-      const apiUrl = `${baseUrl}/api/espn`;
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          leagueId: this.leagueId,
+    if (typeof window === 'undefined') {
+      const { requestESPNData } = await import('./request');
+      return requestESPNData(
+        {
+          league_id: this.leagueId,
           year: this.year,
-          espnS2: this.espnS2,
+          espn_s2: this.espnS2,
           swid: this.swid,
-          endpoint,
-          params
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `ESPN API request failed: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      throw error;
+        },
+        endpoint,
+        params,
+      );
     }
+
+    const response = await fetch('/api/espn', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        leagueId: this.leagueId,
+        year: this.year,
+        espnS2: this.espnS2,
+        swid: this.swid,
+        endpoint,
+        params
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `ESPN API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
   }
 
   /**
@@ -239,6 +207,16 @@ export class ESPNClient {
       // Fallback to date-based calculation
       return this.calculateCurrentWeek();
     }
+  }
+
+  async getLatestCompletedWeek(maximumWeek?: number): Promise<number | null> {
+    const currentWeek = await this.getCurrentWeek();
+
+    return findLatestCompletedWeek(
+      currentWeek,
+      (week) => this.getWeekData(week),
+      maximumWeek ?? currentWeek,
+    );
   }
 
   /**

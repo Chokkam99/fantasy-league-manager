@@ -5,21 +5,86 @@
  * Features robust team/member mapping and automatic matchup result calculation.
  */
 
-import { supabase } from '@/lib/supabase';
+import type { AppSupabaseClient } from '@/lib/supabaseServer';
 import { ESPNClient } from './client';
-import { WeekImportData, ESPNConfig } from './types';
+import { WeekImportData, ESPNConfig, type ESPNTeamMappingSnapshot } from './types';
 import { PlatformImportService, ImportResult } from '../platform/types';
-import { ESPNNameMapper } from './name-mapper';
+import { ESPNNameMapper, ESPNTeamMappingError } from './name-mapper';
+import {
+  ESPNImportPersistenceError,
+  type ImportTriggerMode,
+  parseAtomicImportResponse,
+} from './persistence';
 
 export class ESPNImportService implements PlatformImportService {
   private espnClient: ESPNClient;
+  private database: AppSupabaseClient;
   private leagueId: string;
   private season: string;
+  private teamMappings: Record<string, string>;
 
-  constructor(leagueId: string, season: string, espnConfig: ESPNConfig) {
+  constructor(
+    leagueId: string,
+    season: string,
+    espnConfig: ESPNConfig,
+    database: AppSupabaseClient,
+  ) {
     this.espnClient = new ESPNClient(espnConfig);
+    this.database = database;
     this.leagueId = leagueId;
     this.season = season;
+    this.teamMappings = espnConfig.team_mappings || {};
+  }
+
+  async getTeamMappingSnapshot(
+    mappings: Record<string, string> = this.teamMappings,
+  ): Promise<ESPNTeamMappingSnapshot> {
+    const { data: members, error: membersError } = await this.database
+      .from('league_members')
+      .select('id, team_name, manager_name')
+      .eq('league_id', this.leagueId)
+      .eq('season', this.season)
+      .eq('is_active', true);
+
+    if (membersError) {
+      throw new Error(`Failed to get league members: ${membersError.message}`);
+    }
+    if (!members || members.length === 0) {
+      throw new Error('No active league players are available for ESPN mapping.');
+    }
+
+    const espnData = await this.espnClient.makeRequest('', { view: 'mTeam' });
+    if (!espnData.teams || !espnData.members) {
+      throw new Error('ESPN did not return the teams and owners needed for mapping.');
+    }
+
+    const espnMembers = espnData.members.map((member) => ({
+      firstName: member.firstName,
+      id: member.id,
+      lastName: member.lastName,
+    }));
+    const espnTeams = espnData.teams.map((team) => ({
+      id: team.id,
+      name:
+        team.name ||
+        (team.location && team.nickname
+          ? `${team.location} ${team.nickname}`
+          : `Team ${team.id}`),
+      owners: team.owners || [],
+    }));
+    const result = ESPNNameMapper.createTeamMapping(
+      espnMembers,
+      espnTeams,
+      members,
+      mappings,
+    );
+
+    return ESPNNameMapper.createSnapshot(
+      result,
+      espnMembers,
+      espnTeams,
+      members,
+    );
   }
 
   /**
@@ -38,7 +103,7 @@ export class ESPNImportService implements PlatformImportService {
   /**
    * Import ESPN data for a specific week into the database
    * 
-   * @param week - Week number to import (1-17)
+   * @param week - Week number to import
    * @returns Promise with import results and summary
    */
   async importWeek(week: number): Promise<ImportResult> {
@@ -46,105 +111,88 @@ export class ESPNImportService implements PlatformImportService {
       // Fetch and transform ESPN data for the specified week
       const weekData = await this.previewWeek(week);
 
-      // Save individual player scores to weekly_scores table
-      const importedScores = await this.importWeeklyScores(weekData);
-
-      // Save matchup results with calculated winners to matchups table
-      const importedMatchups = await this.importMatchups(weekData);
-
-      // Mark league as successfully synced
-      await supabase
-        .from('leagues')
-        .update({
-          last_sync_at: new Date().toISOString(),
-          sync_status: 'active'
-        })
-        .eq('id', this.leagueId);
-
-      return {
-        success: true,
-        imported_scores: importedScores,
-        imported_matchups: importedMatchups,
-        message: `Successfully imported ${importedScores} scores and ${importedMatchups} matchups for week ${week}`
-      };
+      return await this.importValidatedWeekData(weekData);
     } catch (error) {
       console.error('ESPN import failed:', error);
-      
-      // Update league sync status to error
-      await supabase
-        .from('leagues')
-        .update({
-          sync_status: 'error'
-        })
-        .eq('id', this.leagueId);
+
+      // The atomic function records its own durable failure state. Failures that
+      // happen before persistence still need the league-level health flag.
+      if (!(error instanceof ESPNImportPersistenceError)) {
+        await this.database
+          .from('leagues')
+          .update({
+            sync_status: 'error',
+            last_sync_error:
+              error instanceof Error ? error.message : 'Unknown import error'
+          })
+          .eq('id', this.leagueId);
+      }
 
       throw error;
     }
   }
 
   /**
+   * Persist a payload that has already passed the server validation boundary.
+   */
+  async importValidatedWeekData(
+    weekData: WeekImportData,
+    triggerMode: ImportTriggerMode = 'manual',
+  ): Promise<ImportResult> {
+    const { data, error } = await this.database.rpc(
+      'import_espn_week_atomically',
+      {
+        p_league_id: this.leagueId,
+        p_matchups: weekData.matchups,
+        p_scores: weekData.scores.map(({ member_id, points }) => ({
+          member_id,
+          points,
+        })),
+        p_season: this.season,
+        p_trigger_mode: triggerMode,
+        p_week: weekData.week,
+      },
+    );
+
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883') {
+        throw new Error(
+          'Atomic ESPN imports are not active in the database. Apply the prepared import migration before enabling sync.',
+        );
+      }
+      throw new Error(`Atomic ESPN import failed: ${error.message}`);
+    }
+
+    const result = parseAtomicImportResponse(data);
+    if (!result.success) throw new ESPNImportPersistenceError(result);
+
+    return {
+      success: true,
+      imported_scores: result.score_count,
+      imported_matchups: result.matchup_count,
+      import_run_id: result.run_id,
+      message: `Successfully imported ${result.score_count} scores and ${result.matchup_count} matchups for week ${weekData.week}`,
+    };
+  }
+
+  /**
    * Map ESPN data to our database format using robust name matching
    */
   private async mapESPNDataToOurFormat(espnWeekData: { week: number; matchups: Array<{ home_team: { team_name: string; team_id: string | number }; away_team: { team_name: string; team_id: string | number }; home_score: number; away_score: number }>; is_complete: boolean }): Promise<WeekImportData> {
-    // Get our league members to map ESPN teams
-    const { data: members, error: membersError } = await supabase
-      .from('league_members')
-      .select('id, team_name, manager_name')
-      .eq('league_id', this.leagueId)
-      .eq('season', this.season)
-      .eq('is_active', true);
+    const mapping = await this.getTeamMappingSnapshot();
+    if (!mapping.is_complete) throw new ESPNTeamMappingError(mapping);
 
-    if (membersError) {
-      throw new Error(`Failed to get league members: ${membersError.message}`);
-    }
-
-    if (!members || members.length === 0) {
-      throw new Error('No league members found for mapping');
-    }
-
-    // Get ESPN league data to access members and teams  
-    const espnData = await this.espnClient.makeRequest('', { view: 'mTeam' });
-    
-    if (!espnData.teams || !espnData.members) {
-      throw new Error('Failed to get ESPN team and member data for mapping');
-    }
-
-    // Transform ESPN data to match name mapper interface
-    const espnMembers = espnData.members?.map(member => ({
-      id: member.id,
-      firstName: member.firstName,
-      lastName: member.lastName
-    })) || [];
-
-    const espnTeams = espnData.teams?.map(team => ({
-      id: team.id,
-      name: team.name || (team.location && team.nickname ? `${team.location} ${team.nickname}` : `Team ${team.id}`),
-      owners: team.owners || []
-    })) || [];
-
-    // Create robust team mapping using name matching
-    const mappingResult = ESPNNameMapper.createTeamMapping(
-      espnMembers,
-      espnTeams,
-      members
+    const memberMap = new Map(
+      mapping.assignments.map((assignment) => [
+        assignment.espn_team_id,
+        assignment.member_id,
+      ]),
     );
-
-    // Validate mapping results
-    const validation = ESPNNameMapper.validateMapping(mappingResult);
-    
-    if (!validation.isValid) {
-      console.error('ESPN team mapping failed:', validation.errors.join(', '));
-      throw new Error(`Team mapping failed: ${validation.errors.join('; ')}`);
-    }
-
-    // Create lookup map for quick access
-    const memberMap = ESPNNameMapper.createLookupMap(mappingResult.mappings);
-
-    console.log(`✅ Successfully mapped ${mappingResult.mappings.length} ESPN teams to database members`);
-    
-    if (validation.warnings.length > 0) {
-      console.warn('Mapping warnings:', validation.warnings.join('; '));
-    }
+    const members = mapping.members.map((member) => ({
+      id: member.member_id,
+      manager_name: member.manager_name,
+      team_name: member.team_name,
+    }));
 
     // Map scores and matchups
     const scores: WeekImportData['scores'] = [];
@@ -203,81 +251,6 @@ export class ESPNImportService implements PlatformImportService {
   }
 
   /**
-   * Import weekly scores to database
-   */
-  private async importWeeklyScores(weekData: WeekImportData): Promise<number> {
-    let importedCount = 0;
-
-    for (const score of weekData.scores) {
-      const { error } = await supabase
-        .from('weekly_scores')
-        .upsert({
-          league_id: this.leagueId,
-          season: this.season,
-          week_number: weekData.week,
-          member_id: score.member_id,
-          points: score.points
-        }, {
-          onConflict: 'league_id,member_id,week_number,season'
-        });
-
-      if (error) {
-        console.error('Failed to import score:', error);
-        throw new Error(`Failed to import score for ${score.team_name}: ${error.message}`);
-      }
-
-      importedCount++;
-    }
-
-    return importedCount;
-  }
-
-  /**
-   * Import matchups to database
-   */
-  private async importMatchups(weekData: WeekImportData): Promise<number> {
-    let importedCount = 0;
-
-    for (const matchup of weekData.matchups) {
-      // Check if matchup already exists (check both directions separately)
-      const { data: existingMatchups } = await supabase
-        .from('matchups')
-        .select('id')
-        .eq('league_id', this.leagueId)
-        .eq('season', this.season)
-        .eq('week_number', weekData.week)
-        .or(`and(team1_member_id.eq."${matchup.team1_member_id}",team2_member_id.eq."${matchup.team2_member_id}"),and(team1_member_id.eq."${matchup.team2_member_id}",team2_member_id.eq."${matchup.team1_member_id}")`);
-
-      if (existingMatchups && existingMatchups.length > 0) {
-        // Matchup already exists in either direction, skip
-        console.log(`Matchup already exists for week ${weekData.week}: ${matchup.team1_member_id} vs ${matchup.team2_member_id}`);
-        continue;
-      }
-
-      const { error } = await supabase
-        .from('matchups')
-        .insert({
-          league_id: this.leagueId,
-          season: this.season,
-          week_number: weekData.week,
-          team1_member_id: matchup.team1_member_id,
-          team2_member_id: matchup.team2_member_id
-          // Note: winner_member_id and is_tie are calculated by the matchup_results_with_scores view
-          // based on the weekly_scores table data, so we don't insert them here
-        });
-
-      if (error) {
-        console.error('Failed to import matchup:', error);
-        throw new Error(`Failed to import matchup: ${error.message}`);
-      }
-
-      importedCount++;
-    }
-    return importedCount;
-  }
-
-
-  /**
    * Test ESPN connection
    */
   async testConnection(): Promise<boolean> {
@@ -289,5 +262,9 @@ export class ESPNImportService implements PlatformImportService {
    */
   async getCurrentWeek(): Promise<number> {
     return await this.espnClient.getCurrentWeek();
+  }
+
+  async getLatestCompletedWeek(maximumWeek?: number): Promise<number | null> {
+    return this.espnClient.getLatestCompletedWeek(maximumWeek);
   }
 }

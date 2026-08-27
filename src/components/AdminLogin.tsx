@@ -1,18 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { Button } from '@/components/ui/Button'
+import { Dialog } from '@/components/ui/Dialog'
+import { FormField, TextInput } from '@/components/ui/FormField'
+import { Notice } from '@/components/ui/Notice'
 import { authenticateAdmin, logoutAdmin } from '@/lib/adminAuth'
 
 interface AdminLoginProps {
+  display?: 'icon' | 'menu'
   isAdmin: boolean
   onAuthChange: (isAdmin: boolean) => void
 }
 
-export default function AdminLogin({ isAdmin, onAuthChange }: AdminLoginProps) {
+export default function AdminLogin({
+  display = 'icon',
+  isAdmin,
+  onAuthChange,
+}: AdminLoginProps) {
   const [showLogin, setShowLogin] = useState(false)
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const passwordRef = useRef<HTMLInputElement>(null)
+
+  const closeLogin = () => {
+    setShowLogin(false)
+    setPassword('')
+    setError('')
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,14 +36,14 @@ export default function AdminLogin({ isAdmin, onAuthChange }: AdminLoginProps) {
     setError('')
 
     try {
-      const success = await authenticateAdmin(password)
+      const result = await authenticateAdmin(password)
 
-      if (success) {
+      if (result.success) {
         onAuthChange(true)
         setShowLogin(false)
         setPassword('')
       } else {
-        setError('Invalid password')
+        setError(result.error || 'Unable to sign in.')
       }
     } catch {
       setError('Authentication failed')
@@ -43,14 +59,21 @@ export default function AdminLogin({ isAdmin, onAuthChange }: AdminLoginProps) {
 
   if (isAdmin) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-green-600 font-medium">Admin Mode</span>
+      <div className={display === 'menu' ? 'w-full' : 'flex items-center'}>
         <button
+          aria-label="Log out of commissioner mode"
           onClick={handleLogout}
-          className="text-xs text-gray-500 hover:text-gray-700 underline"
-          title="Logout from admin mode"
+          className={display === 'menu'
+            ? 'flex min-h-11 w-full items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle'
+            : 'min-h-11 rounded-[var(--app-radius-sm)] px-3 text-xs font-semibold text-app-text-muted hover:bg-app-surface-subtle hover:text-app-text'}
+          title="Log out"
         >
-          Logout
+          {display === 'menu' && (
+            <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" />
+            </svg>
+          )}
+          {display === 'menu' ? 'Log out of commissioner mode' : 'Log out'}
         </button>
       </div>
     )
@@ -59,80 +82,52 @@ export default function AdminLogin({ isAdmin, onAuthChange }: AdminLoginProps) {
   return (
     <>
       <button
+        aria-label="Commissioner login"
         onClick={() => setShowLogin(true)}
-        className="text-gray-400 hover:text-gray-600 transition-colors"
-        title="Admin Login"
+        className={display === 'menu'
+          ? 'flex min-h-11 w-full items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle'
+          : 'flex h-11 w-11 items-center justify-center rounded-[var(--app-radius-sm)] text-app-text-muted transition-colors hover:bg-app-surface-subtle hover:text-app-text'}
+        title="Commissioner login"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
+        {display === 'menu' && <span>Commissioner login</span>}
       </button>
 
-      {showLogin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4 w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Admin Login</h3>
-              <button
-                onClick={() => {
-                  setShowLogin(false)
-                  setPassword('')
-                  setError('')
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <form onSubmit={handleLogin}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <input
+      <Dialog
+        busy={isLoading}
+        closeLabel="Close commissioner login"
+        description="Sign in to manage scores, players, dues, and league settings."
+        initialFocusRef={passwordRef}
+        onClose={closeLogin}
+        open={showLogin}
+        title="Commissioner login"
+      >
+            <form className="space-y-4" onSubmit={handleLogin}>
+              <FormField htmlFor="commissioner-password" label="Password">
+                <TextInput
+                  id="commissioner-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="Enter admin password"
-                  autoFocus
+                  placeholder="Enter commissioner password"
+                  ref={passwordRef}
                 />
-              </div>
+              </FormField>
               
-              {error && (
-                <div className="mb-4 text-sm text-red-600">
-                  {error}
-                </div>
-              )}
+              {error && <Notice tone="danger">{error}</Notice>}
               
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLogin(false)
-                    setPassword('')
-                    setError('')
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  disabled={isLoading}
-                >
+              <div className="grid grid-cols-2 gap-3">
+                <Button disabled={isLoading} onClick={closeLogin} variant="secondary">
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading || !password.trim()}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                </Button>
+                <Button disabled={isLoading || !password.trim()} type="submit">
                   {isLoading ? 'Logging in...' : 'Login'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Dialog>
     </>
   )
 }

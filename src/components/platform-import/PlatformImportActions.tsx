@@ -1,0 +1,108 @@
+import { Button } from '@/components/ui/Button'
+import type { PlatformImportOperation } from '@/lib/platformImport'
+
+interface PlatformImportActionsProps {
+  isBusy: boolean
+  manualWeek: number
+  onLoadMapping: () => void
+  onManualWeekChange: (week: number) => void
+  onRunImport: (
+    action: 'preview' | 'sync',
+    week: number | 'latest',
+  ) => void
+  onToggleManual: () => void
+  operation: PlatformImportOperation
+  showManualFallback: boolean
+  syncHasError: boolean
+  totalWeeks: number
+}
+
+export function PlatformImportActions({
+  isBusy,
+  manualWeek,
+  onLoadMapping,
+  onManualWeekChange,
+  onRunImport,
+  onToggleManual,
+  operation,
+  showManualFallback,
+  syncHasError,
+  totalWeeks,
+}: PlatformImportActionsProps) {
+  return (
+    <div className="p-4 sm:p-6">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button disabled={isBusy} onClick={() => onRunImport('sync', 'latest')}>
+          {operation === 'sync'
+            ? 'Syncing…'
+            : syncHasError
+              ? 'Retry completed week'
+              : 'Sync completed week'}
+        </Button>
+        <Button
+          disabled={isBusy}
+          onClick={() => onRunImport('preview', 'latest')}
+          variant="secondary"
+        >
+          {operation === 'preview' ? 'Loading preview…' : 'Preview completed week'}
+        </Button>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface-subtle p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div>
+          <p className="text-sm font-semibold text-app-text">ESPN team assignments</p>
+          <p className="mt-1 text-xs leading-5 text-app-text-muted">
+            Review these when someone changes team names, rejoins, or is new this season.
+          </p>
+        </div>
+        <Button disabled={isBusy} onClick={onLoadMapping} size="sm" variant="secondary">
+          {operation === 'mapping-load' ? 'Loading assignments…' : 'Review assignments'}
+        </Button>
+      </div>
+
+      <button
+        aria-expanded={showManualFallback}
+        className="mt-4 min-h-11 w-full text-left text-sm font-semibold text-app-text-muted hover:text-app-text"
+        onClick={onToggleManual}
+        type="button"
+      >
+        {showManualFallback ? 'Hide selected-week fallback' : 'Need a different week?'}
+      </button>
+
+      {showManualFallback && (
+        <div className="rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface-subtle p-3 sm:p-4">
+          <label className="block text-sm font-semibold text-app-text" htmlFor="manual-import-week">
+            Selected week
+          </label>
+          <select
+            className="mt-1 min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-app-text sm:max-w-52"
+            id="manual-import-week"
+            onChange={(event) => onManualWeekChange(Number(event.target.value))}
+            value={manualWeek}
+          >
+            {Array.from({ length: totalWeeks }, (_, index) => index + 1).map(
+              (week) => (
+                <option key={week} value={week}>Week {week}</option>
+              ),
+            )}
+          </select>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <Button
+              disabled={isBusy}
+              onClick={() => onRunImport('preview', manualWeek)}
+              variant="secondary"
+            >
+              Preview week {manualWeek}
+            </Button>
+            <Button disabled={isBusy} onClick={() => onRunImport('sync', manualWeek)}>
+              Import week {manualWeek}
+            </Button>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-app-text-muted">
+            Imports are blocked until ESPN marks the week complete and every active team and matchup validates. You can still edit scores manually below.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}

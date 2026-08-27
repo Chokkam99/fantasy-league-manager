@@ -7,7 +7,14 @@ export async function checkAdminAuth(): Promise<boolean> {
   return checkAdminStatus();
 }
 
-export async function authenticateAdmin(password: string): Promise<boolean> {
+export interface AdminAuthenticationResult {
+  error?: string
+  success: boolean
+}
+
+export async function authenticateAdmin(
+  password: string,
+): Promise<AdminAuthenticationResult> {
   try {
     const response = await fetch('/api/admin/auth', {
       method: 'POST',
@@ -15,11 +22,19 @@ export async function authenticateAdmin(password: string): Promise<boolean> {
       body: JSON.stringify({ password, action: 'login' }),
     });
 
-    const data = await response.json();
-    return data.success && data.isAdmin;
+    const data = await response.json()
+    if (data.success && data.isAdmin) return { success: true }
+
+    return {
+      error: typeof data.error === 'string' ? data.error : 'Unable to sign in.',
+      success: false,
+    }
   } catch (error) {
     console.error('Authentication failed:', error);
-    return false;
+    return {
+      error: 'Authentication failed. Check your connection and try again.',
+      success: false,
+    }
   }
 }
 

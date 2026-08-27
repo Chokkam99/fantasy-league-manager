@@ -1,64 +1,119 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import {
+  ADMIN_SESSION_COOKIE,
+  ADMIN_SESSION_MAX_AGE_SECONDS,
+  createAdminSession,
+  isAdminSessionSecretConfigured,
+  isValidAdminSession,
+  verifyAdminPassword,
+} from '@/lib/adminSession'
 
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
-const SESSION_COOKIE = 'admin_session';
+type AuthAction = 'check' | 'login' | 'logout'
 
-// Simple hash function (in production, use bcrypt)
-function simpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(36);
+interface AuthRequestBody {
+  action?: AuthAction
+  password?: string
+}
+
+function response(
+  body: Record<string, boolean | string>,
+  status = 200,
+): NextResponse {
+  return NextResponse.json(body, {
+    headers: { 'Cache-Control': 'no-store' },
+    status,
+  })
 }
 
 export async function POST(request: NextRequest) {
+  let body: AuthRequestBody
+
   try {
-    const { password, action } = await request.json();
-
-    if (action === 'logout') {
-      (await cookies()).delete(SESSION_COOKIE);
-      return NextResponse.json({ success: true, isAdmin: false });
+    const parsedBody: unknown = await request.json()
+    if (
+      !parsedBody ||
+      typeof parsedBody !== 'object' ||
+      Array.isArray(parsedBody)
+    ) {
+      return response(
+        { success: false, error: 'Invalid authentication request.' },
+        400,
+      )
     }
-
-    if (action === 'check') {
-      const cookieStore = await cookies();
-      const session = cookieStore.get(SESSION_COOKIE);
-      const isValid = session?.value === ADMIN_PASSWORD_HASH;
-      return NextResponse.json({ success: true, isAdmin: isValid });
-    }
-
-    if (action === 'login') {
-      const passwordHash = simpleHash(password);
-
-      if (passwordHash === ADMIN_PASSWORD_HASH) {
-        (await cookies()).set(SESSION_COOKIE, ADMIN_PASSWORD_HASH, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 60 * 60 * 24 * 7, // 7 days
-        });
-        return NextResponse.json({ success: true, isAdmin: true });
-      }
-
-      return NextResponse.json(
-        { success: false, error: 'Invalid password' },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'Invalid action' },
-      { status: 400 }
-    );
-  } catch (error) {
-    console.error('Auth error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Authentication failed' },
-      { status: 500 }
-    );
+    body = parsedBody as AuthRequestBody
+  } catch {
+    return response(
+      { success: false, error: 'Invalid authentication request.' },
+      400,
+    )
   }
+
+  if (body.action === 'logout') {
+    const cookieStore = await cookies()
+    cookieStore.delete(ADMIN_SESSION_COOKIE)
+    cookieStore.set(ADMIN_SESSION_COOKIE, '', {
+      httpOnly: true,
+      maxAge: 0,
+      path: '/',
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+    })
+    return response({ success: true, isAdmin: false })
+  }
+
+  if (body.action === 'check') {
+    const cookieStore = await cookies()
+    const session = cookieStore.get(ADMIN_SESSION_COOKIE)
+    const isValid = isValidAdminSession(
+      session?.value,
+      process.env.ADMIN_SESSION_SECRET,
+    )
+    return response({ success: true, isAdmin: isValid })
+  }
+
+  if (body.action === 'login') {
+    if (!isAdminSessionSecretConfigured(process.env.ADMIN_SESSION_SECRET)) {
+      return response(
+        {
+          success: false,
+          error: 'Commissioner authentication is not configured.',
+        },
+        503,
+      )
+    }
+
+    const passwordVerification = await verifyAdminPassword(
+      body.password,
+      process.env.ADMIN_PASSWORD_HASH,
+      process.env.ALLOW_LEGACY_ADMIN_PASSWORD_HASH === 'true',
+    )
+
+    if (passwordVerification === 'misconfigured') {
+      return response(
+        {
+          success: false,
+          error: 'Commissioner password verification is not configured.',
+        },
+        503,
+      )
+    }
+
+    if (passwordVerification === 'invalid') {
+      return response({ success: false, error: 'Invalid password' }, 401)
+    }
+
+    const session = createAdminSession(process.env.ADMIN_SESSION_SECRET)
+    ;(await cookies()).set(ADMIN_SESSION_COOKIE, session, {
+      httpOnly: true,
+      maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
+      path: '/',
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+    })
+
+    return response({ success: true, isAdmin: true })
+  }
+
+  return response({ success: false, error: 'Invalid action' }, 400)
 }

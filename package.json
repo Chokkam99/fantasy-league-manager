@@ -4,6 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:keychain": "sh scripts/dev-with-keychain.sh",
+    "admin:hash-password": "node scripts/admin-password.mjs",
+    "admin:password:keychain": "node scripts/admin-password.mjs --keychain",
+    "admin:session-secret": "node scripts/admin-session-secret.mjs",
+    "admin:session:keychain": "node scripts/admin-session-secret.mjs --keychain",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
@@ -14,8 +19,19 @@
     "test:integration": "jest --config test/integration/jest.integration.config.js",
     "test:integration:watch": "jest --config test/integration/jest.integration.config.js --watch",
     "test:integration:coverage": "jest --config test/integration/jest.integration.config.js --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
     "test:all": "npm run test && npm run test:integration",
-    "typecheck": "tsc --noEmit"
+    "schema:audit": "node scripts/audit-live-schema.mjs",
+    "schema:audit:cleanup": "node scripts/audit-cleanup-candidates.mjs",
+    "schema:audit:constraints": "node scripts/audit-constraint-compatibility.mjs",
+    "schema:export:rollback": "node scripts/export-production-rollback.mjs",
+    "schema:types": "sh scripts/generate-supabase-types.sh",
+    "schema:test:authorization": "sh scripts/test-authorization-migration.sh",
+    "schema:test:cleanup": "sh scripts/test-cleanup-constraints.sh",
+    "schema:test:fresh": "sh scripts/test-fresh-schema.sh",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "typecheck:all": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.2",
@@ -26,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",

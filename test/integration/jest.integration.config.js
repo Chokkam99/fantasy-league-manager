@@ -13,7 +13,7 @@ const integrationConfig = {
   testMatch: [
     '<rootDir>/src/__tests__/integration/**/*.test.{js,jsx,ts,tsx}'
   ],
-  setupFilesAfterEnv: ['<rootDir>/test/integration/jest.integration.setup.test.js'],
+  setupFilesAfterEnv: ['<rootDir>/test/integration/jest.integration.environment.js'],
   testEnvironment: 'jsdom',
   
   // Integration test specific configuration
@@ -54,9 +54,7 @@ const integrationConfig = {
     '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }]
   },
 
-  // Setup for Supabase integration tests
-  globalSetup: '<rootDir>/test/integration/jest.integration.setup.js',
-  globalTeardown: '<rootDir>/test/integration/jest.integration.teardown.js'
+  // The remaining workflow suite is synthetic and must never contact Supabase.
 }
 
 // Export the Jest configuration
