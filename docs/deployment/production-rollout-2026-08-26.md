@@ -1,13 +1,13 @@
-# Production rollout checkpoint — 2026-08-26
+# Production rollout checkpoint — updated 2026-08-27
 
 Status: **preparation only; production deployment and migrations are not approved or executed**.
 
-This is the exact handoff for the locally verified application and migrations `001`–`014`. The project must remain on free plans with no paid branch, database, compute, add-on, or recurring service.
+This is the exact handoff for the locally verified application and migrations `001`–`014`. The accepted application release is consolidated on local `main`, includes commit `680333d`, and has not been pushed or deployed. The project must remain on free plans with no paid branch, database, compute, add-on, or recurring service.
 
 ## Prepared evidence
 
-- Release branch: `codex/authorization-preview`.
-- Full local gate: 354/354 Jest tests, 6/6 synthetic integration tests, 6/6 responsive Playwright journeys, all three disposable PostgreSQL 17 suites, typecheck, lint, build, shell validation, and diff checks.
+- Release branch: local `main`, ahead of `origin/main`; no remote push or deployment has occurred.
+- Accepted-work gate: 359/359 Jest tests, 6/6 synthetic integration tests, 12/12 responsive Playwright journeys, all three disposable PostgreSQL 17 suites, typecheck, lint, build, shell validation, and diff checks. Re-run this complete gate immediately before requesting deployment approval.
 - Fresh GET-only production audits at `2026-08-27T04:12Z` found the unchanged deployed-v0 shape: 2 leagues, 8 season configurations, 92 memberships, 1,568 scores, 773 matchups, and 0 legacy payments.
 - Cleanup preconditions remain exactly 10 null-season duplicate scores, 24 completed/not-final scores, and 6 historical active-season flags. Every ambiguity and matchup-integrity counter remains zero.
 - Owner-only application-data export: `data/rollout-backups/2026-08-26-pre-migration/`. The directory is gitignored with mode `700`; its eight JSON files use mode `600`. The manifest checksums and all JSON files were independently read and verified.
