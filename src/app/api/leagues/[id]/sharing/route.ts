@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { buildSharePath, isValidShareSeason } from '@/lib/shareAccess'
 import {
-  createShareToken,
+  createStableShareSlug,
   digestShareToken,
   isMissingShareSchema,
 } from '@/lib/shareAccessServer'
@@ -95,9 +95,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const { id: leagueId } = await context.params
-  const token = createShareToken()
+  const token = createStableShareSlug(
+    leagueId,
+    season,
+    process.env.ADMIN_SESSION_SECRET || '',
+  )
   try {
     const database = createServerSupabaseClient()
+    const existing = await database
+      .from('league_share_links')
+      .select('created_at, token_prefix')
+      .eq('league_id', leagueId)
+      .eq('season', season)
+      .eq('token_digest', digestShareToken(token))
+      .is('revoked_at', null)
+      .maybeSingle()
+
+    if (isMissingShareSchema(existing.error)) return schemaPending()
+    if (existing.error) throw existing.error
+    if (existing.data) {
+      return NextResponse.json({
+        link: existing.data,
+        share_path: buildSharePath(leagueId, season, token),
+        success: true,
+        token,
+      })
+    }
+
     const result = await database.rpc('rotate_league_share_link', {
       p_league_id: leagueId,
       p_season: season,

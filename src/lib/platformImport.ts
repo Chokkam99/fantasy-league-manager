@@ -68,7 +68,8 @@ export function normalizePlatformSyncHealth({
   syncStatus: string
   totalWeeks: number
 }) {
-  const maximumWeek = Math.max(Math.trunc(Number(totalWeeks) || 0), 1)
+  const parsedMaximumWeek = Math.trunc(Number(totalWeeks) || 0)
+  const maximumWeek = parsedMaximumWeek > 0 ? parsedMaximumWeek : null
   const weekReferences = lastSyncError
     ? Array.from(
         lastSyncError.matchAll(
@@ -78,7 +79,8 @@ export function normalizePlatformSyncHealth({
       )
     : []
   const isOutOfRangeError = weekReferences.some(
-    (week) => Number.isInteger(week) && week > maximumWeek,
+    (week) =>
+      maximumWeek !== null && Number.isInteger(week) && week > maximumWeek,
   )
 
   return {

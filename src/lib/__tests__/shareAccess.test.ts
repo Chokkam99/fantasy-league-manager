@@ -5,7 +5,11 @@ import {
   isValidShareSeason,
   isValidShareToken,
 } from '@/lib/shareAccess'
-import { createShareToken, digestShareToken } from '@/lib/shareAccessServer'
+import {
+  createShareToken,
+  createStableShareSlug,
+  digestShareToken,
+} from '@/lib/shareAccessServer'
 
 describe('scoped player share tokens', () => {
   it('creates opaque fixed-length tokens and stores deterministic digests', () => {
@@ -28,10 +32,20 @@ describe('scoped player share tokens', () => {
     expect(isValidShareSeason(2026)).toBe(false)
   })
 
+  it('creates a stable short slug for one league season', () => {
+    const secret = 'stable-share-test-secret'
+    const slug = createStableShareSlug('friends', '2026', secret)
+
+    expect(slug).toMatch(/^[A-Za-z0-9_-]{12}$/)
+    expect(createStableShareSlug('friends', '2026', secret)).toBe(slug)
+    expect(createStableShareSlug('friends', '2027', secret)).not.toBe(slug)
+    expect(isValidShareToken(slug)).toBe(true)
+  })
+
   it('builds a season-scoped encoded player URL', () => {
-    const token = 'a'.repeat(43)
+    const token = 'a'.repeat(12)
     expect(buildSharePath('friends/league', '2026', token)).toBe(
-      `/league/friends%2Fleague?season=2026&share=${token}`,
+      `/s/${token}`,
     )
   })
 })

@@ -58,7 +58,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 `database-setup.sql` is a retired legacy reference, deliberately fails if executed, and does **not** reproduce the deployed schema. Do not use it for any installation.
 
-The deployed baseline, known drift, data-health audit, and forward migration decision are recorded in [the deployed schema reference](docs/schema/deployed-schema-2026-08-24.md). The authorization, atomic ESPN-import, finance/stable-identity, reversible-archival, scoped-sharing, exact cleanup, staged core-constraint, atomic rollover/manual-score, and legacy schedule-retirement migrations are prepared in `supabase/migrations` but remain unapplied to the live project.
+The deployed baseline, known drift, data-health audit, and forward migration decision are recorded in [the deployed schema reference](docs/schema/deployed-schema-2026-08-24.md). The authorization, atomic ESPN-import, finance/stable-identity, reversible-archival, scoped-sharing, exact cleanup, staged core-constraint, atomic rollover/manual-score, and legacy schedule-retirement migrations in `supabase/migrations` were applied to Production on 2026-08-27.
 
 Validate it locally with synthetic data:
 
@@ -74,9 +74,9 @@ For a brand-new empty database, use the guarded fantasy-only baseline in `supaba
 
 ## Player access
 
-Commissioners create a link from **Player access** for one league season. Anyone with that opaque link can view that season's public league context but cannot open Settings, see individual dues/payment details, or submit commissioner changes. Replacing a link immediately revokes the prior link; revoking it disables player access entirely.
+Commissioners use **Copy player link** for one league season. The same short `/s/...` link is copied each time. Anyone with it can view that season's public league context but cannot open Settings, see individual dues/payment details, or submit commissioner changes.
 
-Only a SHA-256 digest is stored in the database. The raw link is returned once and retained locally in the commissioner's browser only for convenient copying, so replacing the link is the recovery path if that browser copy is lost. The old cosmetic `readonly=true` convention is no longer an access mechanism.
+Only a SHA-256 digest is stored in the database. Opening the short link creates a protected browser access cookie and redirects to the season overview. The old cosmetic `readonly=true` convention is no longer an access mechanism.
 
 ## ESPN score imports
 

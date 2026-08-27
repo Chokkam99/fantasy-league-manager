@@ -327,13 +327,22 @@ export async function installLeagueFixtures(
   })
 
   await page.route(`**/api/leagues/${league.id}/sharing**`, async (route) => {
-    await fulfillJson(route, {
-      active: false,
-      created_at: null,
-      season: '2026',
-      success: true,
-      token_prefix: null,
-    })
+    await fulfillJson(
+      route,
+      route.request().method() === 'POST'
+        ? {
+            share_path: '/s/fixtureLink1',
+            success: true,
+            token: 'fixtureLink1',
+          }
+        : {
+            active: false,
+            created_at: null,
+            season: '2026',
+            success: true,
+            token_prefix: null,
+          },
+    )
   })
 
   await page.route(`**/api/leagues/${league.id}/automation**`, async (route) => {

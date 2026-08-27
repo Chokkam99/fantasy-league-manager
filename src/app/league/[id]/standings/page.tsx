@@ -362,7 +362,7 @@ export default function StandingsPage({ params }: StandingsPageProps) {
               ))}
             </ol>
             <p className="mt-3 text-xs leading-5 text-app-text-muted">
-              ESPN may use different league-specific settings; check ESPN if its published order differs.
+              This companion does not currently import ESPN&apos;s league-specific tiebreaker setting. If ESPN differs after points scored, ESPN&apos;s published seed remains authoritative.
             </p>
           </div>
         </details>

@@ -55,7 +55,7 @@ jobs:
         run: pnpm test -- --runInBand
 
       - name: Run synthetic integration tests
-        run: pnpm run test:integration -- --runInBand
+        run: pnpm run test:integration --runInBand
 
       - name: Build production application
         run: pnpm run build

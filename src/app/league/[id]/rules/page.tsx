@@ -293,8 +293,9 @@ export default function RulesPage({ params }: RulesPageProps) {
             ))}
           </ol>
           <p className="mt-5 rounded-[var(--app-radius-sm)] bg-app-warning-soft px-3 py-2.5 text-xs leading-5 text-app-text-muted">
-            ESPN can use different league-specific tiebreakers. Check the ESPN
-            league settings if its order differs from the standings shown here.
+            This companion does not currently import ESPN&apos;s league-specific
+            tiebreaker setting. If ESPN differs after points scored, ESPN&apos;s
+            published seed remains authoritative.
           </p>
         </Card>
 

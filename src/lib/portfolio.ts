@@ -1,4 +1,5 @@
 import type { League, LeagueSeason } from '@/lib/supabase'
+import { normalizePlatformSyncHealth } from '@/lib/platformImport'
 
 export interface PortfolioMemberRow {
   is_active: boolean | null
@@ -117,9 +118,15 @@ export function buildPortfolioLeagues({
     const prizeDifference = season
       ? availablePrizePool - prizeAllocation(season)
       : 0
+    const syncHealth = normalizePlatformSyncHealth({
+      autoSyncEnabled: Boolean(league.auto_sync_enabled),
+      lastSyncError: league.last_sync_error,
+      syncStatus: league.sync_status || 'none',
+      totalWeeks: season?.total_weeks ?? 0,
+    })
     const attentionReasons = [
       !season ? 'Season configuration is missing' : null,
-      league.sync_status === 'error' ? 'The last score sync failed' : null,
+      syncHealth.syncStatus === 'error' ? 'The last score sync failed' : null,
       pendingMembers > 0
         ? `${pendingMembers} ${pendingMembers === 1 ? 'player has' : 'players have'} dues pending`
         : null,
@@ -132,6 +139,8 @@ export function buildPortfolioLeagues({
 
     return {
       ...league,
+      last_sync_error: syncHealth.lastSyncError,
+      sync_status: syncHealth.syncStatus,
       attentionReasons,
       collectedAmount,
       expectedAmount,

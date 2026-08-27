@@ -118,18 +118,16 @@ test.describe('responsive league journeys', () => {
       await page.getByRole('button', { name: 'Open league actions' }).click()
       await page
         .locator('[aria-label="League actions"]')
-        .getByRole('button', { name: 'Player access' })
+        .getByRole('button', { name: 'Copy player link' })
         .click()
     } else {
-      await page.getByRole('button', { name: 'Player access' }).click()
+      await page.getByRole('button', { name: 'Copy player link' }).click()
     }
-    await expect(page.getByRole('dialog', { name: 'Player access' })).toBeVisible()
+    await expect(page.getByText('2026 player link copied.')).toBeVisible()
     if (isMobile(testInfo)) {
-      await expect(page.locator('[aria-label="League actions"]')).toBeHidden()
+      await page.keyboard.press('Escape')
     }
-    await expect(page.getByRole('button', { name: 'Create & copy link' })).toBeVisible()
     await expectNoDocumentOverflow(page)
-    await page.getByRole('button', { name: 'Close player access' }).click()
 
     await openPrimaryNav(page, 'Standings')
     await expectHeading(page, 'Standings')
@@ -159,6 +157,7 @@ test.describe('responsive league journeys', () => {
 
     await openPrimaryNav(page, 'Prizes')
     await expectHeading(page, 'League money')
+    await expect(page.getByRole('heading', { name: 'Payout tally' })).toBeVisible()
     await expect(page.getByLabel('Recipient').first()).toBeVisible()
 
     await openPrimaryNav(page, 'Overview')
@@ -193,7 +192,8 @@ test.describe('responsive league journeys', () => {
     await expect(
       page.getByRole('button', { name: 'Archive league' }),
     ).toBeVisible()
-    expect(mutationRequests).toEqual([])
+    expect(mutationRequests).toHaveLength(1)
+    expect(mutationRequests[0]).toContain('/sharing')
   })
 
   test('shared player can follow league progress without management controls', async ({
@@ -228,6 +228,7 @@ test.describe('responsive league journeys', () => {
 
     await openPrimaryNav(page, 'Prizes')
     await expectHeading(page, 'League money')
+    await expect(page.getByRole('heading', { name: 'Payout tally' })).toBeVisible()
     await expect(page.getByLabel('Recipient')).toHaveCount(0)
 
     if (isMobile(testInfo)) {

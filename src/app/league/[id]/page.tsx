@@ -23,6 +23,7 @@ import {
   loadOverviewData,
   type OverviewDataSnapshot,
 } from '@/lib/overviewClient'
+import { normalizePlatformSyncHealth } from '@/lib/platformImport'
 
 interface LeagueDetailsProps {
   params: Promise<{ id: string }>
@@ -163,7 +164,13 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
     )
   }
 
-  const syncHasError = league.sync_status === 'error'
+  const syncHealth = normalizePlatformSyncHealth({
+    autoSyncEnabled: Boolean(league.auto_sync_enabled),
+    lastSyncError: league.last_sync_error,
+    syncStatus: league.sync_status || 'none',
+    totalWeeks: settings.total_weeks,
+  })
+  const syncHasError = syncHealth.syncStatus === 'error'
   const syncIsConnected = Boolean(
     league.platform_type || league.platform_league_id,
   )
@@ -172,7 +179,7 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
     overview,
     seasonConfigError,
     syncError: syncHasError
-      ? league.last_sync_error || 'The last score sync failed'
+      ? syncHealth.lastSyncError || 'The last score sync failed'
       : null,
   }).map((reason) => ({
     href: buildPageHref(reason.target),

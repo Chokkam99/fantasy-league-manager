@@ -300,7 +300,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
           {isAdmin && selectedSeason && (
             <ShareButton
               className="hidden shrink-0 sm:flex"
-              label="Player access"
+              label="Copy player link"
               labelClassName="hidden xl:inline"
               leagueId={leagueId}
               season={selectedSeason}

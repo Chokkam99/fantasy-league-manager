@@ -33,6 +33,15 @@ export interface SeasonAwardView {
   status: 'awaiting' | 'paid' | 'pending' | 'saved'
 }
 
+export interface PlayerWinningsSummary {
+  finalAmount: number
+  finalAwards: string[]
+  member: PrizeMember
+  totalAmount: number
+  weeklyAmount: number
+  weeklyWins: number[]
+}
+
 export interface PrizeViewModel {
   collectedFees: number
   completedWeeklyResults: number
@@ -43,6 +52,7 @@ export interface PrizeViewModel {
   paidPayoutAmount: number
   partialPlayers: number
   prizePlan: PrizePlan
+  playerWinnings: PlayerWinningsSummary[]
   seasonAwards: SeasonAwardView[]
   usesCanonicalAwards: boolean
   weeklyResults: WeeklyPrizeResult[]
@@ -139,8 +149,13 @@ export function buildPrizeViewModel({
         label: rule.label,
         payout: null,
         recipient: rule.recipient,
-        status: rule.recipient ? 'saved' : 'awaiting',
-      }))
+      status: rule.recipient ? 'saved' : 'awaiting',
+    }))
+  const playerWinnings = buildPlayerWinningsSummary({
+    members,
+    seasonAwards,
+    weeklyResults,
+  })
 
   return {
     collectedFees,
@@ -159,9 +174,68 @@ export function buildPrizeViewModel({
     partialPlayers: usesCanonicalAwards
       ? finance?.payments?.filter((payment) => payment.status === 'partial').length || 0
       : members.filter((member) => member.payment_status === 'partial').length,
+    playerWinnings,
     prizePlan,
     seasonAwards,
     usesCanonicalAwards,
     weeklyResults,
   }
+}
+
+export function buildPlayerWinningsSummary({
+  members,
+  seasonAwards,
+  weeklyResults,
+}: {
+  members: PrizeMember[]
+  seasonAwards: SeasonAwardView[]
+  weeklyResults: WeeklyPrizeResult[]
+}): PlayerWinningsSummary[] {
+  const summaries = new Map<string, PlayerWinningsSummary>(
+    members.map((member) => [
+      member.id,
+      {
+        finalAmount: 0,
+        finalAwards: [],
+        member,
+        totalAmount: 0,
+        weeklyAmount: 0,
+        weeklyWins: [],
+      },
+    ]),
+  )
+
+  weeklyResults
+    .filter((result) => result.complete)
+    .forEach((result) => {
+      result.winners.forEach((winner) => {
+        const summary = summaries.get(winner.id)
+        if (!summary) return
+        summary.weeklyAmount += result.sharePerWinner
+        summary.weeklyWins.push(result.week)
+      })
+    })
+
+  seasonAwards.forEach((award) => {
+    if (!award.recipient) return
+    const summary = summaries.get(award.recipient.id)
+    if (!summary) return
+    summary.finalAmount += award.amount
+    summary.finalAwards.push(award.label)
+  })
+
+  return [...summaries.values()]
+    .map((summary) => ({
+      ...summary,
+      finalAwards: summary.finalAwards.sort((left, right) =>
+        left.localeCompare(right),
+      ),
+      totalAmount: summary.weeklyAmount + summary.finalAmount,
+      weeklyWins: summary.weeklyWins.sort((left, right) => left - right),
+    }))
+    .sort(
+      (left, right) =>
+        right.totalAmount - left.totalAmount ||
+        left.member.manager_name.localeCompare(right.member.manager_name),
+    )
 }

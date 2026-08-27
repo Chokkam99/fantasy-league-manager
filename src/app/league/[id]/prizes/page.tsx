@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
 import { PrizeMoneyOverview } from '@/components/prizes/PrizeMoneyOverview'
+import { PayoutSummaryTable } from '@/components/prizes/PayoutSummaryTable'
 import { SeasonAwardCards } from '@/components/prizes/SeasonAwardCards'
 import { WeeklyPrizeWinners } from '@/components/prizes/WeeklyPrizeWinners'
 import { Button } from '@/components/ui/Button'
@@ -196,11 +197,18 @@ export default function PrizesPage({ params }: PrizesPageProps) {
         </Notice>
       )}
       {financeError && (
-        <Notice className="mb-5" role="alert" tone="warning">
-          {financeError} Prize planning remains available from the saved season settings.
-          <Button className="mt-3" onClick={refreshFinance} size="sm" variant="secondary">
-            Retry payout details
-          </Button>
+        <Notice className="mb-5 max-w-3xl" role="alert" tone="warning">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="font-semibold">Payout tracking is temporarily unavailable</p>
+              <p className="mt-0.5 leading-5 text-app-text-muted">
+                The saved prize plan and calculated weekly winners are still shown below.
+              </p>
+            </div>
+            <Button className="shrink-0 self-start sm:self-auto" onClick={refreshFinance} size="sm" variant="secondary">
+              Retry
+            </Button>
+          </div>
         </Notice>
       )}
       <Toast message={financeNotice} onDismiss={() => setFinanceNotice(null)} />
@@ -232,6 +240,7 @@ export default function PrizesPage({ params }: PrizesPageProps) {
         paidPayoutAmount={viewModel.paidPayoutAmount}
         schemaReady={viewModel.usesCanonicalAwards}
       />
+      <PayoutSummaryTable summaries={viewModel.playerWinnings} />
       <WeeklyPrizeWinners
         completedResults={viewModel.completedWeeklyResults}
         results={viewModel.weeklyResults}

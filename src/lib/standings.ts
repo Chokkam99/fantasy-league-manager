@@ -44,8 +44,8 @@ export interface PlayoffSeed {
 
 export const STANDINGS_TIEBREAKERS = [
   'Winning percentage, with each tie counting as half a win',
-  'Total points scored',
-  'Manager name as a deterministic final fallback',
+  'Total points scored — ESPN’s default H2H Points seeding tiebreaker',
+  'Manager name only as the companion’s deterministic final fallback',
 ] as const
 
 export function compareStandingRows(

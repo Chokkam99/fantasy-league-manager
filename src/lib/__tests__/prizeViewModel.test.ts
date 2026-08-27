@@ -132,4 +132,33 @@ describe('prize page view model', () => {
       status: 'paid',
     })
   })
+
+  it('builds a compact per-player tally from weekly and season awards', () => {
+    const model = buildPrizeViewModel({
+      finance: null,
+      members,
+      scores: [
+        { member_id: 'member-one', points: 120, week_number: 1 },
+        { member_id: 'member-two', points: 100, week_number: 1 },
+        { member_id: 'member-one', points: 90, week_number: 2 },
+        { member_id: 'member-two', points: 90, week_number: 2 },
+      ],
+      settings,
+    })
+
+    expect(model.playerWinnings).toEqual([
+      expect.objectContaining({
+        finalAmount: 100,
+        totalAmount: 115,
+        weeklyAmount: 15,
+        weeklyWins: [1, 2],
+      }),
+      expect.objectContaining({
+        finalAmount: 0,
+        totalAmount: 5,
+        weeklyAmount: 5,
+        weeklyWins: [2],
+      }),
+    ])
+  })
 })

@@ -1,7 +1,11 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, createHmac, randomBytes } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
-import { isValidShareSeason, isValidShareToken } from '@/lib/shareAccess'
+import {
+  isValidShareSeason,
+  isValidShareToken,
+  PLAYER_SHARE_COOKIE,
+} from '@/lib/shareAccess'
 import type { AppSupabaseClient } from '@/lib/supabaseServer'
 
 export type LeagueReadAccess =
@@ -14,6 +18,17 @@ export type LeagueReadAccessResult =
 
 export function createShareToken() {
   return randomBytes(32).toString('base64url')
+}
+
+export function createStableShareSlug(
+  leagueId: string,
+  season: string,
+  secret: string,
+) {
+  return createHmac('sha256', secret)
+    .update(`${leagueId}\u0000${season}`)
+    .digest('base64url')
+    .slice(0, 12)
 }
 
 export function digestShareToken(token: string) {
@@ -45,7 +60,9 @@ export async function authorizeLeagueRead(
     return { access: { kind: 'commissioner' }, error: null, status: 200 }
   }
 
-  const token = request.nextUrl.searchParams.get('share')
+  const token =
+    request.nextUrl.searchParams.get('share') ||
+    request.cookies.get(PLAYER_SHARE_COOKIE)?.value
   if (!isValidShareSeason(requestedSeason) || !isValidShareToken(token)) {
     return {
       access: null,

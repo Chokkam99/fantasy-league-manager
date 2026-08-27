@@ -28,7 +28,6 @@ export default function LeagueActionsMenu({
   season,
 }: LeagueActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [isPlayerAccessOpen, setIsPlayerAccessOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
@@ -36,13 +35,11 @@ export default function LeagueActionsMenu({
     if (!isOpen) return
 
     const closeOnOutsideClick = (event: MouseEvent) => {
-      if (isPlayerAccessOpen) return
       if (!menuRef.current?.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (isPlayerAccessOpen) return
       if (event.key === 'Escape') {
         setIsOpen(false)
         triggerRef.current?.focus()
@@ -56,7 +53,7 @@ export default function LeagueActionsMenu({
       document.removeEventListener('mousedown', closeOnOutsideClick)
       document.removeEventListener('keydown', closeOnEscape)
     }
-  }, [isOpen, isPlayerAccessOpen])
+  }, [isOpen])
 
   return (
     <div className="relative" ref={menuRef}>
@@ -85,7 +82,7 @@ export default function LeagueActionsMenu({
       {isOpen && (
         <div
           aria-label="League actions"
-          className={`absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface p-2 shadow-[var(--app-shadow-md)] ${isPlayerAccessOpen ? 'invisible pointer-events-none' : ''}`}
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface p-2 shadow-[var(--app-shadow-md)]"
           id="mobile-league-actions"
         >
           <Link
@@ -147,13 +144,8 @@ export default function LeagueActionsMenu({
           {isAdmin && (
             <ShareButton
               className="w-full justify-start border-0 px-3 shadow-none sm:hidden"
-              label="Player access"
+              label="Copy player link"
               leagueId={leagueId}
-              onClose={() => {
-                setIsPlayerAccessOpen(false)
-                setIsOpen(false)
-              }}
-              onOpen={() => setIsPlayerAccessOpen(true)}
               season={season}
             />
           )}

@@ -101,5 +101,26 @@ describe('platform import presentation model', () => {
       lastSyncError: 'ESPN week 17 failed import validation.',
       syncStatus: 'error',
     })
+
+    expect(
+      normalizePlatformSyncHealth({
+        autoSyncEnabled: false,
+        lastSyncError: 'Failed to fetch Week 18',
+        syncStatus: 'error',
+        totalWeeks: 17,
+      }),
+    ).toEqual({ lastSyncError: null, syncStatus: 'disabled' })
+
+    expect(
+      normalizePlatformSyncHealth({
+        autoSyncEnabled: false,
+        lastSyncError: 'Failed to fetch Week 18',
+        syncStatus: 'error',
+        totalWeeks: 0,
+      }),
+    ).toEqual({
+      lastSyncError: 'Failed to fetch Week 18',
+      syncStatus: 'error',
+    })
   })
 })

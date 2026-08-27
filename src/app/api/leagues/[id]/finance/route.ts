@@ -92,7 +92,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .eq('league_id', leagueId)
         .eq('season', season)
         .eq('is_active', true)
-        .order('display_order', { ascending: true }),
+        .order('award_type', { ascending: true })
+        .order('week_number', { ascending: true, nullsFirst: false })
+        .order('award_key', { ascending: true }),
       database
         .from('prize_payouts')
         .select(

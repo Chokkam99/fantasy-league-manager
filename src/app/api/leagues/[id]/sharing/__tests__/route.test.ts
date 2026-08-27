@@ -52,19 +52,31 @@ describe('player share-link route', () => {
     expect(mockedCreateServerClient).not.toHaveBeenCalled()
   })
 
-  it('returns the raw token once while sending only its digest to the database', async () => {
+  it('returns a stable short slug while sending only its digest to the database', async () => {
     const rpc = jest.fn().mockResolvedValue({
       data: { created_at: '2026-08-26T00:00:00.000Z' },
       error: null,
     })
-    mockedCreateServerClient.mockReturnValue({ rpc } as never)
+    const query = {
+      eq: jest.fn(),
+      is: jest.fn(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      select: jest.fn(),
+    }
+    query.select.mockReturnValue(query)
+    query.eq.mockReturnValue(query)
+    query.is.mockReturnValue(query)
+    mockedCreateServerClient.mockReturnValue({
+      from: jest.fn().mockReturnValue(query),
+      rpc,
+    } as never)
 
     const response = await POST(request({ season: '2026' }, true), context)
     const payload = await response.json()
 
     expect(response.status).toBe(200)
-    expect(payload.token).toMatch(/^[A-Za-z0-9_-]{43}$/)
-    expect(payload.share_path).toContain(`season=2026&share=${payload.token}`)
+    expect(payload.token).toMatch(/^[A-Za-z0-9_-]{12}$/)
+    expect(payload.share_path).toBe(`/s/${payload.token}`)
     expect(rpc).toHaveBeenCalledWith(
       'rotate_league_share_link',
       expect.objectContaining({
