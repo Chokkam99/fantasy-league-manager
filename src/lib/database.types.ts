@@ -1,7 +1,7 @@
-// Generated from the deployed schema on 2026-08-25, then extended with the
-// target types from unapplied migrations 202608250002 through 202608260005.
-// Regenerating against the live project before those migrations are active will
-// remove the pending target entries.
+// Generated from the linked Production public schema on 2026-08-27.
+// Supabase marks defaulted RPC arguments as optional but does not emit SQL NULL
+// in their TypeScript types, so the five intentionally nullable arguments below
+// are widened to match their deployed function contracts.
 export type Json =
   | string
   | number
@@ -14,48 +14,10 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
-      league_share_links: {
-        Row: {
-          created_at: string
-          id: string
-          league_id: string
-          revoked_at: string | null
-          season: string
-          token_digest: string
-          token_prefix: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          league_id: string
-          revoked_at?: string | null
-          season: string
-          token_digest: string
-          token_prefix: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          league_id?: string
-          revoked_at?: string | null
-          season?: string
-          token_digest?: string
-          token_prefix?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "league_share_links_league_id_fkey"
-            columns: ["league_id"]
-            isOneToOne: false
-            referencedRelation: "leagues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       collections: {
         Row: {
           created_at: string | null
@@ -219,11 +181,11 @@ export type Database = {
           id: string
           is_active: boolean | null
           joined_at: string | null
-          league_id: string | null
+          league_id: string
           manager_id: string | null
           manager_name: string
-          payment_status: string | null
-          season: string | null
+          payment_status: string
+          season: string
           team_name: string
           updated_at: string | null
         }
@@ -232,11 +194,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           joined_at?: string | null
-          league_id?: string | null
+          league_id: string
           manager_id?: string | null
           manager_name: string
-          payment_status?: string | null
-          season?: string | null
+          payment_status?: string
+          season: string
           team_name: string
           updated_at?: string | null
         }
@@ -245,11 +207,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           joined_at?: string | null
-          league_id?: string | null
+          league_id?: string
           manager_id?: string | null
           manager_name?: string
-          payment_status?: string | null
-          season?: string | null
+          payment_status?: string
+          season?: string
           team_name?: string
           updated_at?: string | null
         }
@@ -268,6 +230,13 @@ export type Database = {
             referencedRelation: "managers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "league_members_season_scope_fkey"
+            columns: ["league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_seasons"
+            referencedColumns: ["league_id", "season"]
+          },
         ]
       }
       league_seasons: {
@@ -279,13 +248,13 @@ export type Database = {
           fee_amount: number
           final_winners: Json | null
           id: string
-          is_active: boolean | null
+          is_active: boolean
           league_id: string
-          playoff_spots: number | null
-          playoff_start_week: number | null
+          playoff_spots: number
+          playoff_start_week: number
           prize_structure: Json | null
           season: string
-          total_weeks: number | null
+          total_weeks: number
           updated_at: string | null
           weekly_prize_amount: number | null
         }
@@ -297,13 +266,13 @@ export type Database = {
           fee_amount?: number
           final_winners?: Json | null
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           league_id: string
-          playoff_spots?: number | null
-          playoff_start_week?: number | null
+          playoff_spots?: number
+          playoff_start_week?: number
           prize_structure?: Json | null
           season: string
-          total_weeks?: number | null
+          total_weeks?: number
           updated_at?: string | null
           weekly_prize_amount?: number | null
         }
@@ -315,13 +284,13 @@ export type Database = {
           fee_amount?: number
           final_winners?: Json | null
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           league_id?: string
-          playoff_spots?: number | null
-          playoff_start_week?: number | null
+          playoff_spots?: number
+          playoff_start_week?: number
           prize_structure?: Json | null
           season?: string
-          total_weeks?: number | null
+          total_weeks?: number
           updated_at?: string | null
           weekly_prize_amount?: number | null
         }
@@ -335,12 +304,50 @@ export type Database = {
           },
         ]
       }
+      league_share_links: {
+        Row: {
+          created_at: string
+          id: string
+          league_id: string
+          revoked_at: string | null
+          season: string
+          token_digest: string
+          token_prefix: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          league_id: string
+          revoked_at?: string | null
+          season: string
+          token_digest: string
+          token_prefix: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          league_id?: string
+          revoked_at?: string | null
+          season?: string
+          token_digest?: string
+          token_prefix?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_share_links_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leagues: {
         Row: {
           archived_at: string | null
           auto_sync_enabled: boolean | null
           created_at: string | null
-          current_season: string | null
+          current_season: string
           espn_league_id: string | null
           espn_s2: string | null
           espn_swid: string | null
@@ -358,7 +365,7 @@ export type Database = {
           archived_at?: string | null
           auto_sync_enabled?: boolean | null
           created_at?: string | null
-          current_season?: string | null
+          current_season?: string
           espn_league_id?: string | null
           espn_s2?: string | null
           espn_swid?: string | null
@@ -376,7 +383,7 @@ export type Database = {
           archived_at?: string | null
           auto_sync_enabled?: boolean | null
           created_at?: string | null
-          current_season?: string | null
+          current_season?: string
           espn_league_id?: string | null
           espn_s2?: string | null
           espn_swid?: string | null
@@ -435,7 +442,7 @@ export type Database = {
           created_at: string | null
           id: string
           league_id: string
-          scores_locked: boolean | null
+          scores_locked: boolean
           season: string
           team1_member_id: string
           team2_member_id: string
@@ -447,7 +454,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           league_id: string
-          scores_locked?: boolean | null
+          scores_locked?: boolean
           season: string
           team1_member_id: string
           team2_member_id: string
@@ -459,7 +466,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           league_id?: string
-          scores_locked?: boolean | null
+          scores_locked?: boolean
           season?: string
           team1_member_id?: string
           team2_member_id?: string
@@ -476,6 +483,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "matchups_season_scope_fkey"
+            columns: ["league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_seasons"
+            referencedColumns: ["league_id", "season"]
+          },
+          {
             foreignKeyName: "matchups_team1_member_id_fkey"
             columns: ["team1_member_id"]
             isOneToOne: false
@@ -483,11 +497,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "matchups_team1_scope_fkey"
+            columns: ["team1_member_id", "league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id", "league_id", "season"]
+          },
+          {
             foreignKeyName: "matchups_team2_member_id_fkey"
             columns: ["team2_member_id"]
             isOneToOne: false
             referencedRelation: "league_members"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matchups_team2_scope_fkey"
+            columns: ["team2_member_id", "league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id", "league_id", "season"]
           },
         ]
       }
@@ -634,18 +662,18 @@ export type Database = {
             referencedColumns: ["id", "league_id", "season"]
           },
           {
-            foreignKeyName: "prize_payouts_member_scope_fkey"
-            columns: ["league_member_id", "league_id", "season"]
-            isOneToOne: false
-            referencedRelation: "league_members"
-            referencedColumns: ["id", "league_id", "season"]
-          },
-          {
             foreignKeyName: "prize_payouts_manager_scope_fkey"
             columns: ["manager_id", "league_id"]
             isOneToOne: false
             referencedRelation: "managers"
             referencedColumns: ["id", "league_id"]
+          },
+          {
+            foreignKeyName: "prize_payouts_member_scope_fkey"
+            columns: ["league_member_id", "league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id", "league_id", "season"]
           },
         ]
       }
@@ -697,13 +725,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "season_payments_member_scope_fkey"
-            columns: ["league_member_id", "league_id", "season"]
-            isOneToOne: true
-            referencedRelation: "league_members"
-            referencedColumns: ["id", "league_id", "season"]
-          },
-          {
             foreignKeyName: "season_payments_league_season_fkey"
             columns: ["league_id", "season"]
             isOneToOne: false
@@ -717,44 +738,51 @@ export type Database = {
             referencedRelation: "managers"
             referencedColumns: ["id", "league_id"]
           },
+          {
+            foreignKeyName: "season_payments_member_scope_fkey"
+            columns: ["league_member_id", "league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id", "league_id", "season"]
+          },
         ]
       }
       weekly_scores: {
         Row: {
           created_at: string | null
           id: string
-          is_final_score: boolean | null
-          is_playoff_week: boolean | null
+          is_final_score: boolean
+          is_playoff_week: boolean
           league_id: string
           member_id: string
           points: number
-          season: string | null
+          season: string
           week_number: number
-          week_status: string | null
+          week_status: string
         }
         Insert: {
           created_at?: string | null
           id?: string
-          is_final_score?: boolean | null
-          is_playoff_week?: boolean | null
+          is_final_score?: boolean
+          is_playoff_week?: boolean
           league_id: string
           member_id: string
           points: number
-          season?: string | null
+          season: string
           week_number: number
-          week_status?: string | null
+          week_status?: string
         }
         Update: {
           created_at?: string | null
           id?: string
-          is_final_score?: boolean | null
-          is_playoff_week?: boolean | null
+          is_final_score?: boolean
+          is_playoff_week?: boolean
           league_id?: string
           member_id?: string
           points?: number
-          season?: string | null
+          season?: string
           week_number?: number
-          week_status?: string | null
+          week_status?: string
         }
         Relationships: [
           {
@@ -770,6 +798,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "league_members"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_scores_member_scope_fkey"
+            columns: ["member_id", "league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id", "league_id", "season"]
           },
         ]
       }
@@ -799,6 +834,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "matchups_season_scope_fkey"
+            columns: ["league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_seasons"
+            referencedColumns: ["league_id", "season"]
+          },
+          {
             foreignKeyName: "matchups_team1_member_id_fkey"
             columns: ["team1_member_id"]
             isOneToOne: false
@@ -806,11 +848,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "matchups_team1_scope_fkey"
+            columns: ["team1_member_id", "league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id", "league_id", "season"]
+          },
+          {
             foreignKeyName: "matchups_team2_member_id_fkey"
             columns: ["team2_member_id"]
             isOneToOne: false
             referencedRelation: "league_members"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matchups_team2_scope_fkey"
+            columns: ["team2_member_id", "league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id", "league_id", "season"]
           },
         ]
       }
@@ -897,6 +953,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_league_archive_status: {
+        Args: { p_archived: boolean; p_league_id: string }
+        Returns: Json
+      }
       set_prize_payout_status: {
         Args: {
           p_league_id: string
@@ -906,10 +966,6 @@ export type Database = {
         }
         Returns: Json
       }
-      set_league_archive_status: {
-        Args: { p_archived: boolean; p_league_id: string }
-        Returns: Json
-      }
       set_season_archive_status: {
         Args: { p_archived: boolean; p_league_id: string; p_season: string }
         Returns: Json
@@ -917,10 +973,10 @@ export type Database = {
       set_season_payment_details: {
         Args: {
           p_league_id: string
+          p_member_id: string
           p_notes?: string | null
           p_paid_amount_cents?: number | null
           p_payment_method?: string | null
-          p_member_id: string
           p_season: string
           p_status: string
         }

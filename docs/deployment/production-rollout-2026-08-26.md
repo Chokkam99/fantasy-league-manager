@@ -1,6 +1,6 @@
 # Production rollout checkpoint — updated 2026-08-27
 
-Status: **preparation only; production deployment and migrations are not approved or executed**.
+Status: **completed on 2026-08-27**. See [the Production migration checkpoint](production-migration-2026-08-27.md) for execution and post-migration evidence. The remaining content below preserves the exact pre-execution plan and approval boundaries.
 
 This is the exact handoff for the locally verified application and migrations `001`–`014`. The accepted application release is consolidated on local `main`, includes commit `680333d`, and has not been pushed or deployed. The project must remain on free plans with no paid branch, database, compute, add-on, or recurring service.
 
