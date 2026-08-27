@@ -13,31 +13,27 @@ This is the exact handoff for the locally verified application and migrations `0
 - Owner-only application-data export: `data/rollout-backups/2026-08-26-pre-migration/`. The directory is gitignored with mode `700`; its eight JSON files use mode `600`. The manifest checksums and all JSON files were independently read and verified.
 - Owner-only PostgreSQL 17 logical export: `data/rollout-backups/2026-08-26-pooler-pg-dump/`. Its public-schema SQL files and checksum manifest use mode `600`; both checksums revalidate, and the dump restores successfully into a clean disposable PostgreSQL 17 database with the audited production counts and contracts.
 - The production migration-history table is absent, as expected for the deployed-v0 baseline. The linked CLI dry-run completed successfully and proposed exactly migrations `001` through `014`, in order, with no seed or role changes.
+- Vercel Production now has independent `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET`, `SUPABASE_SECRET_KEY`, and `CRON_SECRET` values, each metadata-verified as hidden, sensitive, and Production-only. No secret value was retrieved from Vercel or written to the workspace.
 
 The JSON export contains every row from `leagues`, `league_seasons`, `league_members`, `weekly_scores`, `matchups`, and `payments`, plus the exact 10/24/6 rollback rows. The PostgreSQL export independently contains the complete public schema and data, including grants, RLS, functions, fantasy data, and the unrelated public `collections`/`items` tables. Provider-managed schemas, cluster roles, and a provider restore point remain outside its scope.
 
 ## Open gates
 
-The backup, packaging, release-gate, migration-history, and dry-run gates are resolved. Do not deploy or migrate until the remaining gates are resolved:
+The backup, packaging, release-gate, production-secret, migration-history, and dry-run gates are resolved. Do not deploy or migrate until the remaining gates are resolved:
 
-1. Vercel Production currently lacks `ADMIN_SESSION_SECRET` and `SUPABASE_SECRET_KEY`/`SUPABASE_SERVICE_ROLE_KEY`. Its existing `ADMIN_PASSWORD_HASH` and `CRON_SECRET` are stored as non-sensitive values and must be replaced with new production-only sensitive values. Never reuse local Keychain values.
-2. Immediately before migration, rerun the read-only audits and require the exact counts above. Any drift stops the rollout.
-3. Obtain separate explicit approval immediately before the production application deployment and again before removing `--dry-run` from the migration command.
+1. Immediately before migration, rerun the read-only audits and require the exact counts above. Any drift stops the rollout.
+2. Obtain separate explicit approval immediately before the production application deployment and again before removing `--dry-run` from the migration command.
 
-## Production secret preparation
+## Verified Production secrets
 
-Generate four independent production values. Use hidden prompts or secure provider UI; never put them in `.env`, command arguments, chat, shell history, or Git.
+The four independent production values were installed through hidden prompts or in-memory provider transfer; none was put in `.env`, command arguments, chat, shell history, or Git:
 
-Configure them interactively as sensitive, Production-only Vercel values:
+- `ADMIN_PASSWORD_HASH`: fresh salted scrypt verifier, hidden/sensitive/Production-only.
+- `ADMIN_SESSION_SECRET`: independently generated, hidden/sensitive/Production-only.
+- `SUPABASE_SECRET_KEY`: existing modern project server key, hidden/sensitive/Production-only.
+- `CRON_SECRET`: independently generated, hidden/sensitive/Production-only.
 
-```sh
-vercel env add ADMIN_PASSWORD_HASH production --force --sensitive
-vercel env add ADMIN_SESSION_SECRET production --force --sensitive
-vercel env add SUPABASE_SECRET_KEY production --force --sensitive
-vercel env add CRON_SECRET production --force --sensitive
-```
-
-Afterward, `vercel env ls production` must show all four plus the two public Supabase values. Do not pull secret values into the workspace.
+`vercel env ls production` shows all four as `Hidden`, `Sensitive`, and `Production`, plus the two intentionally public Supabase browser values. Do not pull secret values into the workspace. Any future rotation must preserve independent values and the same scope/sensitivity.
 
 ## Verified logical dump
 
@@ -99,7 +95,7 @@ These steps are instructions for a later approved window, not authorization to r
 
 1. Freeze edits and automatic/manual imports. Recheck the hashes and all local release gates from the release commit.
 2. Rerun all three GET-only audits and verify exact counts. Verify the protected export or full logical dump again.
-3. Configure the four production-only sensitive Vercel values.
+3. Reverify the four production-only sensitive Vercel values by metadata only; do not pull their values.
 4. Deploy the compatibility-capable application release first. Because it contains pre-migration fallbacks, schema-dependent features remain unavailable rather than writing through the public key.
 5. Smoke-test signed commissioner authentication, server-authorized reads, missing-schema fallbacks, and cron rejection without invoking an authenticated cron/import.
 6. Enter the maintenance window and obtain explicit migration approval.
