@@ -2,7 +2,6 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { installLeagueFixtures } from './fixtures'
 
 const leaguePath = '/league/gridiron-gurus'
-const shareToken = 'a'.repeat(43)
 
 async function expectNoDocumentOverflow(page: Page) {
   await expect
@@ -114,21 +113,33 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'League dashboard')
     await page.getByRole('link', { name: 'Open Gridiron Gurus' }).click()
     await expectHeading(page, 'Season overview')
+    await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
+    await expect(page.getByRole('cell', { name: '2025 Final' })).toBeVisible()
     if (isMobile(testInfo)) {
       await page.getByRole('button', { name: 'Open league actions' }).click()
       await page
         .locator('[aria-label="League actions"]')
-        .getByRole('button', { name: 'Copy player link' })
+        .getByRole('button', { name: 'Share league' })
         .click()
     } else {
-      await page.getByRole('button', { name: 'Copy player link' }).click()
+      await page.getByRole('button', { name: 'Share league' }).click()
     }
-    await expect(page.getByText('2026 player link copied.')).toBeVisible()
+    await expect(page.getByText('League link copied.')).toBeVisible()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as typeof window & { __copiedLeagueLink?: string })
+              .__copiedLeagueLink,
+        ),
+      )
+      .toBe('http://127.0.0.1:3217/league/gridiron-gurus')
     const dismissToast = page.getByRole('button', { name: 'Dismiss notification' })
     const dismissToastBox = await dismissToast.boundingBox()
     expect(dismissToastBox).not.toBeNull()
     expect(dismissToastBox!.width).toBeLessThanOrEqual(32)
     expect(dismissToastBox!.height).toBeLessThanOrEqual(32)
+    expect(dismissToastBox!.y).toBeLessThanOrEqual(48)
     await dismissToast.click()
     if (isMobile(testInfo)) {
       await page.keyboard.press('Escape')
@@ -178,7 +189,11 @@ test.describe('responsive league journeys', () => {
     await expect(page.getByRole('heading', { name: 'Final & bonus prizes' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Payout tally' })).toBeVisible()
     await expect(page.getByLabel(/^Recipient for /).first()).toBeVisible()
-    await expect(page.getByRole('checkbox', { name: 'Paid: 1st place' })).toBeVisible()
+    await expect(
+      page.getByRole('checkbox', {
+        name: 'Paid: Sunday Scaries total payout',
+      }),
+    ).toBeVisible()
 
     await openPrimaryNav(page, 'Overview')
     await expectHeading(page, 'Season overview')
@@ -216,11 +231,10 @@ test.describe('responsive league journeys', () => {
     await expect(
       page.getByRole('button', { name: 'Archive league' }),
     ).toBeVisible()
-    expect(mutationRequests).toHaveLength(1)
-    expect(mutationRequests[0]).toContain('/sharing')
+    expect(mutationRequests).toHaveLength(0)
   })
 
-  test('shared player can follow league progress without management controls', async ({
+  test('player can follow the public league path without management controls', async ({
     page,
   }, testInfo) => {
     await installLeagueFixtures(page, { commissioner: false })
@@ -234,8 +248,10 @@ test.describe('responsive league journeys', () => {
       }
     })
 
-    await page.goto(`${leaguePath}?season=2026&share=${shareToken}`)
+    await page.goto(`${leaguePath}?season=2026`)
     await expectHeading(page, 'Season overview')
+    await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
+    await expect(page.getByRole('cell', { name: '2025 Final' })).toBeVisible()
 
     await openPrimaryNav(page, 'Standings')
     await expectHeading(page, 'Standings')
@@ -271,7 +287,7 @@ test.describe('responsive league journeys', () => {
     }
     await expectHeading(page, 'League rules')
 
-    await page.goto(`${leaguePath}/settings?season=2026&share=${shareToken}`)
+    await page.goto(`${leaguePath}/settings?season=2026`)
     await expectHeading(page, 'League settings are unavailable')
     await expect(page.getByText('Archive league')).toHaveCount(0)
     expect(mutationRequests).toEqual([])

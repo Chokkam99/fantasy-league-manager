@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest, context: RouteContext) {
   const { slug } = await context.params
   if (!isValidShareToken(slug)) {
-    return new NextResponse('This player link is not valid.', { status: 404 })
+    return new NextResponse('This league link is not valid.', { status: 404 })
   }
 
   try {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .maybeSingle()
 
     if (result.error || !result.data) {
-      return new NextResponse('This player link is not valid.', { status: 404 })
+      return new NextResponse('This league link is not valid.', { status: 404 })
     }
 
     const target = new URL(
@@ -49,11 +49,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return response
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return new NextResponse('Player links are temporarily unavailable.', {
+      return new NextResponse('League links are temporarily unavailable.', {
         status: 503,
       })
     }
-    return new NextResponse('This player link could not be opened.', {
+    return new NextResponse('This league link could not be opened.', {
       status: 500,
     })
   }

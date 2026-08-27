@@ -15,7 +15,7 @@ const mockedCreateServerClient =
     typeof createServerSupabaseClient
   >
 
-describe('short player link', () => {
+describe('short league link', () => {
   beforeEach(() => mockedCreateServerClient.mockReset())
 
   it('rejects malformed slugs before database access', async () => {
@@ -28,7 +28,7 @@ describe('short player link', () => {
     expect(mockedCreateServerClient).not.toHaveBeenCalled()
   })
 
-  it('sets protected player access and redirects to the scoped season', async () => {
+  it('keeps legacy links scoped to their saved season', async () => {
     const query = {
       eq: jest.fn(),
       is: jest.fn(),

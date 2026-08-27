@@ -14,7 +14,6 @@ interface LeagueActionsMenuProps {
   seasonSetupUrl: string
   settingsUrl: string
   leagueId: string
-  season: string
 }
 
 export default function LeagueActionsMenu({
@@ -25,7 +24,6 @@ export default function LeagueActionsMenu({
   seasonSetupUrl,
   settingsUrl,
   leagueId,
-  season,
 }: LeagueActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -143,10 +141,8 @@ export default function LeagueActionsMenu({
           )}
           {isAdmin && (
             <ShareButton
-              className="w-full justify-start border-0 px-3 shadow-none sm:hidden"
-              label="Copy player link"
+              className="border-0 shadow-none sm:hidden"
               leagueId={leagueId}
-              season={season}
             />
           )}
           <div className="mt-1 border-t border-app-border pt-1">

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SeasonAwardCards } from '@/components/prizes/SeasonAwardCards'
+import { PayoutSummaryTable } from '@/components/prizes/PayoutSummaryTable'
 import type { FinanceAward, FinancePayout } from '@/lib/financeClient'
 import type { PrizeMember } from '@/lib/prizes'
 import type { SeasonAwardView } from '@/lib/prizeViewModel'
@@ -45,7 +46,6 @@ function view(canManagePayouts: boolean) {
       busyFinanceId={null}
       canManagePayouts={canManagePayouts}
       members={members}
-      onPayoutStatusChange={jest.fn()}
       onRecipientChange={jest.fn()}
       schemaReady
     />
@@ -60,14 +60,12 @@ describe('Prize views', () => {
     expect(screen.getByText('$120')).toBeInTheDocument()
     expect(screen.getByText('Team One')).toBeInTheDocument()
     expect(screen.getByText('Manager One')).toBeInTheDocument()
-    expect(screen.getByText('Pending payout')).toBeInTheDocument()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('allows commissioners to assign recipients and update payout status', async () => {
+  it('keeps season awards compact and focused on recipient assignment', async () => {
     const user = userEvent.setup()
-    const onPayoutStatusChange = jest.fn()
     const onRecipientChange = jest.fn()
     render(
       <SeasonAwardCards
@@ -75,7 +73,6 @@ describe('Prize views', () => {
         busyFinanceId={null}
         canManagePayouts
         members={members}
-        onPayoutStatusChange={onPayoutStatusChange}
         onRecipientChange={onRecipientChange}
         schemaReady
       />,
@@ -85,8 +82,38 @@ describe('Prize views', () => {
       screen.getByRole('combobox', { name: 'Recipient for Champion' }),
       'member-two',
     )
-    await user.click(screen.getByRole('checkbox', { name: 'Paid: Champion' }))
     expect(onRecipientChange).toHaveBeenCalledWith(award, 'member-two')
-    expect(onPayoutStatusChange).toHaveBeenCalledWith('payout-one', 'paid')
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  it('tracks the full player handout in the payout tally', async () => {
+    const user = userEvent.setup()
+    const onPayoutStatusChange = jest.fn()
+    render(
+      <PayoutSummaryTable
+        busyMemberId={null}
+        canManagePayouts
+        onPayoutStatusChange={onPayoutStatusChange}
+        summaries={[
+          {
+            finalAmount: 120,
+            finalAwards: ['Champion'],
+            member: members[0],
+            payoutStatus: 'pending',
+            totalAmount: 135,
+            weeklyAmount: 15,
+            weeklyWins: [1, 4],
+          },
+        ]}
+        trackingReady
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'Paid: Team One total payout',
+      }),
+    )
+    expect(onPayoutStatusChange).toHaveBeenCalledWith('member-one', 'paid')
   })
 })

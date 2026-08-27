@@ -116,7 +116,7 @@ export function ESPNTeamMappingPanel({
                       key={member.member_id}
                       value={member.member_id}
                     >
-                      {member.manager_name} — {member.team_name}
+                      {member.manager_name} · {member.team_name}
                     </option>
                   ))}
                 </select>

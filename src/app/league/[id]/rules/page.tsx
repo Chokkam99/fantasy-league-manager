@@ -102,10 +102,10 @@ export default function RulesPage({ params }: RulesPageProps) {
       ? 'Not configured'
       : schedule.playoffsStartWeek === schedule.totalWeeks
       ? `Week ${schedule.playoffsStartWeek}`
-      : `Weeks ${schedule.playoffsStartWeek}–${schedule.totalWeeks}`
+      : `Weeks ${schedule.playoffsStartWeek}-${schedule.totalWeeks}`
   const regularSeasonLabel =
     schedule.regularSeasonWeeks > 0
-      ? `Weeks 1–${schedule.regularSeasonWeeks}`
+      ? `Weeks 1-${schedule.regularSeasonWeeks}`
       : 'Not configured'
   const buildPageHref = (segment: string) => {
     const query = new URLSearchParams({ season: selectedSeason })

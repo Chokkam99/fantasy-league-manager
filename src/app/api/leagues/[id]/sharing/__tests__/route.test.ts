@@ -29,7 +29,7 @@ function request(body: unknown, authorized = false) {
   })
 }
 
-describe('player share-link route', () => {
+describe('legacy season share-link route', () => {
   beforeEach(() => {
     process.env.ADMIN_SESSION_SECRET = secret
     mockedCreateServerClient.mockReset()
@@ -46,8 +46,19 @@ describe('player share-link route', () => {
     expect(mockedCreateServerClient).not.toHaveBeenCalled()
   })
 
-  it('rejects malformed seasons before database access', async () => {
-    const response = await POST(request({ season: '26' }, true), context)
+  it('rejects malformed JSON before database access', async () => {
+    const malformed = new NextRequest(
+      'http://localhost/api/leagues/fixture-league/sharing',
+      {
+        body: '{',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `${ADMIN_SESSION_COOKIE}=${createAdminSession(secret)}`,
+        },
+        method: 'POST',
+      },
+    )
+    const response = await POST(malformed, context)
     expect(response.status).toBe(400)
     expect(mockedCreateServerClient).not.toHaveBeenCalled()
   })
@@ -79,12 +90,12 @@ describe('player share-link route', () => {
     expect(payload.share_path).toBe(`/s/${payload.token}`)
     expect(rpc).toHaveBeenCalledWith(
       'rotate_league_share_link',
-      expect.objectContaining({
+      {
         p_league_id: 'fixture-league',
         p_season: '2026',
         p_token_digest: digestShareToken(payload.token),
         p_token_prefix: payload.token.slice(0, 8),
-      }),
+      },
     )
     expect(JSON.stringify(rpc.mock.calls)).not.toContain(payload.token)
   })

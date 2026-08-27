@@ -8,6 +8,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Notice } from '@/components/ui/Notice'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
 import { useSeasonConfig } from '@/hooks/useSeasonConfig'
+import { invalidateFinanceCache } from '@/lib/financeClient'
+import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
 import type { ScoreRosterMember } from '@/lib/scoresClient'
 import {
   loadWeeklyScoresData,
@@ -34,7 +36,7 @@ interface WeeklyScoresProps {
 type Notice = { kind: 'error' | 'success'; message: string } | null
 
 function formatPoints(points: number | null) {
-  return points === null ? '—' : points.toFixed(2)
+  return points === null ? '-' : points.toFixed(2)
 }
 
 export default function WeeklyScores({
@@ -210,6 +212,8 @@ export default function WeeklyScores({
         kind: 'success',
         message: payload.message || `Week ${selectedWeek} scores saved.`,
       })
+      invalidateLeagueReadCache(leagueId, currentSeason)
+      invalidateFinanceCache(leagueId, currentSeason)
       await loadWeekData()
     } catch (error) {
       setNotice({
@@ -247,6 +251,8 @@ export default function WeeklyScores({
         kind: 'success',
         message: payload.message || `Week ${selectedWeek} scores cleared.`,
       })
+      invalidateLeagueReadCache(leagueId, currentSeason)
+      invalidateFinanceCache(leagueId, currentSeason)
       await loadWeekData()
     } catch (error) {
       setNotice({
@@ -431,7 +437,7 @@ export default function WeeklyScores({
                     key={member.id}
                   >
                     <span className="font-mono text-sm font-semibold text-app-text-muted">
-                      {rank ? `#${rank}` : '—'}
+                      {rank ? `#${rank}` : '-'}
                     </span>
                     <span className="min-w-0">
                       <span className="flex items-center gap-2">
@@ -541,7 +547,7 @@ function SelectChevron() {
   return (
     <svg
       aria-hidden="true"
-      className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-text-muted"
+      className="pointer-events-none absolute right-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-text-muted"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"

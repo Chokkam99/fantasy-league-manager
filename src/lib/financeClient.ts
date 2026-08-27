@@ -1,5 +1,27 @@
 import type { FinanceSummary, ValidFinanceAction } from './finance'
-import { addCurrentShareToken } from './leagueReadClient'
+import {
+  addCurrentShareToken,
+  invalidateLeagueReadCache,
+} from './leagueReadClient'
+
+const FINANCE_CACHE_TTL_MS = 5 * 60 * 1000
+const financeCache = new Map<
+  string,
+  { expiresAt: number; value: FinanceSnapshot }
+>()
+const financeRequests = new Map<string, Promise<FinanceSnapshot>>()
+
+export function invalidateFinanceCache(leagueId?: string, season?: string) {
+  const leagueFragment = leagueId
+    ? `/api/leagues/${encodeURIComponent(leagueId)}/finance?`
+    : null
+  const seasonFragment = season ? `season=${encodeURIComponent(season)}` : null
+  for (const key of financeCache.keys()) {
+    if (leagueFragment && !key.startsWith(leagueFragment)) continue
+    if (seasonFragment && !key.includes(seasonFragment)) continue
+    financeCache.delete(key)
+  }
+}
 
 export interface FinanceAward {
   award_key: string
@@ -31,10 +53,19 @@ export interface FinancePayout {
   status: 'paid' | 'pending'
 }
 
+export interface FinancePlayerPayoutStatus {
+  id: string
+  league_member_id: string
+  paid_at: string | null
+  status: 'paid' | 'pending'
+}
+
 export interface FinanceSnapshot {
   awards: FinanceAward[]
   is_commissioner: boolean
   payments?: FinancePayment[]
+  player_payout_tracking_ready?: boolean
+  player_payouts?: FinancePlayerPayoutStatus[]
   payouts: FinancePayout[]
   schema_ready: boolean
   success: true
@@ -56,15 +87,32 @@ export async function loadFinanceSnapshot(
 ): Promise<FinanceSnapshot> {
   const query = new URLSearchParams({ season })
   addCurrentShareToken(query)
-  const response = await fetch(
-    `/api/leagues/${encodeURIComponent(leagueId)}/finance?${query}`,
-  )
-  const { message, payload } = await responseMessage(
-    response,
-    'Finance details could not be loaded.',
-  )
-  if (!response.ok) throw new Error(message)
-  return payload as FinanceSnapshot
+  const path = `/api/leagues/${encodeURIComponent(leagueId)}/finance?${query}`
+  const cached = financeCache.get(path)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
+  const pending = financeRequests.get(path)
+  if (pending) return pending
+
+  const request = (async () => {
+    const response = await fetch(path)
+    const { message, payload } = await responseMessage(
+      response,
+      'Finance details could not be loaded.',
+    )
+    if (!response.ok) throw new Error(message)
+    const snapshot = payload as FinanceSnapshot
+    financeCache.set(path, {
+      expiresAt: Date.now() + FINANCE_CACHE_TTL_MS,
+      value: snapshot,
+    })
+    return snapshot
+  })()
+  financeRequests.set(path, request)
+  try {
+    return await request
+  } finally {
+    financeRequests.delete(path)
+  }
 }
 
 export async function performFinanceAction(
@@ -84,5 +132,7 @@ export async function performFinanceAction(
     'The finance update failed.',
   )
   if (!response.ok) throw new Error(message)
+  invalidateFinanceCache(leagueId, action.season)
+  invalidateLeagueReadCache(leagueId, action.season)
   return payload
 }

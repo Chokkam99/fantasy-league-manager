@@ -13,7 +13,7 @@ function Initials({ managerName }: { managerName: string }) {
     .join('')
 
   return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-app-brand-soft text-sm font-black text-app-brand-strong">
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-app-brand-soft text-xs font-black text-app-brand-strong">
       {initials || '?'}
     </span>
   )
@@ -131,7 +131,7 @@ export function PlayerRosterSections({
         </div>
 
         {currentPlayers.length > 0 ? (
-          <div className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <Card className="mt-4 min-w-0 overflow-hidden">
             {currentPlayers.map((player) => {
               const previousTeamNames = player.teamNames.filter(
                 (teamName) => teamName !== player.currentTeamName,
@@ -139,82 +139,76 @@ export function PlayerRosterSections({
               const isBusy = busyMemberId === player.currentMemberId
 
               return (
-                <Card className="flex min-w-0 flex-col p-4 sm:p-5" key={player.currentMemberId}>
-                  <div className="flex min-w-0 items-start gap-3">
+                <article
+                  className="grid min-w-0 gap-3 border-b border-app-border p-3 last:border-b-0 sm:grid-cols-[minmax(0,1.25fr)_minmax(10rem,0.9fr)_auto] sm:items-center sm:px-4"
+                  key={player.currentMemberId}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
                     <Initials managerName={player.managerName} />
                     <div className="min-w-0 flex-1">
-                      <h3 className="break-words font-bold text-app-text">
+                      <h3 className="truncate text-sm font-bold text-app-text">
                         {player.currentTeamName}
                       </h3>
-                      <p className="mt-0.5 break-words text-sm text-app-text-muted">
-                        {player.managerName}
+                      <p className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-app-text-muted">
+                        <span className="truncate">{player.managerName}</span>
+                        {player.division && (
+                          <span className="shrink-0">· {player.division}</span>
+                        )}
                       </p>
-                      {player.division && (
-                        <Badge className="mt-2" variant="neutral">
-                          {player.division}
-                        </Badge>
-                      )}
                     </div>
-                    {!isViewOnly && (
+                  </div>
+
+                  <div className="min-w-0 sm:border-l sm:border-app-border sm:pl-4">
+                    <SeasonChips seasons={player.seasons} />
+                    {previousTeamNames.length > 0 && (
+                      <p className="mt-1.5 truncate text-xs text-app-text-muted">
+                        Previously: {previousTeamNames.join(', ')}
+                      </p>
+                    )}
+                  </div>
+
+                  {!isViewOnly && (
+                    <div className="flex items-center justify-between gap-2 sm:justify-end">
                       <DuesStatusToggle
                         disabled={isBusy}
                         onClick={() => onPaymentChange(player)}
                         player={player}
                       />
-                    )}
-                  </div>
-
-                  <div className="mt-4 border-t border-app-border pt-4">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-app-text-muted">
-                      League history
-                    </p>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <SeasonChips seasons={player.seasons} />
-                      </div>
-                      {!isViewOnly && (
-                        <div className="flex shrink-0 items-center gap-1">
-                          {player.payment && (
-                            <Button
-                              aria-label={`Payment details for ${player.managerName}`}
-                              disabled={isBusy}
-                              onClick={() => onOpenPayment(player)}
-                              size="compactIcon"
-                              title="Payment details"
-                              variant="ghost"
-                            >
-                              <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h3" />
-                              </svg>
-                            </Button>
-                          )}
+                      <div className="flex shrink-0 items-center gap-1">
+                        {player.payment && (
                           <Button
-                            aria-label={`Remove ${player.managerName} from ${selectedSeason}`}
-                            className="text-app-danger hover:bg-app-danger-soft hover:text-app-danger"
+                            aria-label={`Payment details for ${player.managerName}`}
                             disabled={isBusy}
-                            onClick={() => onDeactivate(player)}
+                            onClick={() => onOpenPayment(player)}
                             size="compactIcon"
-                            title={`Remove from ${selectedSeason}`}
+                            title="Payment details"
                             variant="ghost"
                           >
                             <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <circle cx="9" cy="8" r="3" />
-                              <path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 11h5" />
+                              <path d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h3" />
                             </svg>
                           </Button>
-                        </div>
-                      )}
+                        )}
+                        <Button
+                          aria-label={`Remove ${player.managerName} from ${selectedSeason}`}
+                          disabled={isBusy}
+                          onClick={() => onDeactivate(player)}
+                          size="compactIcon"
+                          title={`Remove from ${selectedSeason}`}
+                          variant="dangerGhost"
+                        >
+                          <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <circle cx="9" cy="8" r="3" />
+                            <path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 11h5" />
+                          </svg>
+                        </Button>
+                      </div>
                     </div>
-                    {previousTeamNames.length > 0 && (
-                      <p className="mt-3 break-words text-xs leading-5 text-app-text-muted">
-                        Previous teams: {previousTeamNames.join(', ')}
-                      </p>
-                    )}
-                  </div>
-                </Card>
+                  )}
+                </article>
               )
             })}
-          </div>
+          </Card>
         ) : (
           <Card className="mt-4 border-dashed p-8 text-center">
             <p className="font-semibold text-app-text">
@@ -247,20 +241,28 @@ export function PlayerRosterSections({
         </div>
 
         {formerPlayers.length > 0 ? (
-          <div className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <Card className="mt-4 min-w-0 overflow-hidden">
             {formerPlayers.map((player) => (
-              <Card className="flex min-w-0 flex-col p-4 sm:p-5" key={player.sourceMemberId}>
-                <div className="flex min-w-0 items-start gap-3">
+              <article
+                className="grid min-w-0 gap-3 border-b border-app-border p-3 last:border-b-0 sm:grid-cols-[minmax(0,1.25fr)_minmax(10rem,0.9fr)_auto] sm:items-center sm:px-4"
+                key={player.sourceMemberId}
+              >
+                <div className="flex min-w-0 items-center gap-3">
                   <Initials managerName={player.managerName} />
                   <div className="min-w-0 flex-1">
-                    <h3 className="break-words font-bold text-app-text">
+                    <h3 className="truncate text-sm font-bold text-app-text">
                       {player.managerName}
                     </h3>
-                    <p className="mt-1 break-words text-sm text-app-text-muted">
+                    <p className="mt-0.5 truncate text-xs text-app-text-muted">
                       {player.teamNames.join(', ')}
                     </p>
                   </div>
-                  {!isViewOnly && (
+                </div>
+                <div className="min-w-0 sm:border-l sm:border-app-border sm:pl-4">
+                  <SeasonChips seasons={player.seasons} />
+                </div>
+                {!isViewOnly && (
+                  <div className="flex justify-end">
                     <Button
                       aria-label={
                         busyMemberId === player.sourceMemberId
@@ -277,14 +279,11 @@ export function PlayerRosterSections({
                         <path d="M12 5v14M5 12h14" />
                       </svg>
                     </Button>
-                  )}
-                </div>
-                <div className="mt-4 border-t border-app-border pt-4">
-                  <SeasonChips seasons={player.seasons} />
-                </div>
-              </Card>
+                  </div>
+                )}
+              </article>
             ))}
-          </div>
+          </Card>
         ) : (
           <Card className="mt-4 border-dashed p-8 text-center">
             <p className="font-semibold text-app-text">

@@ -104,10 +104,12 @@ describe('Players roster views', () => {
     expect(
       screen.getByRole('button', { name: 'Mark Manager One paid' }),
     ).toHaveTextContent('Partial')
-    expect(screen.getByText('Previous teams: Old Team')).toBeInTheDocument()
+    expect(screen.getByText('Previously: Old Team')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Mark Manager One paid' }))
     await user.click(screen.getByRole('button', { name: 'Payment details for Manager One' }))
-    await user.click(screen.getByRole('button', { name: 'Remove Manager One from 2026' }))
+    const remove = screen.getByRole('button', { name: 'Remove Manager One from 2026' })
+    expect(remove).toHaveClass('text-app-danger')
+    await user.click(remove)
     await user.click(screen.getByRole('button', { name: 'Add Manager Two to 2026' }))
     expect(onPaymentChange).toHaveBeenCalledWith(currentPlayer)
     expect(onOpenPayment).toHaveBeenCalledWith(currentPlayer)

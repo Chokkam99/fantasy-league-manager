@@ -42,7 +42,7 @@ describe('scoped player share tokens', () => {
     expect(isValidShareToken(slug)).toBe(true)
   })
 
-  it('builds a season-scoped encoded player URL', () => {
+  it('builds a compact encoded league URL', () => {
     const token = 'a'.repeat(12)
     expect(buildSharePath('friends/league', '2026', token)).toBe(
       `/s/${token}`,

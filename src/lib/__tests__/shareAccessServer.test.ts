@@ -62,7 +62,7 @@ describe('server league-read authorization', () => {
     expect(database.from).not.toHaveBeenCalled()
   })
 
-  it('rejects missing or malformed player grants before database access', async () => {
+  it('rejects missing or malformed league grants before database access', async () => {
     const database = databaseResult(null)
 
     await expect(
@@ -76,7 +76,25 @@ describe('server league-read authorization', () => {
     expect(database.from).not.toHaveBeenCalled()
   })
 
-  it('accepts a short player grant from the protected share cookie', async () => {
+  it('allows the normal league path as a public read-only view', async () => {
+    const database = databaseResult(null)
+
+    await expect(
+      authorizeLeagueRead(
+        request('http://localhost/league/friends'),
+        database.database,
+        'friends',
+        '2026',
+      ),
+    ).resolves.toEqual({
+      access: { kind: 'public' },
+      error: null,
+      status: 200,
+    })
+    expect(database.from).not.toHaveBeenCalled()
+  })
+
+  it('accepts a short league grant from the protected share cookie', async () => {
     const database = databaseResult({ id: 'link-id', season: '2026' })
     const shortToken = 'a'.repeat(12)
 
@@ -100,7 +118,7 @@ describe('server league-read authorization', () => {
     )
   })
 
-  it('authorizes only the exact league, season, digest, and active link', async () => {
+  it('authorizes a legacy link only for its exact league and season', async () => {
     const database = databaseResult({ id: 'link-id', season: '2026' })
 
     await expect(
@@ -118,8 +136,8 @@ describe('server league-read authorization', () => {
     expect(JSON.stringify(database.query.eq.mock.calls)).not.toContain(token)
   })
 
-  it('rejects unknown, cross-season, or revoked links', async () => {
-    const database = databaseResult(null)
+  it('rejects unknown, cross-season, or revoked legacy links', async () => {
+    const database = databaseResult({ id: 'legacy-link', season: '2026' })
 
     await expect(
       authorizeLeagueRead(request(), database.database, 'friends', '2025'),
@@ -127,7 +145,6 @@ describe('server league-read authorization', () => {
       access: null,
       status: 403,
     })
-    expect(database.query.eq).toHaveBeenCalledWith('season', '2025')
   })
 
   it('reports the prepared migration requirement without exposing database details', async () => {
@@ -140,7 +157,7 @@ describe('server league-read authorization', () => {
       authorizeLeagueRead(request(), database.database, 'friends', '2026'),
     ).resolves.toEqual({
       access: null,
-      error: 'Player links are not available yet. Your league data is unaffected.',
+      error: 'League links are not available yet. Your league data is unaffected.',
       status: 409,
     })
   })

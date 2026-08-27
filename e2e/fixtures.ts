@@ -213,6 +213,8 @@ function financeSnapshot(isCommissioner: boolean) {
     awards,
     is_commissioner: isCommissioner,
     payments: isCommissioner ? payments : undefined,
+    player_payout_tracking_ready: true,
+    player_payouts: [],
     payouts: [
       {
         amount_cents: 6_000,
@@ -258,7 +260,12 @@ export async function installLeagueFixtures(
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
-      value: { writeText: async () => undefined },
+      value: {
+        writeText: async (value: string) => {
+          ;(window as typeof window & { __copiedLeagueLink?: string })
+            .__copiedLeagueLink = value
+        },
+      },
     })
   })
 
@@ -296,6 +303,23 @@ export async function installLeagueFixtures(
     const selectedWeek = Number(url.searchParams.get('week'))
     const activeMembers = members.slice(0, 4)
     const payloadByResource: Record<string, unknown> = {
+      history: {
+        matchups,
+        members,
+        scores,
+        seasons: [
+          season,
+          {
+            divisions: { divisions: ['East', 'West'] },
+            final_winners: { first: 'member-history' },
+            playoff_spots: 1,
+            playoff_start_week: 15,
+            season: '2025',
+            total_weeks: 17,
+          },
+        ],
+        success: true,
+      },
       memberships: {
         data: commissioner ? members : activeMembers,
         success: true,
@@ -313,7 +337,14 @@ export async function installLeagueFixtures(
         success: true,
       },
       season: { data: season, success: true },
-      shell: { league, seasons: [{ archived_at: null, season: '2026' }], success: true },
+      shell: {
+        league,
+        seasons: [
+          { archived_at: null, season: '2026' },
+          { archived_at: null, season: '2025' },
+        ],
+        success: true,
+      },
       standings: {
         matchups,
         members: activeMembers,

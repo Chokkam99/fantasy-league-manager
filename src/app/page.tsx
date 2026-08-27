@@ -103,7 +103,7 @@ export default function Home() {
                   Keep every league in one place.
                 </h1>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-app-text-muted sm:text-base">
-                  Scores, standings, dues, and prize money—organized for the commissioner and easy for players to follow.
+                  Scores, standings, dues, and prize money, organized for the commissioner and easy for players to follow.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-app-text">
                   {['Weekly results', 'Playoff picture', 'Money plan'].map((label) => (

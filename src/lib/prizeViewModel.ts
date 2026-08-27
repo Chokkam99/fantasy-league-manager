@@ -37,6 +37,7 @@ export interface PlayerWinningsSummary {
   finalAmount: number
   finalAwards: string[]
   member: PrizeMember
+  payoutStatus: 'paid' | 'pending'
   totalAmount: number
   weeklyAmount: number
   weeklyWins: number[]
@@ -50,6 +51,7 @@ export interface PrizeViewModel {
   outstandingFees: number
   paidPlayers: number
   paidPayoutAmount: number
+  playerPayoutTrackingReady: boolean
   partialPlayers: number
   prizePlan: PrizePlan
   playerWinnings: PlayerWinningsSummary[]
@@ -153,6 +155,7 @@ export function buildPrizeViewModel({
     }))
   const playerWinnings = buildPlayerWinningsSummary({
     members,
+    playerPayouts: finance?.player_payouts || [],
     seasonAwards,
     weeklyResults,
   })
@@ -171,6 +174,8 @@ export function buildPrizeViewModel({
       (finance?.payouts || [])
         .filter((payout) => payout.status === 'paid')
         .reduce((total, payout) => total + payout.amount_cents, 0) / 100,
+    playerPayoutTrackingReady:
+      finance?.player_payout_tracking_ready === true,
     partialPlayers: usesCanonicalAwards
       ? finance?.payments?.filter((payment) => payment.status === 'partial').length || 0
       : members.filter((member) => member.payment_status === 'partial').length,
@@ -184,13 +189,21 @@ export function buildPrizeViewModel({
 
 export function buildPlayerWinningsSummary({
   members,
+  playerPayouts = [],
   seasonAwards,
   weeklyResults,
 }: {
   members: PrizeMember[]
+  playerPayouts?: Array<{
+    league_member_id: string
+    status: 'paid' | 'pending'
+  }>
   seasonAwards: SeasonAwardView[]
   weeklyResults: WeeklyPrizeResult[]
 }): PlayerWinningsSummary[] {
+  const payoutStatusByMemberId = new Map(
+    playerPayouts.map((payout) => [payout.league_member_id, payout.status]),
+  )
   const summaries = new Map<string, PlayerWinningsSummary>(
     members.map((member) => [
       member.id,
@@ -198,6 +211,7 @@ export function buildPlayerWinningsSummary({
         finalAmount: 0,
         finalAwards: [],
         member,
+        payoutStatus: payoutStatusByMemberId.get(member.id) || 'pending',
         totalAmount: 0,
         weeklyAmount: 0,
         weeklyWins: [],

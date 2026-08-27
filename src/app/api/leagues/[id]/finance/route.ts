@@ -39,6 +39,8 @@ function financeSchemaPendingResponse(isCommissioner: boolean) {
     awards: [],
     is_commissioner: isCommissioner,
     payments: isCommissioner ? [] : undefined,
+    player_payout_tracking_ready: false,
+    player_payouts: [],
     payouts: [],
     schema_ready: false,
     success: true,
@@ -120,11 +122,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     if (financeError) throw financeError
 
+    const playerPayoutResult = await database
+      .from('player_payout_statuses')
+      .select('id, league_member_id, status, paid_at')
+      .eq('league_id', leagueId)
+      .eq('season', season)
+    const playerPayoutTrackingReady = !isMissingFinanceSchema(
+      playerPayoutResult.error,
+    )
+    if (playerPayoutResult.error && playerPayoutTrackingReady) {
+      throw playerPayoutResult.error
+    }
+
     const payments = isCommissioner ? paymentResult.data || [] : undefined
     return NextResponse.json({
       awards: awardResult.data || [],
       is_commissioner: isCommissioner,
       payments,
+      player_payout_tracking_ready: playerPayoutTrackingReady,
+      player_payouts: playerPayoutTrackingReady
+        ? playerPayoutResult.data || []
+        : [],
       payouts: payoutResult.data || [],
       schema_ready: true,
       success: true,
@@ -210,10 +228,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         p_member_id: action.member_id,
         p_season: action.season,
       })
-    } else {
+    } else if (action.action === 'set_payout_status') {
       result = await database.rpc('set_prize_payout_status', {
         p_league_id: leagueId,
         p_payout_id: action.payout_id,
+        p_season: action.season,
+        p_status: action.status,
+      })
+    } else {
+      result = await database.rpc('set_player_payout_status', {
+        p_league_id: leagueId,
+        p_member_id: action.member_id,
         p_season: action.season,
         p_status: action.status,
       })

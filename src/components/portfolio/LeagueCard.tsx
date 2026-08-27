@@ -63,7 +63,7 @@ export function LeagueCard({ league }: { league: PortfolioLeague }) {
               {league.latestWeek ? `Week ${league.latestWeek}` : 'Not started'}
             </p>
             <p className="mt-0.5 text-xs text-app-text-muted">
-              {league.latestWeek} of {league.totalWeeks || '—'} weeks
+              {league.latestWeek} of {league.totalWeeks || 'unconfigured'} weeks
             </p>
           </div>
           <div>

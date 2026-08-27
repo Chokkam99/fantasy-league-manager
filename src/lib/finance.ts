@@ -23,6 +23,12 @@ export type ValidFinanceAction =
       season: string
       status: PayoutStatus
     }
+  | {
+      action: 'set_player_payout_status'
+      member_id: string
+      season: string
+      status: PayoutStatus
+    }
 
 export type FinanceActionValidation =
   | { is_valid: true; value: ValidFinanceAction }
@@ -75,7 +81,12 @@ export function validateFinanceAction(input: unknown): FinanceActionValidation {
   const season = typeof body.season === 'string' ? body.season : ''
   const errors: string[] = []
 
-  if (!['set_payment', 'assign_award', 'set_payout_status'].includes(String(action))) {
+  if (![
+    'set_payment',
+    'assign_award',
+    'set_payout_status',
+    'set_player_payout_status',
+  ].includes(String(action))) {
     errors.push('Choose a supported finance action.')
   }
   if (!/^\d{4}$/.test(season)) errors.push('A valid season is required.')
@@ -154,6 +165,24 @@ export function validateFinanceAction(input: unknown): FinanceActionValidation {
       value: {
         action: 'set_payout_status',
         payout_id: String(body.payout_id).trim(),
+        season,
+        status: body.status as PayoutStatus,
+      },
+    }
+  }
+
+  if (action === 'set_player_payout_status') {
+    if (!isUuid(body.member_id)) errors.push('A valid player is required.')
+    if (!['pending', 'paid'].includes(String(body.status))) {
+      errors.push('Player payout status must be pending or paid.')
+    }
+
+    if (errors.length > 0) return { errors, is_valid: false }
+    return {
+      is_valid: true,
+      value: {
+        action: 'set_player_payout_status',
+        member_id: String(body.member_id).trim(),
         season,
         status: body.status as PayoutStatus,
       },

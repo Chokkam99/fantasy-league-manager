@@ -121,6 +121,14 @@ const retiredScheduleMigration = readFileSync(
   'utf8',
 )
 
+const playerPayoutStatusMigration = readFileSync(
+  join(
+    process.cwd(),
+    'supabase/migrations/202608270015_player_payout_statuses.sql',
+  ),
+  'utf8',
+)
+
 describe('authorization foundation migration', () => {
   it('is transactional and enables RLS on all fantasy tables', () => {
     expect(migration.trimStart()).toMatch(/begin;/)
@@ -395,6 +403,35 @@ describe('scoped player sharing migration', () => {
         `revoke all privileges on table public.${relation}`,
       )
     }
+  })
+})
+
+describe('player payout status migration', () => {
+  it('is additive, transactional, and tracks one handout status per player', () => {
+    expect(playerPayoutStatusMigration.trimStart()).toMatch(/^--[\s\S]*?begin;/)
+    expect(playerPayoutStatusMigration.trimEnd()).toMatch(/commit;$/)
+    expect(playerPayoutStatusMigration).toContain(
+      'create table if not exists public.player_payout_statuses',
+    )
+    expect(playerPayoutStatusMigration).toContain(
+      'unique (league_id, season, league_member_id)',
+    )
+    expect(playerPayoutStatusMigration).not.toMatch(
+      /delete from public\.weekly_scores|drop table public\./,
+    )
+  })
+
+  it('keeps mutation service-role-only and reopens paid totals after score changes', () => {
+    const signature = 'public.set_player_payout_status(text, text, uuid, text)'
+    expect(playerPayoutStatusMigration).toContain(
+      `grant execute on function ${signature}\n  to service_role;`,
+    )
+    expect(playerPayoutStatusMigration).toContain(
+      `revoke execute on function ${signature}\n  from public, anon, authenticated;`,
+    )
+    expect(playerPayoutStatusMigration).toContain(
+      'create trigger reset_player_payout_statuses_for_score',
+    )
   })
 })
 

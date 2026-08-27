@@ -30,7 +30,7 @@ function isCommissioner(request: NextRequest) {
 
 function schemaPending() {
   return responseError(
-    'Player links are not available yet. Your league data is unaffected.',
+    'Legacy player links are not available. The normal league URL is still shareable.',
     409,
   )
 }
@@ -93,7 +93,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!isValidShareSeason(season)) {
     return responseError('A valid season is required.', 400)
   }
-
   const { id: leagueId } = await context.params
   const token = createStableShareSlug(
     leagueId,
@@ -143,7 +142,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return responseError(error.message, 503)
     }
     return responseError(
-      error instanceof Error ? error.message : 'The player link could not be created.',
+      error instanceof Error ? error.message : 'The legacy player link could not be created.',
       500,
     )
   }
@@ -174,7 +173,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return responseError(error.message, 503)
     }
     return responseError(
-      error instanceof Error ? error.message : 'The player link could not be revoked.',
+      error instanceof Error ? error.message : 'The legacy player link could not be revoked.',
       500,
     )
   }

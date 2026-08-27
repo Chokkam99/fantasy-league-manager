@@ -115,7 +115,7 @@ describe('Platform import views', () => {
       />,
     )
 
-    expect(screen.getAllByPlaceholderText('Stored — leave blank to keep')).toHaveLength(2)
+    expect(screen.getAllByPlaceholderText('Stored, leave blank to keep')).toHaveLength(2)
     expect(screen.getByText(/never returned to this page/)).toBeInTheDocument()
     expect(screen.getByText(/rechecks one prior week/)).toBeInTheDocument()
   })

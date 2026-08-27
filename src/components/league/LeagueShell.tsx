@@ -11,6 +11,14 @@ import {
 } from '@/lib/supabase'
 import { checkAdminAuth } from '@/lib/adminAuth'
 import { cn } from '@/lib/cn'
+import {
+  invalidateFinanceCache,
+  loadFinanceSnapshot,
+} from '@/lib/financeClient'
+import {
+  invalidateLeagueReadCache,
+  prefetchLeagueViews,
+} from '@/lib/leagueReadClient'
 import { loadLeagueShellData } from '@/lib/leagueShellClient'
 import { LeagueShellContext } from './LeagueShellContext'
 import LeagueActionsMenu from './LeagueActionsMenu'
@@ -202,6 +210,17 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
     router.replace(`${pathname}?${nextParams.toString()}`)
   }, [league, pathname, requestedSeason, router, searchParams])
 
+  useEffect(() => {
+    if (!league || !selectedSeason) return
+    const prefetchTimer = window.setTimeout(() => {
+      void Promise.allSettled([
+        prefetchLeagueViews(leagueId, selectedSeason),
+        loadFinanceSnapshot(leagueId, selectedSeason),
+      ])
+    }, 250)
+    return () => window.clearTimeout(prefetchTimer)
+  }, [league, leagueId, selectedSeason])
+
   const activeItem = useMemo<NavigationKey | null>(() => {
     if (pathname.endsWith('/season-setup') || pathname.endsWith('/settings')) return null
     if (pathname.endsWith('/standings')) return 'standings'
@@ -228,6 +247,8 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
   }
 
   const handleAdminAuthChange = (authenticated: boolean) => {
+    invalidateLeagueReadCache(leagueId)
+    invalidateFinanceCache(leagueId)
     setIsAdmin(authenticated)
 
     if (authenticated) {
@@ -300,10 +321,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
           {isAdmin && selectedSeason && (
             <ShareButton
               className="hidden shrink-0 sm:flex"
-              label="Copy player link"
-              labelClassName="hidden xl:inline"
               leagueId={leagueId}
-              season={selectedSeason}
             />
           )}
           <LeagueActionsMenu
@@ -313,7 +331,6 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
             playersUrl={buildHref('players')}
             rulesUrl={buildHref('rules')}
             seasonSetupUrl={buildHref('season-setup', false)}
-            season={selectedSeason}
             settingsUrl={buildHref('settings', false)}
           />
         </div>

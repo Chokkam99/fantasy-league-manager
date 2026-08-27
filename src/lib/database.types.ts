@@ -677,6 +677,61 @@ export type Database = {
           },
         ]
       }
+      player_payout_statuses: {
+        Row: {
+          created_at: string
+          id: string
+          league_id: string
+          league_member_id: string
+          paid_at: string | null
+          season: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          league_id: string
+          league_member_id: string
+          paid_at?: string | null
+          season: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          league_id?: string
+          league_member_id?: string
+          paid_at?: string | null
+          season?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_payout_statuses_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_payout_statuses_league_member_id_fkey"
+            columns: ["league_member_id"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_payout_statuses_member_scope_fkey"
+            columns: ["league_member_id", "league_id", "season"]
+            isOneToOne: false
+            referencedRelation: "league_members"
+            referencedColumns: ["id", "league_id", "season"]
+          },
+        ]
+      }
       season_payments: {
         Row: {
           created_at: string
@@ -955,6 +1010,15 @@ export type Database = {
       }
       set_league_archive_status: {
         Args: { p_archived: boolean; p_league_id: string }
+        Returns: Json
+      }
+      set_player_payout_status: {
+        Args: {
+          p_league_id: string
+          p_member_id: string
+          p_season: string
+          p_status: string
+        }
         Returns: Json
       }
       set_prize_payout_status: {

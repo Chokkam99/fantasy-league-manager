@@ -1,3 +1,6 @@
+import { invalidateFinanceCache } from '@/lib/financeClient'
+import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
+
 export async function performMemberAction(
   leagueId: string,
   body: Record<string, unknown>,
@@ -19,6 +22,10 @@ export async function performMemberAction(
   if (!response.ok || !payload?.success) {
     throw new Error(payload?.error || 'The player action failed.')
   }
+
+  const season = typeof body.season === 'string' ? body.season : undefined
+  invalidateLeagueReadCache(leagueId, season)
+  invalidateFinanceCache(leagueId, season)
 
   return payload.message || 'Player updated.'
 }

@@ -5,6 +5,8 @@ import type {
 } from '@/lib/espn/types'
 import type { ImportValidationResult } from '@/lib/espn/validation'
 import type { ImportRunSummary } from '@/lib/platformImport'
+import { invalidateFinanceCache } from '@/lib/financeClient'
+import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
 
 export interface AutomationSettingsSnapshot {
   auto_sync_enabled: boolean
@@ -210,6 +212,10 @@ export async function requestESPNImport(
       'The ESPN response was incomplete. No scores were changed.',
       payload,
     )
+  }
+  if (action === 'sync') {
+    invalidateLeagueReadCache(leagueId, season)
+    invalidateFinanceCache(leagueId, season)
   }
   return payload
 }

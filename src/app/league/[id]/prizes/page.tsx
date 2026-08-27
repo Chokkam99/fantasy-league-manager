@@ -125,22 +125,22 @@ export default function PrizesPage({ params }: PrizesPageProps) {
     }
   }
 
-  const handlePayoutStatus = async (
-    payoutId: string,
+  const handlePlayerPayoutStatus = async (
+    memberId: string,
     status: 'paid' | 'pending',
   ) => {
-    setBusyFinanceId(payoutId)
+    setBusyFinanceId(memberId)
     setFinanceError(null)
     setFinanceNotice(null)
     try {
       await performFinanceAction(id, {
-        action: 'set_payout_status',
-        payout_id: payoutId,
+        action: 'set_player_payout_status',
+        member_id: memberId,
         season: selectedSeason,
         status,
       })
       await refreshFinance()
-      setFinanceNotice(`Payout marked ${status}.`)
+      setFinanceNotice(`Player payout marked ${status}.`)
     } catch (error) {
       setFinanceError(getErrorMessage(error, 'Payout could not be updated.'))
     } finally {
@@ -235,11 +235,16 @@ export default function PrizesPage({ params }: PrizesPageProps) {
         busyFinanceId={busyFinanceId}
         canManagePayouts={canManagePayouts}
         members={members}
-        onPayoutStatusChange={handlePayoutStatus}
         onRecipientChange={handleRecipientChange}
         schemaReady={viewModel.usesCanonicalAwards}
       />
-      <PayoutSummaryTable summaries={viewModel.playerWinnings} />
+      <PayoutSummaryTable
+        busyMemberId={busyFinanceId}
+        canManagePayouts={canManagePayouts}
+        onPayoutStatusChange={handlePlayerPayoutStatus}
+        summaries={viewModel.playerWinnings}
+        trackingReady={viewModel.playerPayoutTrackingReady}
+      />
       <WeeklyPrizeWinners
         completedResults={viewModel.completedWeeklyResults}
         results={viewModel.weeklyResults}

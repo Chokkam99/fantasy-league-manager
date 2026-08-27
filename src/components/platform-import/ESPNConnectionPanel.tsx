@@ -71,13 +71,13 @@ export function ESPNConnectionPanel({
           <CredentialField
             label="ESPN_S2 cookie *"
             onChange={(value) => onUpdate('espnS2', value)}
-            placeholder={hasStoredEspnS2 ? 'Stored — leave blank to keep' : 'Paste ESPN_S2'}
+            placeholder={hasStoredEspnS2 ? 'Stored, leave blank to keep' : 'Paste ESPN_S2'}
             value={draft.espnS2}
           />
           <CredentialField
             label="SWID cookie *"
             onChange={(value) => onUpdate('swid', value)}
-            placeholder={hasStoredSwid ? 'Stored — leave blank to keep' : 'Paste SWID'}
+            placeholder={hasStoredSwid ? 'Stored, leave blank to keep' : 'Paste SWID'}
             value={draft.swid}
           />
           <p className="text-xs leading-5 text-app-text-muted sm:col-span-2">

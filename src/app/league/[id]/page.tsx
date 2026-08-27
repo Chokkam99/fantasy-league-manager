@@ -5,6 +5,7 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
 import { OverviewHeader } from '@/components/overview/OverviewHeader'
+import { LeagueHistoryTable } from '@/components/overview/LeagueHistoryTable'
 import { OverviewMoneyCard } from '@/components/overview/OverviewMoneyCard'
 import {
   OverviewSidebar,
@@ -240,6 +241,7 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
           standingsHref={buildPageHref('standings')}
         />
       </div>
+      <LeagueHistoryTable leagueId={id} selectedSeason={selectedSeason} />
     </main>
   )
 }

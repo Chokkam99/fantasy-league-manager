@@ -30,7 +30,7 @@ export function Toast({
   if (!message || typeof document === 'undefined') return null
 
   return createPortal(
-    <div className="pointer-events-none fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[80] flex justify-center md:bottom-6 md:left-auto md:right-6">
+    <div className="pointer-events-none fixed inset-x-4 top-[calc(0.75rem+env(safe-area-inset-top))] z-[80] flex justify-center md:left-auto md:right-6 md:top-6">
       <Notice className="pointer-events-auto flex w-full max-w-sm items-center gap-2 py-2.5 pr-2 shadow-[var(--app-shadow-md)]" tone={tone}>
         <span className="min-w-0 flex-1 leading-5">{message}</span>
         <button

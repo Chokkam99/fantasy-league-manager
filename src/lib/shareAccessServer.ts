@@ -10,6 +10,7 @@ import type { AppSupabaseClient } from '@/lib/supabaseServer'
 
 export type LeagueReadAccess =
   | { kind: 'commissioner' }
+  | { kind: 'public' }
   | { kind: 'share'; linkId: string; season: string }
 
 export type LeagueReadAccessResult =
@@ -63,10 +64,20 @@ export async function authorizeLeagueRead(
   const token =
     request.nextUrl.searchParams.get('share') ||
     request.cookies.get(PLAYER_SHARE_COOKIE)?.value
-  if (!isValidShareSeason(requestedSeason) || !isValidShareToken(token)) {
+  if (!token) {
+    return { access: { kind: 'public' }, error: null, status: 200 }
+  }
+  if (!isValidShareSeason(requestedSeason)) {
     return {
       access: null,
-      error: 'A valid player share link is required.',
+      error: 'A valid season is required.',
+      status: 401,
+    }
+  }
+  if (!isValidShareToken(token)) {
+    return {
+      access: null,
+      error: 'This legacy share link is not valid.',
       status: 401,
     }
   }
@@ -83,14 +94,18 @@ export async function authorizeLeagueRead(
   if (isMissingShareSchema(result.error)) {
     return {
       access: null,
-      error: 'Player links are not available yet. Your league data is unaffected.',
+      error: 'League links are not available yet. Your league data is unaffected.',
       status: 409,
     }
   }
-  if (result.error || !result.data) {
+  if (
+    result.error ||
+    !result.data ||
+    result.data.season !== requestedSeason
+  ) {
     return {
       access: null,
-      error: 'This player share link is invalid or has been revoked.',
+      error: 'This legacy share link is invalid or has been revoked.',
       status: 403,
     }
   }

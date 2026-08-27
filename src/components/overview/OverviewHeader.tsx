@@ -64,7 +64,7 @@ export function OverviewHeader({
           value={currency.format(overview.outstanding)}
         />
         <MetricCard
-          detail={`${overview.latestWeek} of ${totalWeeks || '—'} weeks imported`}
+          detail={`${overview.latestWeek} of ${totalWeeks || 'unconfigured'} weeks imported`}
           label="Season progress"
           value={overview.latestWeek ? `Week ${overview.latestWeek}` : 'Not started'}
         />

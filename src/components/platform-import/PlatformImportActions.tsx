@@ -94,7 +94,7 @@ export function PlatformImportActions({
             </select>
             <svg
               aria-hidden="true"
-              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-text-muted"
+              className="pointer-events-none absolute right-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-text-muted"
               fill="none"
               stroke="currentColor"
               strokeLinecap="round"

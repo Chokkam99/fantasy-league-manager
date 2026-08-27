@@ -115,12 +115,14 @@ describe('finance route authorization', () => {
     const awardsQuery = resultQuery([])
     const payoutsQuery = resultQuery([])
     const paymentsQuery = resultQuery([])
+    const playerPayoutsQuery = resultQuery([])
     const database = {
       from: jest.fn((table: string) => {
         if (table === 'league_seasons') return seasonQuery
         if (table === 'prize_awards') return awardsQuery
         if (table === 'prize_payouts') return payoutsQuery
         if (table === 'season_payments') return paymentsQuery
+        if (table === 'player_payout_statuses') return playerPayoutsQuery
         throw new Error(`Unexpected table ${table}`)
       }),
     }
@@ -136,6 +138,10 @@ describe('finance route authorization', () => {
       'display_order',
       expect.anything(),
     )
+    await expect(response.json()).resolves.toMatchObject({
+      player_payout_tracking_ready: true,
+      player_payouts: [],
+    })
   })
 
   it('returns an actionable response while the finance migration is pending', async () => {

@@ -17,6 +17,7 @@ interface RouteContext {
 
 const resources = new Set([
   'memberships',
+  'history',
   'overview',
   'prizes',
   'scores',
@@ -50,6 +51,52 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return errorResponse(authorization.error, authorization.status)
     }
     const isShared = authorization.access.kind === 'share'
+    const shareSeason =
+      authorization.access.kind === 'share'
+        ? authorization.access.season
+        : null
+
+    if (resource === 'history') {
+      const scopedSeason = shareSeason
+      let seasonsQuery = database
+        .from('league_seasons')
+        .select('divisions, final_winners, playoff_spots, playoff_start_week, season, total_weeks')
+        .eq('league_id', leagueId)
+      let membersQuery = database
+        .from('league_members')
+        .select('id, manager_id, manager_name, team_name, division, season')
+        .eq('league_id', leagueId)
+      let scoresQuery = database
+        .from('weekly_scores')
+        .select('member_id, points, week_number, season')
+        .eq('league_id', leagueId)
+      let matchupsQuery = database
+        .from('matchup_results_with_scores')
+        .select('is_tie, team1_member_id, team1_score, team2_member_id, team2_score, week_number, winner_member_id, season')
+        .eq('league_id', leagueId)
+      if (scopedSeason) {
+        seasonsQuery = seasonsQuery.eq('season', scopedSeason)
+        membersQuery = membersQuery.eq('season', scopedSeason)
+        scoresQuery = scoresQuery.eq('season', scopedSeason)
+        matchupsQuery = matchupsQuery.eq('season', scopedSeason)
+      }
+      const [seasons, members, scores, matchups] = await Promise.all([
+        seasonsQuery,
+        membersQuery,
+        scoresQuery,
+        matchupsQuery,
+      ])
+      if (seasons.error || members.error || scores.error || matchups.error) {
+        throw seasons.error || members.error || scores.error || matchups.error
+      }
+      return NextResponse.json({
+        matchups: matchups.data || [],
+        members: members.data || [],
+        scores: scores.data || [],
+        seasons: seasons.data || [],
+        success: true,
+      })
+    }
 
     if (resource === 'shell') {
       let leagueResult = await database
@@ -68,7 +115,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .from('league_seasons')
         .select('season, archived_at')
         .eq('league_id', leagueId)
-      if (isShared) seasonsQuery = seasonsQuery.eq('season', season)
+      if (isShared && shareSeason) {
+        seasonsQuery = seasonsQuery.eq('season', shareSeason)
+      }
       const lifecycleSeasonsResult = await seasonsQuery
       let seasonsData: Array<{ archived_at?: string | null; season: string }> | null =
         lifecycleSeasonsResult.data
@@ -78,7 +127,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
           .from('league_seasons')
           .select('season')
           .eq('league_id', leagueId)
-        if (isShared) legacyQuery = legacyQuery.eq('season', season)
+        if (isShared && shareSeason) {
+          legacyQuery = legacyQuery.eq('season', shareSeason)
+        }
         const legacyResult = await legacyQuery
         seasonsData = legacyResult.data
         seasonsError = legacyResult.error
@@ -113,7 +164,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .from('league_members')
         .select('id, manager_id, manager_name, team_name, payment_status, season, is_active, division')
         .eq('league_id', leagueId)
-      if (isShared) query = query.eq('season', season)
+      if (isShared && shareSeason) {
+        query = query.eq('season', shareSeason)
+      }
       const canonicalResult = await query
       let membershipData: Array<{
         division: string | null
@@ -131,7 +184,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
           .from('league_members')
           .select('id, manager_name, team_name, payment_status, season, is_active, division')
           .eq('league_id', leagueId)
-        if (isShared) legacyQuery = legacyQuery.eq('season', season)
+        if (isShared && shareSeason) {
+          legacyQuery = legacyQuery.eq('season', shareSeason)
+        }
         const legacyResult = await legacyQuery
         membershipData = legacyResult.data
         membershipError = legacyResult.error

@@ -45,6 +45,14 @@ describe('finance actions', () => {
     ).toBe(true)
     expect(
       validateFinanceAction({
+        action: 'set_player_payout_status',
+        member_id: memberId,
+        season: '2026',
+        status: 'paid',
+      }).is_valid,
+    ).toBe(true)
+    expect(
+      validateFinanceAction({
         action: 'set_payout_status',
         payout_id: payoutId,
         season: '2026',

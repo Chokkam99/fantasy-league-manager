@@ -10,9 +10,20 @@ const currency = new Intl.NumberFormat('en-US', {
 })
 
 export function PayoutSummaryTable({
+  busyMemberId,
+  canManagePayouts,
+  onPayoutStatusChange,
   summaries,
+  trackingReady,
 }: {
+  busyMemberId: string | null
+  canManagePayouts: boolean
+  onPayoutStatusChange: (
+    memberId: string,
+    status: 'paid' | 'pending',
+  ) => void
   summaries: PlayerWinningsSummary[]
+  trackingReady: boolean
 }) {
   const assignedTotal = summaries.reduce(
     (total, summary) => total + summary.totalAmount,
@@ -28,7 +39,7 @@ export function PayoutSummaryTable({
           </p>
           <h2 className="mt-1 text-xl font-bold text-app-text">Payout tally</h2>
           <p className="mt-1 text-sm leading-5 text-app-text-muted">
-            Season-end totals for quick review and payout handoff.
+            Full season totals, including weekly wins. Check each player off when the handout is complete.
           </p>
         </div>
         <Badge variant={assignedTotal > 0 ? 'success' : 'neutral'}>
@@ -44,10 +55,13 @@ export function PayoutSummaryTable({
               <th className="hidden w-28 px-3 py-2.5 text-right sm:table-cell">Weekly</th>
               <th className="hidden w-28 px-3 py-2.5 text-right md:table-cell">Season</th>
               <th className="w-24 px-4 py-2.5 text-right sm:px-6">Total</th>
+              <th className="w-16 px-3 py-2.5 text-center">Paid</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-app-border">
             {summaries.map((summary) => {
+              const isPaid = summary.payoutStatus === 'paid'
+              const isBusy = busyMemberId === summary.member.id
               const details = [
                 summary.finalAwards.join(', '),
                 summary.weeklyWins.length > 0
@@ -75,6 +89,38 @@ export function PayoutSummaryTable({
                   <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-app-text sm:px-6">
                     {currency.format(summary.totalAmount)}
                   </td>
+                  <td className="px-3 py-3 text-center">
+                    {canManagePayouts ? (
+                      <input
+                        aria-label={`Paid: ${summary.member.team_name} total payout`}
+                        checked={isPaid}
+                        className="h-5 w-5 accent-app-brand"
+                        disabled={
+                          !trackingReady || isBusy || summary.totalAmount <= 0
+                        }
+                        onChange={() =>
+                          onPayoutStatusChange(
+                            summary.member.id,
+                            isPaid ? 'pending' : 'paid',
+                          )
+                        }
+                        title={
+                          !trackingReady
+                            ? 'Player payout tracking needs the latest database update'
+                            : summary.totalAmount <= 0
+                              ? 'No payout is due'
+                              : `Mark ${summary.member.manager_name} ${isPaid ? 'pending' : 'paid'}`
+                        }
+                        type="checkbox"
+                      />
+                    ) : summary.totalAmount <= 0 ? (
+                      <span className="text-xs text-app-text-muted">None</span>
+                    ) : (
+                      <Badge variant={isPaid ? 'success' : 'warning'}>
+                        {isPaid ? 'Paid' : 'Pending'}
+                      </Badge>
+                    )}
+                  </td>
                 </tr>
               )
             })}
@@ -88,9 +134,11 @@ export function PayoutSummaryTable({
           </p>
         </div>
       )}
-      <p className="border-t border-app-border px-4 py-3 text-xs leading-5 text-app-text-muted sm:px-6">
-        Weekly amounts are calculated from recorded scores. Paid checks apply to the assigned final and bonus prizes above.
-      </p>
+      {!trackingReady && canManagePayouts && (
+        <p className="border-t border-app-border px-4 py-3 text-xs leading-5 text-app-text-muted sm:px-6">
+          Player payout checkboxes will be enabled after the prepared payout-tracking migration is applied.
+        </p>
+      )}
     </Card>
   )
 }

@@ -61,7 +61,7 @@ export function ContentState({
             : 'bg-app-brand-soft text-app-brand-strong'
         }`}
       >
-        {tone === 'danger' ? '!' : '–'}
+        {tone === 'danger' ? '!' : '-'}
       </span>
       {eyebrow && (
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-app-text-muted">
