@@ -115,6 +115,17 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'Season overview')
     await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
     await expect(page.getByRole('cell', { name: '2025 Final' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Player history' })).toBeVisible()
+    const playerHistory = page.getByRole('region', {
+      name: 'Player results by season',
+    })
+    await expect(playerHistory).toBeVisible()
+    await expect(
+      playerHistory.getByLabel(/Alex Smith, 2026: Champion as Sunday Scaries/),
+    ).toBeVisible()
+    await expect(
+      playerHistory.getByLabel(/Alex Smith, 2025: .* as Old Sunday Scaries/),
+    ).toBeVisible()
     if (isMobile(testInfo)) {
       await page.getByRole('button', { name: 'Open league actions' }).click()
       await page
@@ -164,6 +175,14 @@ test.describe('responsive league journeys', () => {
       page.getByRole('region', { name: 'Standings by division' }),
     ).toHaveCount(0)
     await expectNoDocumentOverflow(page)
+    if (isMobile(testInfo)) {
+      const visibleStandingsHeaders = page.locator('table th:visible')
+      const finalHeaderBox = await visibleStandingsHeaders.last().boundingBox()
+      const standingsTableBox = await page.locator('table').first().boundingBox()
+      expect(finalHeaderBox).not.toBeNull()
+      expect(standingsTableBox).not.toBeNull()
+      expect(Math.abs(finalHeaderBox!.x + finalHeaderBox!.width - (standingsTableBox!.x + standingsTableBox!.width))).toBeLessThanOrEqual(1)
+    }
 
     await openPrimaryNav(page, 'Scores')
     await expectHeading(page, 'Weekly scores')
@@ -194,6 +213,16 @@ test.describe('responsive league journeys', () => {
         name: 'Paid: Sunday Scaries total payout',
       }),
     ).toBeVisible()
+    if (isMobile(testInfo)) {
+      const payoutTable = page.getByRole('table', { name: 'Payout tally' })
+      const payoutBox = await payoutTable.boundingBox()
+      const paidHeaderBox = await payoutTable.getByRole('columnheader', { name: 'Paid' }).boundingBox()
+      expect(payoutBox).not.toBeNull()
+      expect(paidHeaderBox).not.toBeNull()
+      expect(paidHeaderBox!.x + paidHeaderBox!.width).toBeLessThanOrEqual(
+        payoutBox!.x + payoutBox!.width + 1,
+      )
+    }
 
     await openPrimaryNav(page, 'Overview')
     await expectHeading(page, 'Season overview')
@@ -252,6 +281,7 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'Season overview')
     await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
     await expect(page.getByRole('cell', { name: '2025 Final' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Player history' })).toBeVisible()
 
     await openPrimaryNav(page, 'Standings')
     await expectHeading(page, 'Standings')
@@ -270,6 +300,17 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'League money')
     await expect(page.getByRole('heading', { name: 'Payout tally' })).toBeVisible()
     await expect(page.getByLabel(/^Recipient for /)).toHaveCount(0)
+    if (isMobile(testInfo)) {
+      const payoutTable = page.getByRole('table', { name: 'Payout tally' })
+      const pendingBadge = payoutTable.getByText('Pending').first()
+      const payoutBox = await payoutTable.boundingBox()
+      const pendingBox = await pendingBadge.boundingBox()
+      expect(payoutBox).not.toBeNull()
+      expect(pendingBox).not.toBeNull()
+      expect(pendingBox!.x + pendingBox!.width).toBeLessThanOrEqual(
+        payoutBox!.x + payoutBox!.width + 1,
+      )
+    }
 
     if (isMobile(testInfo)) {
       await openLeagueAction(page, 'League roster')

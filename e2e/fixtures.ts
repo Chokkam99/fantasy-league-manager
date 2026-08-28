@@ -104,6 +104,19 @@ const members = [
     team_name: 'Old School',
     updated_at: '2025-08-01T00:00:00.000Z',
   },
+  {
+    division: 'East',
+    id: 'member-1-history',
+    is_active: true,
+    joined_at: '2025-08-01T00:00:00.000Z',
+    league_id: league.id,
+    manager_id: 'manager-1',
+    manager_name: 'Alex Smith',
+    payment_status: 'paid',
+    season: '2025',
+    team_name: 'Old Sunday Scaries',
+    updated_at: '2025-08-01T00:00:00.000Z',
+  },
 ]
 
 const scores = [

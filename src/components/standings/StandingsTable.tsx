@@ -35,8 +35,8 @@ export function StandingsTable({
             <th className="px-2 py-2.5">Team</th>
             <th className="w-14 px-2 py-2.5 text-right">Record</th>
             <th className="w-[4.7rem] px-3 py-2.5 text-right">PF</th>
-            <th className={showExtendedMetrics ? 'hidden w-24 px-3 py-2.5 text-right md:table-cell' : 'hidden'}>Average</th>
-            <th className={showExtendedMetrics ? 'hidden w-24 px-3 py-2.5 text-right lg:table-cell' : 'hidden'}>Weekly wins</th>
+            <th className={showExtendedMetrics ? 'hidden px-3 py-2.5 text-right md:table-cell md:w-24' : 'hidden'}>Average</th>
+            <th className={showExtendedMetrics ? 'hidden px-3 py-2.5 text-right lg:table-cell lg:w-24' : 'hidden'}>Weekly wins</th>
           </tr>
         </thead>
         <tbody>

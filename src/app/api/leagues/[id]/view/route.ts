@@ -64,7 +64,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .eq('league_id', leagueId)
       let membersQuery = database
         .from('league_members')
-        .select('id, manager_id, manager_name, team_name, division, season')
+        .select('id, manager_id, manager_name, team_name, division, season, is_active')
         .eq('league_id', leagueId)
       let scoresQuery = database
         .from('weekly_scores')

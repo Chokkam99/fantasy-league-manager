@@ -1,6 +1,9 @@
 /** @jest-environment node */
 
-import { buildLeagueHistoryRows } from '@/lib/leagueHistory'
+import {
+  buildLeagueHistoryMatrix,
+  buildLeagueHistoryRows,
+} from '@/lib/leagueHistory'
 
 const members = [
   {
@@ -112,5 +115,58 @@ describe('league history summary', () => {
     expect(row.champion?.team_name).toBe('New Alpha')
     expect(row.playoffTeams).toHaveLength(1)
     expect(row.playoffTeams[0].season).toBe('2026')
+  })
+
+  it('keeps one manager row across team-name changes and summarizes each result', () => {
+    const delta = {
+      division: 'West',
+      id: 'delta-2025',
+      manager_id: 'manager-delta',
+      manager_name: 'Devon',
+      season: '2025',
+      team_name: 'Delta',
+    }
+    const stableMembers = members.map((member) => ({
+      ...member,
+      manager_id:
+        member.manager_name === 'Alex'
+          ? 'manager-alex'
+          : `manager-${member.manager_name.toLowerCase()}`,
+    }))
+    const matrix = buildLeagueHistoryMatrix(
+      {
+        matchups: [],
+        members: [...stableMembers, delta],
+        scores: [],
+        seasons: [],
+      },
+      [
+        {
+          champion: null,
+          playoffTeams: [],
+          runnerUp: null,
+          season: '2026',
+          status: 'in-progress',
+          thirdPlace: null,
+        },
+        {
+          champion: stableMembers[1],
+          playoffTeams: [stableMembers[0], stableMembers[1], delta],
+          runnerUp: stableMembers[0],
+          season: '2025',
+          status: 'complete',
+          thirdPlace: stableMembers[2],
+        },
+      ],
+    )
+
+    const alex = matrix.find((player) => player.managerName === 'Alex')
+    expect(alex?.cells).toMatchObject({
+      '2025': { result: 'runner-up', teamName: 'Alpha' },
+      '2026': { result: 'participant', teamName: 'New Alpha' },
+    })
+    expect(matrix.find((player) => player.managerName === 'Blair')?.cells['2025'].result).toBe('champion')
+    expect(matrix.find((player) => player.managerName === 'Casey')?.cells['2025'].result).toBe('third')
+    expect(matrix.find((player) => player.managerName === 'Devon')?.cells['2025'].result).toBe('playoff')
   })
 })
