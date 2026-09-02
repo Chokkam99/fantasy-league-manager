@@ -1,6 +1,6 @@
 # Legacy cleanup and core-constraint rollout
 
-Status: **prepared and locally verified; not applied to production**.
+Status: **applied to Production and verified on 2026-08-27**. The execution followed the exact backup, count, timeout, approval, and postcondition gates below. Retain the remainder as rollout and rollback evidence, not as authorization to rerun the migrations.
 
 This package converts the two read-only audit reports into small, forward-only migration units and adds transaction prerequisites for active-season uniqueness and manual score integrity. It retires the unused legacy schedule-write surface rather than adding a global matchup model for an unsupported editor. It deliberately excludes unresolved historical-money interpretation, legacy-payment changes, and global matchup double-booking/cross-table score-pair constraints outside supported write workflows.
 

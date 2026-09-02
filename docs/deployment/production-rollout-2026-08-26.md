@@ -1,6 +1,6 @@
 # Production rollout checkpoint — updated 2026-08-27
 
-Status: **completed on 2026-08-27**. See [the Production migration checkpoint](production-migration-2026-08-27.md) for execution and post-migration evidence. The remaining content below preserves the exact pre-execution plan and approval boundaries.
+Status: **historical pre-execution record; completed on 2026-08-27**. See [the Production migration checkpoint](production-migration-2026-08-27.md) for the current `001`–`016` execution and post-migration evidence. The remaining content below intentionally preserves the exact `001`–`014` pre-execution plan and approval boundaries; its branch, deployment, migration-history, and pending-state statements are not current instructions.
 
 This is the exact handoff for the locally verified application and migrations `001`–`014`. The accepted application release is consolidated on local `main`, includes commit `680333d`, and has not been pushed or deployed. The project must remain on free plans with no paid branch, database, compute, add-on, or recurring service.
 

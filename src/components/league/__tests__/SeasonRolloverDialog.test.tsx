@@ -21,16 +21,34 @@ describe('SeasonSetupForm stable returning players', () => {
             members: [
               {
                 id: '123e4567-e89b-42d3-a456-426614174000',
+                last_season: '2025',
                 manager_id: '223e4567-e89b-42d3-a456-426614174000',
                 manager_name: 'Christopher Jones',
+                selected_by_default: true,
                 team_name: 'Old Team',
+              },
+              {
+                id: '123e4567-e89b-42d3-a456-426614174001',
+                last_season: '2025',
+                manager_id: '223e4567-e89b-42d3-a456-426614174001',
+                manager_name: 'Jordan Lee',
+                selected_by_default: true,
+                team_name: 'Second Team',
+              },
+              {
+                id: '123e4567-e89b-42d3-a456-426614174002',
+                last_season: '2023',
+                manager_id: '223e4567-e89b-42d3-a456-426614174002',
+                manager_name: 'Past Player',
+                selected_by_default: false,
+                team_name: 'Past Team',
               },
             ],
             source_configuration: {
               divisions: null,
               draft_food_cost: 0,
               fee_amount: 0,
-              playoff_spots: 6,
+              playoff_spots: 2,
               playoff_start_week: 15,
               prize_structure: {},
               total_weeks: 17,
@@ -57,11 +75,25 @@ describe('SeasonSetupForm stable returning players', () => {
       />,
     )
 
-    const managerInput = await screen.findByLabelText('Manager name')
+    const managerInput = (await screen.findAllByLabelText('Manager name'))[0]
     await user.clear(managerInput)
     await user.type(managerInput, 'Chris Jones')
-    await user.clear(screen.getByLabelText('Team name'))
-    await user.type(screen.getByLabelText('Team name'), 'New Team')
+    await user.clear(screen.getAllByLabelText('Team name')[0])
+    await user.type(screen.getAllByLabelText('Team name')[0], 'New Team')
+    const pastPlayer = screen.getByRole('checkbox', { name: /Past Player/ })
+    expect(pastPlayer).not.toBeChecked()
+    expect(screen.getByText('Last played 2023')).toBeInTheDocument()
+    await user.click(pastPlayer)
+    expect(
+      screen.getByRole('button', { name: 'Review and start 2026' }),
+    ).toBeDisabled()
+    expect(screen.getByText(/require an even number of teams/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Add new player' }))
+    const managerInputs = screen.getAllByLabelText('Manager name')
+    const teamInputs = screen.getAllByLabelText('Team name')
+    await user.type(managerInputs[managerInputs.length - 1], 'New Manager')
+    await user.type(teamInputs[teamInputs.length - 1], 'Expansion Team')
     await user.click(
       screen.getByRole('button', { name: 'Review and start 2026' }),
     )
@@ -76,6 +108,24 @@ describe('SeasonSetupForm stable returning players', () => {
         manager_name: 'Chris Jones',
         source_member_id: '123e4567-e89b-42d3-a456-426614174000',
         team_name: 'New Team',
+      },
+      {
+        division: null,
+        manager_name: 'Jordan Lee',
+        source_member_id: '123e4567-e89b-42d3-a456-426614174001',
+        team_name: 'Second Team',
+      },
+      {
+        division: null,
+        manager_name: 'Past Player',
+        source_member_id: '123e4567-e89b-42d3-a456-426614174002',
+        team_name: 'Past Team',
+      },
+      {
+        division: null,
+        manager_name: 'New Manager',
+        source_member_id: null,
+        team_name: 'Expansion Team',
       },
     ])
   })

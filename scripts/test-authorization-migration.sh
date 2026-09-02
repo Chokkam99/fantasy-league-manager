@@ -83,6 +83,7 @@ run_sql_file supabase/migrations/202608260012_enforce_one_active_season.sql >/de
 run_sql_file supabase/migrations/202608260013_atomic_manual_week_scores.sql >/dev/null
 run_sql_file supabase/migrations/202608260014_retire_legacy_schedule_rpcs.sql >/dev/null
 run_sql_file supabase/migrations/202608270015_player_payout_statuses.sql >/dev/null
+run_sql_file supabase/migrations/202609010016_historical_returning_members.sql >/dev/null
 run_sql_file test/integration/core-constraints.assertions.sql >/dev/null
 run_sql_file test/integration/atomic-rollover.assertions.sql >/dev/null
 run_sql_file test/integration/atomic-manual-week.assertions.sql >/dev/null
@@ -166,4 +167,4 @@ case "$manual_week_lock_response" in
     ;;
 esac
 
-echo 'Authorization, import, identity, finance, archival, scoped sharing, player payout tracking, cleanup, constraints, atomic rollover/manual scores, and legacy schedule retirement passed all disposable PostgreSQL 17 checks.'
+echo 'Authorization, import, identity, finance, archival, scoped sharing, player payout tracking, cleanup, constraints, historical-player rollover, manual scores, and legacy schedule retirement passed all disposable PostgreSQL 17 checks.'

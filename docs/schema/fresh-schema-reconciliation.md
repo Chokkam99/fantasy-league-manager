@@ -1,6 +1,6 @@
-# Fresh schema reconciliation and rollout readiness
+# Fresh schema reconciliation
 
-The database now has two explicit installation paths. Neither path has been run against the live Supabase project.
+The database has two explicit installation paths. The existing-Production path was completed on 2026-08-27; the new-empty-project path remains reproducible through the disposable PostgreSQL test suite.
 
 ## Installation paths
 
@@ -8,7 +8,7 @@ The database now has two explicit installation paths. Neither path has been run 
 
 The linked production project already is the audited deployed-v0 baseline and contains historical data plus unrelated `collections` and `items` tables. Do **not** run the bootstrap or retired `database-setup.sql` there.
 
-After backup, application, security, and approval gates are complete, production receives only these forward migrations in filename order:
+Production received migrations 001–015 in filename order on 2026-08-27 and migration 016 on 2026-09-02:
 
 1. `202608250001_authorization_foundation.sql`
 2. `202608250002_atomic_espn_imports.sql`
@@ -24,12 +24,14 @@ After backup, application, security, and approval gates are complete, production
 12. `202608260012_enforce_one_active_season.sql`
 13. `202608260013_atomic_manual_week_scores.sql`
 14. `202608260014_retire_legacy_schedule_rpcs.sql`
+15. `202608270015_player_payout_statuses.sql`
+16. `202609010016_historical_returning_members.sql`
 
-The live project has no existing Supabase migration history. Before an eventual rollout, generate and review a dry-run migration plan, then use the supported Supabase migration-history reconciliation workflow appropriate to the installed CLI version. Do not improvise history entries or mark a migration applied until its effects have been verified.
+The live project now has 16 Supabase migration-history rows. A post-migration linked dry run reports `upToDate: true`, with no pending migrations, seeds, or role changes. Future Production changes must be new forward migrations; do not edit or repair the applied history. Migration 016 replaces the existing restricted rollover function without changing its signature or any table, permits returning-player selection from all earlier league seasons, preserves stable manager identity, and validates even team counts plus playoff capacity.
 
 ### New empty project
 
-A new database starts with `supabase/bootstrap/deployed-v0.sql`, then immediately applies migrations `001`–`014` in order. Cleanup migrations 006–008 accept the zero-candidate path on an empty database. The bootstrap refuses a non-empty public schema and intentionally excludes unrelated production tables.
+A new database starts with `supabase/bootstrap/deployed-v0.sql`, then immediately applies migrations `001`–`016` in order. Cleanup migrations 006–008 accept the zero-candidate path on an empty database. The bootstrap refuses a non-empty public schema and intentionally excludes unrelated production tables.
 
 The bootstrap briefly reproduces deployed-v0 grants so migration `001` can exercise the same security transition as production. It must never be used alone or exposed to application traffic before the complete forward chain succeeds.
 
@@ -43,7 +45,7 @@ This is the canonical current NFL/fantasy season start year. It remains authorit
 
 ### `league_seasons.is_active`
 
-This remains a compatibility field, not the historical/archive indicator. Migration `008` locally prepares the exact historical normalization. Migration `011` moves rollover into one locked transaction that deactivates the source before inserting the active target, and migration `012` then enforces at most one active configuration per league.
+This remains a compatibility field, not the historical/archive indicator. Migration `008` performed the exact historical normalization. Migration `011` moved rollover into one locked transaction that deactivates the source before inserting the active target, and migration `012` enforces at most one active configuration per league.
 
 Archive state is represented only by `league_seasons.archived_at`. Historical seasons may remain available without being archived. Migration `008` changes only compatibility activation flags and never archive state.
 
@@ -51,9 +53,9 @@ Archive state is represented only by `league_seasons.archived_at`. Historical se
 
 This continues to mean participation in that season. Deactivation is intentionally non-destructive and preserves scores, matchups, dues, and history. It must not be merged with league/season archival state.
 
-## Prepared cleanup/constraints and deferred decisions
+## Applied cleanup/constraints and deferred decisions
 
-Migrations 006–014 now package the three exact-count cleanups, compatible core safeguards, atomic season rollover, one-active-season uniqueness, atomic manual score replacement, playoff-flag derivation, and retirement of the unused legacy schedule writers. They remain unapplied and require the audit, backup, approval, timeout, and postcondition gates in [the cleanup/constraint rollout](cleanup-constraint-rollout.md).
+Migrations 006–014 applied the three exact-count cleanups, compatible core safeguards, atomic season rollover, one-active-season uniqueness, atomic manual score replacement, playoff-flag derivation, and retirement of the unused legacy schedule writers. All documented backup, count, timeout, approval, and postcondition gates passed. Migration 015 then added service-only per-player payout completion and automatic reset triggers without rewriting historical payout state. Migration 016 extended the existing atomic rollover boundary to historical league members and added roster-size validation without changing stored rows.
 
 The following are still deliberately excluded:
 
@@ -62,9 +64,9 @@ The following are still deliberately excluded:
 - A global matchup-participant model outside the supported atomic import/manual-completion paths. Migration `014` removes the unused legacy writers; add a new serialized schedule boundary only if schedule editing becomes a supported feature.
 - New constraints on the empty legacy `payments` table.
 
-Each prepared cleanup still requires a fresh read-only report, exact expected row count, verified backup, reversible plan, and separate explicit production approval. Compatible constraints are staged as `NOT VALID` and validated separately.
+Any future cleanup still requires a fresh read-only report, an exact expected row count, a verified backup, a reversible plan, and separate explicit Production approval. Do not use the successful 2026-08-27 rollout as standing authorization for another cleanup.
 
-The current aggregate findings, exact eligibility predicates, recommended decisions, and rollback gates are recorded in [the 2026-08-26 legacy cleanup candidate report](legacy-cleanup-candidates-2026-08-26.md). The compatible, cleanup-gated, design-gated, and insufficient-data safeguards are separately classified in [the 2026-08-26 core constraint compatibility report](constraint-compatibility-2026-08-26.md). The reports and prepared SQL are evidence only; none of their candidate changes are authorized or applied.
+The pre-migration aggregate findings, exact eligibility predicates, and rollback gates remain recorded in [the 2026-08-26 legacy cleanup candidate report](legacy-cleanup-candidates-2026-08-26.md). The compatible, cleanup-gated, design-gated, and insufficient-data safeguards remain classified in [the 2026-08-26 core constraint compatibility report](constraint-compatibility-2026-08-26.md). Those dated reports are historical evidence; the mechanical 10/24/6 cleanup and compatible constraints were subsequently applied, while the product decisions listed above remain deliberately unresolved.
 
 ## Local verification
 
@@ -76,25 +78,25 @@ npm run schema:test:authorization
 npm run schema:test:cleanup
 ```
 
-The fresh test starts an empty disposable PostgreSQL 17 container, applies the fantasy-only baseline plus migrations `001`–`014`, verifies the data-free target schema, RLS, private ESPN fields, restricted supported RPCs, retired legacy schedule RPCs, scoped share links, direct shared-role denial, lifecycle state, active-season uniqueness, playoff derivation, and absence of unrelated tables, then removes the container.
+The fresh test starts an empty disposable PostgreSQL 17 container, applies the fantasy-only baseline plus migrations `001`–`016`, verifies the data-free target schema, RLS, private ESPN fields, restricted supported RPCs, retired legacy schedule RPCs, scoped legacy links, payout completion, historical returning-player rollover, direct shared-role denial, lifecycle state, active-season uniqueness, playoff derivation, and absence of unrelated tables, then removes the container.
 
 The authorization test starts from a synthetic copy of the deployed production shape and representative data, including unrelated tables, then verifies preservation, backfills, imports, finance, archival, access boundaries, and concurrency. The cleanup test separately proves the exact 10/24/6 success path and unexpected-count rollback. None connects to Supabase or reads production credentials or rows.
 
-## Production-readiness checklist
+## Reusable Production-readiness checklist
 
-All items are required before requesting migration approval:
+The 2026-08-27 rollout completed these gates. Reuse them before requesting approval for any future Production migration:
 
-- [ ] The implementation diff is reviewed and packaged on a non-`main` branch.
-- [ ] `npm test -- --runInBand`, `npm run test:integration -- --runInBand`, typecheck, lint, and production build pass from that exact commit.
+- [ ] The implementation diff is reviewed and packaged in an exact commit.
+- [ ] `npm test -- --runInBand`, `npm run test:integration --runInBand`, typecheck, lint, and production build pass from that exact commit.
 - [ ] All three disposable schema commands above pass from that exact commit.
-- [ ] A current production schema audit shows the expected deployed-v0 contract and no unreviewed drift.
+- [ ] A current Production schema audit matches the documented migration history and has no unreviewed drift.
 - [ ] A current full Supabase backup/export exists, can be read, and has a documented restore owner and procedure.
 - [ ] Production has independent `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET`, `CRON_SECRET`, and privileged Supabase server key values; none use a `NEXT_PUBLIC_` name.
-- [ ] The application release containing signed sessions, server-only mutations, old-schema fallbacks, and migration-ready UI is deployed before database activation.
-- [ ] Token-authorized reads and commissioner routes have been verified against an isolated writable target or the disposable database; a Vercel Preview pointing at live Supabase remains non-writable and cannot validate migration `005` behavior.
+- [ ] When the schema change requires it, a compatibility-capable application release is deployed before database activation.
+- [ ] Public-safe reads and commissioner routes are verified against an isolated writable target or the disposable database; a Vercel Preview pointing at live Supabase remains non-writable.
 - [ ] The exact migration order and migration-history reconciliation commands are generated and reviewed without execution.
 - [ ] A maintenance window, observer, rollback decision point, and post-migration verification owner are named.
 - [ ] The commissioner gives explicit production approval immediately before execution.
 - [ ] The provider plan remains free and no branch, database, compute, or add-on with recurring cost is created.
 
-After migration, verify direct anonymous-read denial, player-link create/use/replace/revoke and season isolation, credential denial, commissioner writes, atomic score import, stable identities, finance reconciliation, archive/restore, automatic-sync state, Security Advisor results, and historical row counts before closing the window.
+After migration, verify direct anonymous-read denial, public-safe league reads, legacy-link isolation if affected, credential denial, commissioner writes, atomic score import, stable identities, finance reconciliation, payout completion, archive/restore, automatic-sync state, Security Advisor results, and historical row counts before closing the window.

@@ -18,13 +18,70 @@ function TeamName({ member }: { member: LeagueHistoryMember | null }) {
   if (!member) return <span className="text-app-text-muted">Not set</span>
   return (
     <span className="block min-w-0">
-      <span className="block truncate text-sm font-semibold text-app-text">
+      <span
+        className="block truncate text-sm font-semibold text-app-text"
+        title={member.team_name}
+      >
         {member.team_name}
       </span>
-      <span className="block truncate text-xs text-app-text-muted">
+      <span
+        className="block truncate text-xs text-app-text-muted"
+        title={member.manager_name}
+      >
         {member.manager_name}
       </span>
     </span>
+  )
+}
+
+function PlayoffField({ row }: { row: LeagueHistoryRow }) {
+  const count = row.playoffTeams.length
+
+  return (
+    <details className="group">
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-lg px-2 text-xs font-semibold text-app-text-muted transition-colors hover:bg-app-surface-subtle hover:text-app-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-brand [&::-webkit-details-marker]:hidden">
+        <svg
+          aria-hidden="true"
+          className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-90"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+        <span>Playoff teams</span>
+        <span className="rounded-full bg-app-surface-subtle px-2 py-0.5 tabular-nums text-app-text-muted group-open:bg-app-surface">
+          {count}
+        </span>
+      </summary>
+
+      <div className="px-2 pb-2 pt-1">
+        {count > 0 ? (
+          <ul className="flex flex-wrap gap-2" aria-label={`${row.season} playoff teams`}>
+            {row.playoffTeams.map((member) => (
+              <li
+                className="min-w-0 rounded-lg border border-app-border bg-app-surface-subtle px-2.5 py-1.5"
+                key={member.id}
+              >
+                <span className="block max-w-48 truncate text-xs font-semibold text-app-text">
+                  {member.team_name}
+                </span>
+                <span className="block max-w-48 truncate text-[0.68rem] text-app-text-muted">
+                  {member.manager_name}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-app-text-muted">
+            No playoff field has been saved for this season.
+          </p>
+        )}
+      </div>
+    </details>
   )
 }
 
@@ -151,7 +208,8 @@ export function LeagueHistoryTable({
           </p>
           <h2 className="mt-1 text-xl font-bold text-app-text">Season results</h2>
           <p className="mt-1 text-sm leading-5 text-app-text-muted">
-            Playoff fields and final placements across every saved season.
+            Final placements across every saved season. Expand a season to see
+            its playoff teams.
           </p>
         </div>
         <Badge variant="neutral">{rows.length} seasons</Badge>
@@ -167,22 +225,24 @@ export function LeagueHistoryTable({
       ) : rows.length > 0 ? (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[46rem] table-fixed">
+            <table className="w-full table-fixed">
               <thead className="bg-app-surface-subtle text-left text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
                 <tr>
-                  <th className="sticky left-0 z-10 w-24 bg-app-surface-subtle px-4 py-2.5 sm:px-6">
+                  <th className="w-[4.75rem] bg-app-surface-subtle px-3 py-2.5 sm:w-24 sm:px-6">
                     Season
                   </th>
-                  <th className="w-36 px-3 py-2.5">Champion</th>
-                  <th className="w-36 px-3 py-2.5">Runner-up</th>
-                  <th className="w-36 px-3 py-2.5">Third</th>
-                  <th className="px-3 py-2.5 pr-6">Playoff field</th>
+                  <th className="px-2 py-2.5 sm:px-3">Champion</th>
+                  <th className="px-2 py-2.5 sm:px-3">Runner-up</th>
+                  <th className="px-2 py-2.5 pr-3 sm:px-3 sm:pr-6">Third</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-app-border">
-                {rows.map((row) => (
-                  <tr key={row.season}>
-                    <td className="sticky left-0 z-10 bg-app-surface px-4 py-3 align-top sm:px-6">
+              {rows.map((row) => (
+                <tbody
+                  className="border-b border-app-border last:border-b-0"
+                  key={row.season}
+                >
+                  <tr>
+                    <td className="bg-app-surface px-3 py-3 align-top sm:px-6">
                       <p className="font-bold tabular-nums text-app-text">
                         {row.season}
                       </p>
@@ -190,31 +250,23 @@ export function LeagueHistoryTable({
                         {row.status === 'complete' ? 'Final' : 'In progress'}
                       </p>
                     </td>
-                    <td className="px-3 py-3 align-top">
+                    <td className="min-w-0 px-2 py-3 align-top sm:px-3">
                       <TeamName member={row.champion} />
                     </td>
-                    <td className="px-3 py-3 align-top">
+                    <td className="min-w-0 px-2 py-3 align-top sm:px-3">
                       <TeamName member={row.runnerUp} />
                     </td>
-                    <td className="px-3 py-3 align-top">
+                    <td className="min-w-0 px-2 py-3 pr-3 align-top sm:px-3 sm:pr-6">
                       <TeamName member={row.thirdPlace} />
                     </td>
-                    <td className="px-3 py-3 pr-6 align-top">
-                      {row.playoffTeams.length > 0 ? (
-                        <p className="text-xs leading-5 text-app-text">
-                          {row.playoffTeams
-                            .map((member) => member.team_name)
-                            .join(' · ')}
-                        </p>
-                      ) : (
-                        <span className="text-sm text-app-text-muted">
-                          Not set
-                        </span>
-                      )}
+                  </tr>
+                  <tr>
+                    <td className="px-1 pb-1 sm:px-4" colSpan={4}>
+                      <PlayoffField row={row} />
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                </tbody>
+              ))}
             </table>
           </div>
 

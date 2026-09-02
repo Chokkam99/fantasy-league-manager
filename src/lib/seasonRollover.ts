@@ -42,9 +42,16 @@ export interface ReusableSeasonConfiguration {
 export interface ReturningMember {
   division?: string | null
   id: string
+  is_active?: boolean
   manager_id?: string | null
   manager_name: string
+  season?: string
   team_name: string
+}
+
+export interface RolloverMemberOption extends ReturningMember {
+  last_season: string
+  selected_by_default: boolean
 }
 
 export interface AtomicSeasonRolloverResult {
@@ -61,6 +68,50 @@ const PRIZE_KEY_PATTERN = /^[a-z0-9_]{1,64}$/
 
 function normalizeName(value: unknown) {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : ''
+}
+
+function memberIdentity(member: ReturningMember) {
+  return member.manager_id || `legacy:${normalizeName(member.manager_name).toLocaleLowerCase()}`
+}
+
+export function buildRolloverMemberOptions(
+  members: ReturningMember[],
+  sourceSeason: string,
+): RolloverMemberOption[] {
+  const byManager = new Map<string, ReturningMember>()
+
+  for (const member of members) {
+    if (!member.season || member.season > sourceSeason) continue
+
+    const identity = memberIdentity(member)
+    const existing = byManager.get(identity)
+    const memberIsDefault = member.season === sourceSeason && member.is_active === true
+    const existingIsDefault =
+      existing?.season === sourceSeason && existing.is_active === true
+
+    if (
+      !existing ||
+      (memberIsDefault && !existingIsDefault) ||
+      (memberIsDefault === existingIsDefault &&
+        member.season > (existing.season || ''))
+    ) {
+      byManager.set(identity, member)
+    }
+  }
+
+  return [...byManager.values()]
+    .map((member) => ({
+      ...member,
+      last_season: member.season || sourceSeason,
+      selected_by_default:
+        member.season === sourceSeason && member.is_active === true,
+    }))
+    .sort((left, right) => {
+      if (left.selected_by_default !== right.selected_by_default) {
+        return left.selected_by_default ? -1 : 1
+      }
+      return left.manager_name.localeCompare(right.manager_name)
+    })
 }
 
 function isMoney(value: unknown) {
@@ -177,6 +228,8 @@ export function validateSeasonRolloverRequest(
   }
   if (!isIntegerBetween(playoffSpots, 2, 64)) {
     errors.push('Playoff spots must be between 2 and 64.')
+  } else if (rawMembers.length > 0 && Number(playoffSpots) > rawMembers.length) {
+    errors.push('Playoff spots cannot exceed the number of teams.')
   }
 
   for (const [key, label] of [
@@ -233,6 +286,8 @@ export function validateSeasonRolloverRequest(
     errors.push('Season players must be a list.')
   } else if (rawMembers.length > 64) {
     errors.push('A season cannot include more than 64 players.')
+  } else if (rawMembers.length < 2 || rawMembers.length % 2 !== 0) {
+    errors.push('A season must include an even number of teams between 2 and 64.')
   }
 
   const members: SeasonMemberSetup[] = []

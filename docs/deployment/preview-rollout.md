@@ -1,5 +1,7 @@
 # Preview rollout
 
+Status: **historical planning record from 2026-08-25**. The application and migrations described here were subsequently released to Production. Do not use the branch names, migration state, or deployment inventory below as current state; retain this document only for its free-tier preview safety boundaries.
+
 This runbook prepares an isolated preview of the authentication, protected-read, server-mutation, and authorization migration work. It must not use the linked live Supabase database as a writable preview target.
 
 ## Current local readiness

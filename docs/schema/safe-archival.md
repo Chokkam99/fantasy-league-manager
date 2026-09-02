@@ -1,6 +1,6 @@
 # Safe league and season archival
 
-Migration `202608250004_safe_archival.sql` is prepared locally and intentionally **not applied** to the live Supabase project.
+Migration `202608250004_safe_archival.sql` was applied to Production and verified on 2026-08-27.
 
 ## Product contract
 
@@ -18,7 +18,7 @@ Archiving is a reversible visibility and write-safety state, not deletion.
 
 The migration adds nullable `archived_at` timestamps to `leagues` and `league_seasons`. A null value means active/available; a timestamp records when the item was archived.
 
-Only the service role may execute `set_league_archive_status` and `set_season_archive_status`. The protected player-view route may return non-sensitive archive state after validating a season-scoped link. Neither function deletes or rewrites historical rows.
+Only the service role may execute `set_league_archive_status` and `set_season_archive_status`. Protected public-safe league reads may return non-sensitive archive state. Neither function deletes or rewrites historical rows.
 
 The league function updates archive state and disables automation in one transaction. The season function locks the parent league while checking `current_season`, preventing the active season from being archived through a race.
 
@@ -34,8 +34,8 @@ The disposable PostgreSQL 17 suite verifies archive and restore behavior, active
 
 Application tests cover signed-session route protection, exact action validation, missing-migration fallback, write guards, active-season UI protection, confirmation, and refresh after a historical archive.
 
-## Activation and rollback
+## Installation order and rollback
 
-Apply migration `004` only after migrations `001`–`003`, then apply scoped-sharing migration `005`, following the main authorization rollout guide. After activation, verify server-authorized historical reads, player-link season isolation, commissioner archive/restore, active-season rejection, mutation blocking, and automatic-sync state before considering the rollout complete.
+For a new empty installation, apply migration `004` only after migrations `001`–`003`, then continue with migration `005` and the remaining forward chain, following the main authorization rollout guide. The completed Production activation verified server-authorized historical reads, commissioner archive/restore boundaries, active-season rejection, mutation blocking, and automatic-sync state.
 
 Database rollback should normally be unnecessary: restoring an item clears `archived_at`. Do not drop the columns or functions during an incident unless a reviewed follow-up migration is required. Prefer rolling the application back while retaining the additive schema.

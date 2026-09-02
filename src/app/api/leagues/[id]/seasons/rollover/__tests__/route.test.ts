@@ -31,7 +31,7 @@ const validBody = {
     divisions: ['North', 'South'],
     draft_food_cost: 50,
     fee_amount: 100,
-    playoff_spots: 4,
+    playoff_spots: 2,
     playoff_start_week: 15,
     prize_structure: { first: 600 },
     total_weeks: 17,
@@ -44,6 +44,12 @@ const validBody = {
       manager_name: 'Alex',
       source_member_id: '123e4567-e89b-42d3-a456-426614174000',
       team_name: 'New Team',
+    },
+    {
+      division: 'South',
+      manager_name: 'Blake',
+      source_member_id: '123e4567-e89b-42d3-a456-426614174001',
+      team_name: 'Second Team',
     },
   ],
   source_season: '2025',
@@ -109,7 +115,7 @@ describe('atomic season rollover route', () => {
   it('uses one RPC and returns its committed season result', async () => {
     const database = databaseWithRpc({
       data: {
-        copied_players: 1,
+        copied_players: 2,
         source_season: '2025',
         success: true,
         target_season: '2026',
@@ -133,7 +139,7 @@ describe('atomic season rollover route', () => {
     )
     expect(database.from).toHaveBeenCalledTimes(1)
     await expect(response.json()).resolves.toMatchObject({
-      copied_players: 1,
+      copied_players: 2,
       success: true,
       target_season: '2026',
     })

@@ -1,5 +1,7 @@
 # Core constraint compatibility report — 2026-08-26
 
+Status: **historical pre-migration audit**. Its compatible safeguards and cleanup-gated constraints were applied through migrations 006–014 on 2026-08-27. Counts and “unapplied” statements below describe the dated baseline, not current Production state.
+
 This report evaluates whether stronger core-table safeguards are compatible with the current production rows. It is evidence for a future, separately reviewed migration; it does **not** authorize or apply a cleanup, constraint, trigger, or schema change.
 
 The live check ran through `npm run schema:audit:constraints`. The command makes paginated HTTP `GET` requests for explicit columns and prints aggregate counts only. It used the anonymous key while legacy shared reads remain active. Names are inspected only for blank-value checks; names, raw IDs, score values, credentials, and row payloads are never printed.

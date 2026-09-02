@@ -1,5 +1,5 @@
 -- Target-contract assertions for a brand-new, data-free installation after
--- the fantasy-only deployed-v0 bootstrap plus migrations 001 through 014.
+-- the fantasy-only deployed-v0 bootstrap plus migrations 001 through 016.
 
 do $$
 declare

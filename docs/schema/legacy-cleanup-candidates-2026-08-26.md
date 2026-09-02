@@ -1,5 +1,7 @@
 # Legacy cleanup candidate report — 2026-08-26
 
+Status: **historical pre-migration audit**. The exact 10/24/6 mechanical cleanup was applied through migrations 006–008 on 2026-08-27 and all postconditions passed. The 2021 money decision, nullable historical money fields, and extra saved-winner metadata remain unchanged.
+
 This report revalidates known production-data anomalies and defines exact eligibility rules for a future, separately approved cleanup. It does **not** authorize or perform any database change.
 
 The live check ran through `npm run schema:audit:cleanup`. That command makes paginated HTTP `GET` requests for explicit non-credential columns and prints aggregates only. It uses the anonymous key while legacy shared reads remain active and may use a configured server key after migration `005`; the implementation has no mutating HTTP method in either mode. League IDs are represented by stable ten-character SHA-256 fingerprints. Names, team names, raw IDs, score values, credentials, and row payloads are never printed.

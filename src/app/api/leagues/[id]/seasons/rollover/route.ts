@@ -3,6 +3,7 @@ import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { getLifecycleWriteBlock } from '@/lib/lifecycleServer'
 import { isMissingManagerIdentitySchema } from '@/lib/managerIdentity'
 import {
+  buildRolloverMemberOptions,
   createReturningMemberPayloads,
   createRolloverSeasonPayload,
   getNextSeason,
@@ -114,20 +115,20 @@ async function loadRolloverSource(
 
   const membersWithIdentity = await database
     .from('league_members')
-    .select('id, manager_id, manager_name, team_name, division')
+    .select('id, manager_id, manager_name, team_name, division, season, is_active')
     .eq('league_id', leagueId)
-    .eq('season', sourceSeason)
-    .eq('is_active', true)
+    .lte('season', sourceSeason)
+    .order('season', { ascending: false })
     .order('manager_name')
   const membersResult =
     membersWithIdentity.error &&
     isMissingManagerIdentitySchema(membersWithIdentity.error)
       ? await database
           .from('league_members')
-          .select('id, manager_name, team_name, division')
+          .select('id, manager_name, team_name, division, season, is_active')
           .eq('league_id', leagueId)
-          .eq('season', sourceSeason)
-          .eq('is_active', true)
+          .lte('season', sourceSeason)
+          .order('season', { ascending: false })
           .order('manager_name')
       : membersWithIdentity
 
@@ -161,7 +162,10 @@ async function loadRolloverSource(
   if (targetResult.error) throw targetResult.error
 
   return {
-    members: (membersResult.data || []) as ReturningMember[],
+    members: buildRolloverMemberOptions(
+      (membersResult.data || []) as ReturningMember[],
+      sourceSeason,
+    ),
     source: sourceResult.data as (ReusableSeasonConfiguration & {
       season: string
     }) | null,
@@ -356,7 +360,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
     if (unknownMember) {
       return errorResponse(
-        'A selected returning player is not active in the source season.',
+        'A selected returning player is not part of this league history.',
         422,
       )
     }

@@ -1,5 +1,7 @@
 # Deployed database contract audit — 2026-08-25
 
+Status: **historical deployed-v0 baseline**. Production subsequently received migrations 001–015 on 2026-08-27 and migration 016 on 2026-09-02. Use [the Production migration checkpoint](../deployment/production-migration-2026-08-27.md) for current state; keep this document as the source-shape and migration rationale.
+
 This is a read-only compatibility snapshot of the deployed Supabase project. It records the public schema contract and aggregate data-health findings without recording credentials, player names, team names, score values, or other row-level content.
 
 The initial anon-key audit was completed on 2026-08-24. On 2026-08-25, the repository was linked to the verified `fantasy-league-manager` project and the audit was completed through Supabase's enforced `supabase_read_only_user` Management API endpoint. The full audit covered columns and defaults, relationships, constraints, indexes, triggers, function definitions and grants, view definitions, table grants, RLS state, Supabase security/performance advisors, and aggregate consistency checks.

@@ -2,13 +2,13 @@
 
 The dated packaging, backup, environment, immutable-hash, and exact-command checkpoint is [production rollout — 2026-08-26](../deployment/production-rollout-2026-08-26.md). That document is preparation evidence only and does not authorize deployment or migration.
 
-Migrations `001`–`014` were applied to Production on 2026-08-27 after the documented backup, audit, dry-run, deployment, and explicit approval gates. See [the Production migration checkpoint](../deployment/production-migration-2026-08-27.md) for execution and post-migration evidence. The first five close anonymous access, add locked atomic ESPN imports, stable identity/finance, reversible archive state, and scoped player links. Migrations 006–010 package separately gated legacy cleanup and compatible core safeguards. Migrations 011–012 add locked atomic season rollover and enforce one active season configuration. Migration 013 adds locked manual score replacement and playoff-flag derivation. Migration 014 retires three unused, broken/destructive legacy schedule RPCs after verifying both supported atomic write boundaries exist; see [cleanup and constraint rollout](cleanup-constraint-rollout.md).
+Migrations `001`–`015` were applied to Production on 2026-08-27 after the documented backup, audit, dry-run, deployment, and explicit approval gates. Migration `016` was applied through the same gates on 2026-09-02. See [the Production migration checkpoint](../deployment/production-migration-2026-08-27.md) for execution and post-migration evidence. The first five close anonymous access, add locked atomic ESPN imports, stable identity/finance, reversible archive state, and scoped legacy links. Migrations 006–010 apply separately gated legacy cleanup and compatible core safeguards. Migrations 011–012 add locked atomic season rollover and enforce one active season configuration. Migration 013 adds locked manual score replacement and playoff-flag derivation. Migration 014 retires three unused, broken/destructive legacy schedule RPCs after verifying both supported atomic write boundaries exist. Migration 015 adds service-only player-level payout completion and resets stale completion state when scores or award assignments change. Migration 016 keeps the same restricted rollover RPC signature, permits stable-identity reuse from any earlier league season, rejects duplicate historical identities, requires an even roster of 2–64 teams, and prevents playoff spots from exceeding the team count. It changes no existing rows or table shape; see [cleanup and constraint rollout](cleanup-constraint-rollout.md).
 
 ## Disposable PostgreSQL verification
 
 Run `npm run schema:test:authorization` before preview or production rollout. The command starts an isolated Supabase PostgreSQL 17 container in the existing Podman machine, loads a synthetic deployed-`v0` schema and data set, applies all migrations in order, runs the access/import/finance checks, and removes the container. It publishes no host port and does not read the linked Supabase project or any production row or credential.
 
-Also run `npm run schema:test:fresh` and `npm run schema:test:cleanup`. The former validates the empty baseline plus migrations `001`–`014`; the latter proves the exact cleanup success and rollback gates. See [fresh schema reconciliation](fresh-schema-reconciliation.md) for the installation paths and production-readiness checklist.
+Also run `npm run schema:test:fresh` and `npm run schema:test:cleanup`. The former validates the empty baseline plus migrations `001`–`016`; the latter proves the exact cleanup success and rollback gates through migration `014`. See [fresh schema reconciliation](fresh-schema-reconciliation.md) for the installation paths and production-readiness checklist.
 
 The test requires Podman and the `public.ecr.aws/supabase/postgres:17.6.1.158` image. Podman may download that image if it is not already present. A running Podman machine is required on macOS.
 
@@ -32,10 +32,14 @@ The checks cover:
 - Atomic season creation/member reset/current-season activation with rollback on stale members, contention rejection, and one-active-season uniqueness.
 - Atomic exact-set manual score replacement/clearing, stale-score removal, matchup completion reopening, playoff derivation, double-booked schedule rejection, and ESPN-lock contention.
 - Exact-signature retirement of the three unused legacy schedule writers while preserving both supported atomic RPCs and the matchup/score data model.
+- Service-only player payout completion, public-safe status reads, and score/award reset triggers that prevent stale paid state.
+- Historical returning-player identity reuse plus even-team and playoff-count validation at the atomic database boundary.
 
-The complete chain passed locally against PostgreSQL 17 on 2026-08-26. It validates the prepared migrations, not production deployment. Supabase Security Advisor must still be rerun against preview after applying the migration there and against production after an explicitly approved production rollout.
+The chain through migration `016` passes locally against disposable PostgreSQL 17 and is verified in Production. Supabase Security Advisor reports no fantasy-table RLS-disabled error or fantasy GraphQL exposure for the deployed chain. Its remaining errors concern unrelated pre-existing `collections` and `items`; intentional service-only tables appear as RLS-with-no-policy informational findings.
 
-## Required deployment order
+## Reusable deployment order
+
+The original rollout completed this sequence. Use it as the baseline for future forward migrations rather than rerunning already applied files:
 
 1. Create a current Supabase backup/export and verify that it can be read.
 2. Generate a versioned scrypt `ADMIN_PASSWORD_HASH` with `npm run admin:hash-password` and install it as a protected server value. Do not enable `ALLOW_LEGACY_ADMIN_PASSWORD_HASH` in the target release; see `docs/security/commissioner-authentication.md`.
@@ -52,7 +56,7 @@ The complete chain passed locally against PostgreSQL 17 on 2026-08-26. It valida
 
 - Anonymous and authenticated direct `SELECT` fail on all fantasy tables and the calculated matchup view.
 - Signed commissioner requests load league data through the protected server routes.
-- A valid player token loads only its exact league and season; another season, a malformed token, a replaced token, and a revoked token fail.
+- The normal league URL returns only public-safe data across saved seasons. Previously issued player tokens remain limited to their original league and season; malformed, replaced, and revoked tokens fail.
 - Share-link storage contains only a token digest and non-secret prefix, never the raw URL token.
 - Anonymous `INSERT`, `UPDATE`, and `DELETE` fail on all six fantasy tables.
 - The three legacy schedule RPC signatures are absent; anonymous execution of supported import/mutation RPCs fails.
@@ -73,6 +77,6 @@ The complete chain passed locally against PostgreSQL 17 on 2026-08-26. It valida
 
 Prefer rolling the application deployment back first. If database access must be restored during an incident, use the verified pre-migration schema/grant export rather than improvising grants. Restoring anonymous writes recreates the original security vulnerability and must be temporary, logged, and followed by a new migration.
 
-Do not treat coordinated deployment approval as approval for cleanup migrations 006–008. Their exact protected exports, fresh audit counts, and separate execution approval remain mandatory. The unallocated 2021 money and four nullable legacy fields remain product decisions outside this chain.
+The separately approved cleanup migrations 006–008 were applied with their exact protected exports, count gates, and postcondition checks. That approval does not cover any future cleanup. The unallocated 2021 money and four nullable legacy fields remain product decisions outside this chain.
 
-`src/lib/database.types.ts` contains the deployed generated types plus target definitions from migrations `202608250002` through `202608260014`; the three retired RPC definitions are removed from that target contract. Migrations 006–010, 012, and 014 tighten behavior without adding application-facing fields. Running `npm run schema:types` against the live project before applying the chain will remove pending additions; regenerate only after the target schema is active, or restore the target additions while development remains local.
+`src/lib/database.types.ts` reflects the deployed table/function signatures through migration `202608270015`; the three retired RPC definitions are absent and the player payout table/function are present. Migration `016` replaces an existing function without changing its signature, so no generated type change is expected. Regenerate types only after a reviewed schema change is active, and review the resulting diff before committing it.

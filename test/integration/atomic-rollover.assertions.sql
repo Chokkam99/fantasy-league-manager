@@ -57,19 +57,33 @@ insert into public.league_seasons (
   divisions,
   prize_structure,
   is_active
-) values (
-  'rollover-fixture-league',
-  '2026',
-  50,
-  20,
-  5,
-  17,
-  15,
-  4,
-  '{"divisions":["Old"]}',
-  '{"first":100}',
-  true
-);
+) values
+  (
+    'rollover-fixture-league',
+    '2024',
+    40,
+    0,
+    0,
+    17,
+    15,
+    4,
+    null,
+    '{}',
+    false
+  ),
+  (
+    'rollover-fixture-league',
+    '2026',
+    50,
+    20,
+    5,
+    17,
+    15,
+    4,
+    '{"divisions":["Old"]}',
+    '{"first":100}',
+    true
+  );
 
 insert into public.league_members (
   id,
@@ -98,6 +112,16 @@ insert into public.league_members (
     'Retired Team',
     '2026',
     'Old',
+    true,
+    'paid'
+  ),
+  (
+    '80000000-0000-4000-8000-000000000003',
+    'rollover-fixture-league',
+    'Comeback Manager',
+    'Team From 2024',
+    '2024',
+    null,
     true,
     'paid'
   );
@@ -130,16 +154,28 @@ begin
         "division":"North"
       },
       {
+        "source_member_id":"80000000-0000-4000-8000-000000000003",
+        "manager_name":"Comeback Manager",
+        "team_name":"Renamed Comeback Team",
+        "division":"South"
+      },
+      {
         "source_member_id":null,
         "manager_name":"Expansion Manager",
         "team_name":"Expansion Team",
         "division":"South"
+      },
+      {
+        "source_member_id":null,
+        "manager_name":"Second Expansion Manager",
+        "team_name":"Second Expansion Team",
+        "division":"North"
       }
     ]'::jsonb
   ) into result;
 
   if not coalesce((result->>'success')::boolean, false)
-      or (result->>'copied_players')::integer <> 2
+      or (result->>'copied_players')::integer <> 4
       or result->>'target_season' <> '2027' then
     raise exception 'Atomic rollover returned an invalid result: %', result;
   end if;
@@ -173,8 +209,8 @@ begin
   if (
     select count(*) from public.league_members
     where league_id = 'rollover-fixture-league' and season = '2027'
-  ) <> 2 then
-    raise exception 'Atomic rollover did not create exactly two target members.';
+  ) <> 4 then
+    raise exception 'Atomic rollover did not create exactly four target members.';
   end if;
   if (
     select manager_id from public.league_members
@@ -188,10 +224,21 @@ begin
     raise exception 'Returning manager identity was not preserved.';
   end if;
   if (
+    select manager_id from public.league_members
+    where league_id = 'rollover-fixture-league'
+      and season = '2027'
+      and team_name = 'Renamed Comeback Team'
+  ) <> (
+    select manager_id from public.league_members
+    where id = '80000000-0000-4000-8000-000000000003'
+  ) then
+    raise exception 'Historical returning manager identity was not preserved.';
+  end if;
+  if (
     select count(*) from public.season_payments
     where league_id = 'rollover-fixture-league' and season = '2027'
       and status = 'pending' and paid_amount_cents = 0
-  ) <> 2 then
+  ) <> 4 then
     raise exception 'Target-season payment reset was not created atomically.';
   end if;
 end;
@@ -218,7 +265,7 @@ begin
         "divisions":[],
         "draft_food_cost":0,
         "fee_amount":0,
-        "playoff_spots":4,
+        "playoff_spots":2,
         "playoff_start_week":15,
         "prize_structure":{},
         "total_weeks":17.5,
@@ -251,18 +298,26 @@ begin
         "divisions":[],
         "draft_food_cost":0,
         "fee_amount":0,
-        "playoff_spots":4,
+        "playoff_spots":2,
         "playoff_start_week":15,
         "prize_structure":{},
         "total_weeks":17,
         "weekly_prize_amount":0
       }'::jsonb,
-      '[{
-        "source_member_id":"80000000-0000-4000-8000-000000000099",
-        "manager_name":"Missing Manager",
-        "team_name":"Missing Team",
-        "division":null
-      }]'::jsonb
+      '[
+        {
+          "source_member_id":"80000000-0000-4000-8000-000000000099",
+          "manager_name":"Missing Manager",
+          "team_name":"Missing Team",
+          "division":null
+        },
+        {
+          "source_member_id":null,
+          "manager_name":"Valid New Manager",
+          "team_name":"Valid New Team",
+          "division":null
+        }
+      ]'::jsonb
     );
     raise exception 'Invalid returning member was accepted.';
   exception when sqlstate 'P0002' then

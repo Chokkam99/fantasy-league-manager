@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Notice } from '@/components/ui/Notice'
@@ -10,8 +10,10 @@ import { getConfiguredDivisions } from '@/lib/rules'
 interface RolloverMember {
   division?: string | null
   id: string
+  last_season: string
   manager_id?: string | null
   manager_name: string
+  selected_by_default: boolean
   team_name: string
 }
 
@@ -151,6 +153,17 @@ export default function SeasonSetupForm({
     [memberDrafts, preview],
   )
   const configuredTeamCount = selectedReturningMembers.length + newMembers.length
+  const playoffSpots = numberValue(settings.playoffSpots)
+  const rosterIssue =
+    configuredTeamCount < 2
+      ? 'Choose at least two teams.'
+      : configuredTeamCount % 2 !== 0
+        ? 'Add or remove one team. Head-to-head seasons require an even number of teams.'
+        : !Number.isInteger(playoffSpots) || playoffSpots < 2
+          ? 'Configure at least two playoff teams.'
+          : playoffSpots > configuredTeamCount
+            ? 'Playoff teams cannot exceed the total number of teams.'
+            : ''
   const allReturningSelected =
     Boolean(preview?.members.length) &&
     selectedReturningMembers.length === preview?.members.length
@@ -222,7 +235,7 @@ export default function SeasonSetupForm({
                     ? member.division
                     : '',
                 managerName: member.manager_name,
-                selected: true,
+                selected: member.selected_by_default,
                 teamName: member.team_name,
               },
             ]),
@@ -435,12 +448,13 @@ export default function SeasonSetupForm({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-bold text-app-text">Players and teams</h3>
-                    <p className="mt-1 text-sm leading-6 text-app-text-muted">{configuredTeamCount} teams configured. Returning players keep their history even if their manager display or team name changes. Dues begin as pending.</p>
+                    <p className="mt-1 text-sm leading-6 text-app-text-muted">{configuredTeamCount} teams configured. Last season’s players are selected by default; earlier league players remain available below. Manager and team names are editable for the new season, and dues begin as pending.</p>
+                    {rosterIssue ? <p className="mt-1 text-sm font-semibold text-app-danger">{rosterIssue}</p> : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {preview.members.length > 0 && (
                       <Button onClick={() => setMemberDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, { ...draft, selected: !allReturningSelected }]))) } size="sm" variant="secondary">
-                        {allReturningSelected ? 'Clear returning' : 'Select returning'}
+                        {allReturningSelected ? 'Clear all' : 'Select all'}
                       </Button>
                     )}
                     <Button onClick={addNewMember} size="sm" variant="secondary">Add new player</Button>
@@ -448,33 +462,50 @@ export default function SeasonSetupForm({
                 </div>
 
                 <div className="mt-3 space-y-3">
-                  {preview.members.map((member) => {
+                  {preview.members.map((member, index) => {
                     const draft = memberDrafts[member.id]
                     if (!draft) return null
                     const selectedDivision = groupNames.includes(draft.division) ? draft.division : ''
+                    const beginsEarlierPlayers =
+                      !member.selected_by_default &&
+                      (index === 0 || preview.members[index - 1]?.selected_by_default)
 
                     return (
-                      <div className="min-w-0 rounded-[var(--app-radius-md)] border border-app-border p-3" key={member.id}>
-                        <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold text-app-text">
-                          <input checked={draft.selected} className="h-5 w-5 shrink-0 accent-app-brand" onChange={(event) => updateMember(member.id, { selected: event.target.checked })} type="checkbox" />
-                          <span className="min-w-0 truncate">{draft.managerName || member.manager_name}</span>
-                          <span className="ml-auto shrink-0 text-xs font-semibold text-app-text-muted">Returning</span>
-                        </label>
-                        <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                          <label className="text-xs font-semibold text-app-text-muted">Manager name
-                            <input className={`${inputClass} mt-1`} disabled={!draft.selected} maxLength={80} onChange={(event) => updateMember(member.id, { managerName: event.target.value })} type="text" value={draft.managerName} />
+                      <Fragment key={member.id}>
+                        {index === 0 && member.selected_by_default ? (
+                          <div className="pt-1">
+                            <h4 className="text-sm font-bold text-app-text">Last season</h4>
+                            <p className="mt-0.5 text-xs text-app-text-muted">Selected automatically from {preview.source_season}.</p>
+                          </div>
+                        ) : null}
+                        {beginsEarlierPlayers ? (
+                          <div className="border-t border-app-border pt-4">
+                            <h4 className="text-sm font-bold text-app-text">Earlier league players</h4>
+                            <p className="mt-0.5 text-xs text-app-text-muted">Available to bring back and unchecked by default.</p>
+                          </div>
+                        ) : null}
+                        <div className="min-w-0 rounded-[var(--app-radius-md)] border border-app-border p-3">
+                          <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold text-app-text">
+                            <input checked={draft.selected} className="h-5 w-5 shrink-0 accent-app-brand" onChange={(event) => updateMember(member.id, { selected: event.target.checked })} type="checkbox" />
+                            <span className="min-w-0 truncate">{draft.managerName || member.manager_name}</span>
+                            <span className="ml-auto shrink-0 text-xs font-semibold text-app-text-muted">{member.selected_by_default ? 'Last season' : `Last played ${member.last_season}`}</span>
                           </label>
-                          <label className="text-xs font-semibold text-app-text-muted">Team name
-                            <input className={`${inputClass} mt-1`} disabled={!draft.selected} maxLength={80} onChange={(event) => updateMember(member.id, { teamName: event.target.value })} type="text" value={draft.teamName} />
-                          </label>
-                          <label className="text-xs font-semibold text-app-text-muted">Group
-                            <select className={`${inputClass} mt-1`} disabled={!draft.selected || groupNames.length === 0} onChange={(event) => updateMember(member.id, { division: event.target.value })} value={selectedDivision}>
-                              <option value="">No group</option>
-                              {groupNames.map((group) => <option key={group} value={group}>{group}</option>)}
-                            </select>
-                          </label>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                            <label className="text-xs font-semibold text-app-text-muted">Manager name
+                              <input className={`${inputClass} mt-1`} disabled={!draft.selected} maxLength={80} onChange={(event) => updateMember(member.id, { managerName: event.target.value })} type="text" value={draft.managerName} />
+                            </label>
+                            <label className="text-xs font-semibold text-app-text-muted">Team name
+                              <input className={`${inputClass} mt-1`} disabled={!draft.selected} maxLength={80} onChange={(event) => updateMember(member.id, { teamName: event.target.value })} type="text" value={draft.teamName} />
+                            </label>
+                            <label className="text-xs font-semibold text-app-text-muted">Group
+                              <select className={`${inputClass} mt-1`} disabled={!draft.selected || groupNames.length === 0} onChange={(event) => updateMember(member.id, { division: event.target.value })} value={selectedDivision}>
+                                <option value="">No group</option>
+                                {groupNames.map((group) => <option key={group} value={group}>{group}</option>)}
+                              </select>
+                            </label>
+                          </div>
                         </div>
-                      </div>
+                      </Fragment>
                     )
                   })}
 
@@ -569,7 +600,7 @@ export default function SeasonSetupForm({
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
             <Button disabled={isStarting} onClick={onCancel} variant="secondary">Cancel</Button>
-            <Button disabled={!preview?.can_start || isLoading || isStarting} onClick={() => setConfirmationOpen(true)}>
+            <Button disabled={!preview?.can_start || Boolean(rosterIssue) || isLoading || isStarting} onClick={() => setConfirmationOpen(true)}>
               {preview ? `Review and start ${preview.target_season}` : 'Review season'}
             </Button>
           </div>

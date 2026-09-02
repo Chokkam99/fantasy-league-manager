@@ -1,6 +1,6 @@
 # Finance and stable-identity foundation
 
-Migration `202608250003_finance_identity_foundation.sql` is prepared and locally verified but intentionally **not applied** to the linked Supabase project.
+Migration `202608250003_finance_identity_foundation.sql` was applied to Production and verified on 2026-08-27. Migration `202608270015_player_payout_statuses.sql` later extended this model with player-level handout completion.
 
 ## Identity model
 
@@ -11,7 +11,7 @@ Migration `202608250003_finance_identity_foundation.sql` is prepared and locally
 - Compatibility triggers assign `manager_id` to current application inserts. Future application writes should pass an existing manager ID explicitly for renamed managers rather than relying on name matching.
 - The migration fails closed if normalization would place the same manager identity into one season twice.
 
-The application reads `manager_id` first for player history, returning-player activation, and season rollover. While this migration remains unapplied, those reads retry against the legacy columns and continue grouping normalized names. Once active, returning season-team writes carry the existing manager ID explicitly, so the manager display name and team name can both change without splitting the person’s history. The latest season snapshot refreshes `managers.display_name`; edits to older seasons cannot overwrite a newer display.
+The application reads `manager_id` first for player history, returning-player activation, and season rollover. A compatibility fallback can still group normalized legacy names if the canonical field is unavailable. Returning season-team writes carry the existing manager ID explicitly, so the manager display name and team name can both change without splitting the person’s history. The latest season snapshot refreshes `managers.display_name`; edits to older seasons cannot overwrite a newer display.
 
 ## Dues model
 
@@ -33,12 +33,12 @@ Commissioner changes use the restricted `set_season_payment_details` operation. 
 - Weekly awards are created for the configured number of weeks. Removing a configured award deactivates it instead of deleting historical payout records.
 - `prize_payouts` supports one or more recipients per award, including tied weekly winners.
 - Saved `final_winners` are backfilled as assigned, pending payouts. The migration does not infer that money was sent.
-- Token-authorized players may read award allocations, recipients, amounts, and paid/pending state through the protected finance route. Commissioner notes remain private.
+- Public-safe league readers may view award allocations, recipients, amounts, and paid/pending state through the protected finance route. Commissioner notes remain private.
 - Composite foreign keys reject cross-league and cross-season payment or payout references.
 
 Final and special recipients use `assign_prize_recipient`, which updates the normalized payout and legacy `final_winners` snapshot in one transaction. `set_prize_payout_status` records paid/pending state and the paid timestamp. Weekly winners remain calculated from finalized score data rather than manually assigned.
 
-All three operations are executable only by `service_role`; the application exposes them through `/api/leagues/[id]/finance`, after validating the signed commissioner session and season scope. The same route validates a season-scoped player token before returning safe award/payout fields, adds private dues only for the commissioner, and returns `schema_ready: false` while this migration is not active so existing pages keep working.
+All three operations are executable only by `service_role`; the application exposes them through `/api/leagues/[id]/finance` after validating the signed commissioner session and season scope. The same route returns public-safe award/payout fields for league readers, adds private dues only for the commissioner, and retains a `schema_ready: false` compatibility response for an older database missing the finance migration.
 
 ## Compatibility and rollout
 
@@ -46,4 +46,4 @@ The migration is additive and does not delete or rename existing tables, members
 
 Run `npm run schema:test:authorization` to verify the complete migration chain in disposable PostgreSQL 17. The suite covers historical team-name changes, stable manager reuse, legacy payment backfill, commissioner partial/payment operations, award normalization, recipient assignment, payout completion, public/private grants, current-write compatibility, and rejection of cross-league finance references.
 
-Do not combine activation with the separately identified null-season score cleanup, lifecycle normalization, historical active-flag cleanup, or the 2021 unallocated-money decision. Apply migrations only after a verified backup and explicit production approval.
+The original activation did not silently combine the 2021 unallocated-money decision or nullable historical money fields with the mechanical cleanup. Those product decisions remain unchanged. Any future finance migration still requires a verified backup and explicit Production approval.

@@ -86,8 +86,9 @@ run_sql_file supabase/migrations/202608260012_enforce_one_active_season.sql >/de
 run_sql_file supabase/migrations/202608260013_atomic_manual_week_scores.sql >/dev/null
 run_sql_file supabase/migrations/202608260014_retire_legacy_schedule_rpcs.sql >/dev/null
 run_sql_file supabase/migrations/202608270015_player_payout_statuses.sql >/dev/null
+run_sql_file supabase/migrations/202609010016_historical_returning_members.sql >/dev/null
 run_sql_file test/integration/fresh-schema.assertions.sql >/dev/null
 run_sql_file test/integration/scoped-sharing.assertions.sql >/dev/null
 run_sql_file test/integration/player-payout-statuses.assertions.sql >/dev/null
 
-echo 'Fresh fantasy-only schema passed the deployed-v0 plus migrations 001-015 PostgreSQL 17 checks, including player payout tracking.'
+echo 'Fresh fantasy-only schema passed the deployed-v0 plus migrations 001-016 PostgreSQL 17 checks, including player payout tracking and historical returning members.'

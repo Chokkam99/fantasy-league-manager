@@ -1,4 +1,5 @@
 import {
+  buildRolloverMemberOptions,
   createReturningMemberPayloads,
   createRolloverSeasonPayload,
   getNextSeason,
@@ -14,7 +15,7 @@ const configuration = {
   divisions: ['North', 'South'],
   draft_food_cost: 125,
   fee_amount: 75,
-  playoff_spots: 8,
+  playoff_spots: 2,
   playoff_start_week: 14,
   prize_structure: { first: 400, second: 200, toilet_bowl: 25 },
   total_weeks: 17,
@@ -82,6 +83,12 @@ describe('season rollover', () => {
               source_member_id: ` ${MEMBER_ONE} `,
               team_name: ' New Team Name ',
             },
+            {
+              division: 'South',
+              manager_name: 'Blake',
+              source_member_id: MEMBER_TWO,
+              team_name: 'Second Team',
+            },
           ],
           source_season: '2025',
           target_season: '2026',
@@ -100,11 +107,96 @@ describe('season rollover', () => {
             source_member_id: MEMBER_ONE,
             team_name: 'New Team Name',
           },
+          {
+            division: 'South',
+            manager_name: 'Blake',
+            source_member_id: MEMBER_TWO,
+            team_name: 'Second Team',
+          },
         ],
         source_season: '2025',
         target_season: '2026',
       },
     })
+  })
+
+  it('offers one latest-season option per manager and defaults only the active source roster', () => {
+    expect(
+      buildRolloverMemberOptions(
+        [
+          {
+            id: MEMBER_ONE,
+            is_active: true,
+            manager_id: '223e4567-e89b-42d3-a456-426614174000',
+            manager_name: 'Alex Latest',
+            season: '2025',
+            team_name: 'Latest Team',
+          },
+          {
+            id: '123e4567-e89b-12d3-a456-426614174010',
+            is_active: true,
+            manager_id: '223e4567-e89b-42d3-a456-426614174000',
+            manager_name: 'Alex Old',
+            season: '2023',
+            team_name: 'Old Team',
+          },
+          {
+            id: MEMBER_TWO,
+            is_active: true,
+            manager_id: '223e4567-e89b-42d3-a456-426614174001',
+            manager_name: 'Blake',
+            season: '2024',
+            team_name: 'Comeback Team',
+          },
+        ],
+        '2025',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        id: MEMBER_ONE,
+        last_season: '2025',
+        manager_name: 'Alex Latest',
+        selected_by_default: true,
+        team_name: 'Latest Team',
+      }),
+      expect.objectContaining({
+        id: MEMBER_TWO,
+        last_season: '2024',
+        manager_name: 'Blake',
+        selected_by_default: false,
+        team_name: 'Comeback Team',
+      }),
+    ])
+  })
+
+  it('rejects odd rosters and playoff fields larger than the roster', () => {
+    const result = validateSeasonRolloverRequest(
+      {
+        configuration: { ...configuration, playoff_spots: 4 },
+        confirmed: true,
+        members: [
+          {
+            division: null,
+            manager_name: 'Alex',
+            source_member_id: MEMBER_ONE,
+            team_name: 'Only Team',
+          },
+        ],
+        source_season: '2025',
+        target_season: '2026',
+      },
+      '2025',
+    )
+
+    expect(result.is_valid).toBe(false)
+    if (!result.is_valid) {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          'A season must include an even number of teams between 2 and 64.',
+          'Playoff spots cannot exceed the number of teams.',
+        ]),
+      )
+    }
   })
 
   it('rejects invalid schedule, money, groups, and player assignments', () => {
@@ -195,7 +287,7 @@ describe('season rollover', () => {
       final_winners: null,
       is_active: true,
       league_id: 'league-one',
-      playoff_spots: 8,
+      playoff_spots: 2,
       playoff_start_week: 14,
       prize_structure: { first: 400, second: 200, toilet_bowl: 25 },
       season: '2026',

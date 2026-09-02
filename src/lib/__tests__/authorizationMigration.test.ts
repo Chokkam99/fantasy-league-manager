@@ -129,6 +129,14 @@ const playerPayoutStatusMigration = readFileSync(
   'utf8',
 )
 
+const historicalReturningMembersMigration = readFileSync(
+  join(
+    process.cwd(),
+    'supabase/migrations/202609010016_historical_returning_members.sql',
+  ),
+  'utf8',
+)
+
 describe('authorization foundation migration', () => {
   it('is transactional and enables RLS on all fantasy tables', () => {
     expect(migration.trimStart()).toMatch(/begin;/)
@@ -541,6 +549,40 @@ describe('atomic season rollover migrations', () => {
       'create unique index league_seasons_one_active_scope_idx',
     )
     expect(activeSeasonConstraintMigration).toContain('where is_active;')
+  })
+})
+
+describe('historical returning-member migration', () => {
+  it('keeps rollover transactional, restricted, and signature-compatible', () => {
+    expect(historicalReturningMembersMigration.trimStart()).toMatch(
+      /^--[\s\S]*?begin;/,
+    )
+    expect(historicalReturningMembersMigration.trimEnd()).toMatch(/commit;$/)
+    expect(historicalReturningMembersMigration).toMatch(
+      /function public\.rollover_league_season_atomically\([\s\S]*?security definer\s+set search_path = ''/,
+    )
+    expect(historicalReturningMembersMigration).toContain(
+      ') from public, anon, authenticated;',
+    )
+    expect(historicalReturningMembersMigration).toContain(') to service_role;')
+    expect(historicalReturningMembersMigration).not.toMatch(
+      /alter table public\.|create table public\.|drop table public\./,
+    )
+  })
+
+  it('accepts earlier league memberships while enforcing a valid roster', () => {
+    expect(historicalReturningMembersMigration).toContain(
+      'source_member.season < p_target_season',
+    )
+    expect(historicalReturningMembersMigration).toContain(
+      'group by source_member.manager_id',
+    )
+    expect(historicalReturningMembersMigration).toContain(
+      'member_count < 2 or mod(member_count, 2) <> 0',
+    )
+    expect(historicalReturningMembersMigration).toContain(
+      'playoff_spots_value > member_count',
+    )
   })
 })
 

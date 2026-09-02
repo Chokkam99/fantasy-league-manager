@@ -8,11 +8,12 @@ ESPN remains the source of truth for rosters, lineups, waivers, trades, and live
 
 - Multi-league and multi-season dashboards.
 - Season-specific players, team names, groups/divisions, schedules, playoff settings, fees, draft costs, and prize rules.
+- New-season setup with last season selected by default, earlier league players available to return, editable team names, new-player entry, and even-team validation.
 - Mobile standings with division-aware seeding, published tiebreakers, and a playoff cut line.
 - Weekly score rankings, matchup cards, manual correction, and current-season ESPN preview/import.
 - Dues collection and a reconciled money-in/money-out prize plan.
 - Weekly and final award history.
-- Revocable, season-scoped player links for standings, scores, rules, and prize context.
+- One predictable league-wide share URL for public-safe standings, scores, rules, prize context, and history across seasons.
 - Commissioner-only mutations behind signed, expiring server sessions.
 - Optional ESPN automation every Wednesday at 2:00 AM Phoenix time, with on-demand preview and sync retained.
 
@@ -58,7 +59,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 `database-setup.sql` is a retired legacy reference, deliberately fails if executed, and does **not** reproduce the deployed schema. Do not use it for any installation.
 
-The deployed baseline, known drift, data-health audit, and forward migration decision are recorded in [the deployed schema reference](docs/schema/deployed-schema-2026-08-24.md). The authorization, atomic ESPN-import, finance/stable-identity, reversible-archival, scoped-sharing, exact cleanup, staged core-constraint, atomic rollover/manual-score, and legacy schedule-retirement migrations in `supabase/migrations` were applied to Production on 2026-08-27.
+The deployed baseline, known drift, data-health audit, and forward migration decision are recorded in [the deployed schema reference](docs/schema/deployed-schema-2026-08-24.md). Production migrations `001`–`015` were applied and verified on 2026-08-27, and migration `016` was applied and verified on 2026-09-02. The chain covers authorization, atomic ESPN imports, finance and stable identity, reversible archival, scoped legacy links, exact cleanup, core constraints, atomic rollover and manual scores, legacy schedule-RPC retirement, per-player payout completion, historical returning players, and even-roster validation.
 
 Validate it locally with synthetic data:
 
@@ -66,17 +67,17 @@ Validate it locally with synthetic data:
 npm run schema:test:authorization
 ```
 
-This starts a disposable Supabase PostgreSQL 17 container without publishing a host port, applies the synthetic deployed-`v0` fixture and all prepared migrations, verifies access, imports, stable identities, finance, and archival behavior, and removes the container. It does not connect to production.
+This starts a disposable Supabase PostgreSQL 17 container without publishing a host port, applies the synthetic deployed-`v0` fixture and all forward migrations, verifies access, imports, stable identities, finance, payout completion, and archival behavior, and removes the container. It does not connect to Production.
 
-Follow [the rollout guide](docs/schema/authorization-foundation-rollout.md), [finance/identity design](docs/schema/finance-identity-foundation.md), and [safe archival design](docs/schema/safe-archival.md) before applying any remote migration.
+Follow [the rollout guide](docs/schema/authorization-foundation-rollout.md), [finance/identity design](docs/schema/finance-identity-foundation.md), and [safe archival design](docs/schema/safe-archival.md) before applying any future remote migration.
 
-For a brand-new empty database, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`014`. Existing production already is deployed-v0 and must receive only the reviewed forward migrations. The two paths, remaining product decisions, and approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
+For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`016`. Existing Production is current through migration `016`. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
 
 ## Player access
 
-Commissioners use **Copy player link** for one league season. The same short `/s/...` link is copied each time. Anyone with it can view that season's public league context but cannot open Settings, see individual dues/payment details, or submit commissioner changes.
+Commissioners use the compact share action to copy the normal `/league/<league-slug>` URL. Anyone with it can view the league's public-safe pages and switch among saved seasons, but cannot open Settings, see individual dues/payment details, or submit commissioner changes.
 
-Only a SHA-256 digest is stored in the database. Opening the short link creates a protected browser access cookie and redirects to the season overview. The old cosmetic `readonly=true` convention is no longer an access mechanism.
+Previously issued `/s/...` links remain supported for compatibility. Those links store only a SHA-256 digest, establish a protected browser access cookie, and redirect to the normal league URL. The current share action does not create or rotate a database record, and the old cosmetic `readonly=true` convention is not an access mechanism.
 
 ## ESPN score imports
 
@@ -157,6 +158,6 @@ The GitHub Actions workflow in `.github/workflows/quality.yml` runs the frozen d
 
 ## Deployment state
 
-The application code now uses signed commissioner sessions, server-authorized league reads, revocable season-scoped player links, privileged mutation boundaries, atomic ESPN import, season-rollover, and manual-score RPCs, derived playoff flags, reversible archive controls, a one-active-season safeguard, and retirement of the unused destructive legacy schedule RPCs. Fourteen forward migrations remain intentionally unapplied. Deploying this application version before migration `005` would leave player sharing unavailable, so application and database activation must be coordinated. Supabase preview branching is unavailable on the current free plan, so schema/write behavior is verified in disposable local PostgreSQL; never point a writable preview deployment at the live database.
+Production has all 16 forward migrations applied. The accompanying application release adds historical returning-player selection, editable new-season names, even-team enforcement, and compact expandable playoff history to the existing signed-session, public-sharing, score, standings, finance, payout, and archival workflows. The final linked dry run is up to date, and automatic ESPN sync remains intentionally disabled pending a deliberate on-demand validation.
 
-See [preview rollout](docs/deployment/preview-rollout.md) for the protected preview boundary and [production rollout](docs/deployment/production-rollout-2026-08-26.md) for the exact current hashes, backup limitation, secret gaps, dry-run command, and approval gates.
+Supabase preview branching is unavailable on the current free plan, so future schema and write behavior should continue to be verified in disposable local PostgreSQL without creating paid resources or pointing a writable preview deployment at Production. See the [completed Production migration checkpoint](docs/deployment/production-migration-2026-08-27.md). The [preview rollout](docs/deployment/preview-rollout.md) and [pre-execution Production rollout](docs/deployment/production-rollout-2026-08-26.md) are retained as historical planning evidence.

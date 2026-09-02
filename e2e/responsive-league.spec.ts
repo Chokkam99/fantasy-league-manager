@@ -115,6 +115,15 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'Season overview')
     await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
     await expect(page.getByRole('cell', { name: '2025 Final' })).toBeVisible()
+    const completedSeasonPlayoffs = page
+      .locator('details')
+      .filter({ hasText: 'Playoff teams' })
+      .last()
+    await expect(completedSeasonPlayoffs).not.toHaveAttribute('open', '')
+    await completedSeasonPlayoffs.locator('summary').click()
+    await expect(
+      page.getByRole('list', { name: '2025 playoff teams' }),
+    ).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Player history' })).toBeVisible()
     const playerHistory = page.getByRole('region', {
       name: 'Player results by season',
