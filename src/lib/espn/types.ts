@@ -96,6 +96,7 @@ export interface ESPNTeamData {
   nickname?: string
   name?: string
   owners?: string[]
+  primaryOwner?: string
   [key: string]: unknown
 }
 

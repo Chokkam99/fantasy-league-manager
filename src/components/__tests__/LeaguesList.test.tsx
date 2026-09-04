@@ -54,7 +54,7 @@ describe('LeaguesList', () => {
       }),
     ])
 
-    render(<LeaguesList onCreateLeague={jest.fn()} refresh={0} />)
+    render(<LeaguesList onCreateLeague={jest.fn()} />)
 
     expect(
       await screen.findByRole('link', { name: 'Open League One' }),

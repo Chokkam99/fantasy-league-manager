@@ -85,6 +85,7 @@ describe('Players roster views', () => {
     const onDeactivate = jest.fn()
     const onOpenPayment = jest.fn()
     const onPaymentChange = jest.fn()
+    const onEditTeam = jest.fn()
     const { rerender } = render(
       <PlayerRosterSections
         busyMemberId={null}
@@ -94,6 +95,7 @@ describe('Players roster views', () => {
         isViewOnly={false}
         onActivate={onActivate}
         onDeactivate={onDeactivate}
+        onEditTeam={onEditTeam}
         onOpenPayment={onOpenPayment}
         onPaymentChange={onPaymentChange}
         search=""
@@ -107,12 +109,14 @@ describe('Players roster views', () => {
     expect(screen.getByText('Previously: Old Team')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Mark Manager One paid' }))
     await user.click(screen.getByRole('button', { name: 'Payment details for Manager One' }))
+    await user.click(screen.getByRole('button', { name: 'Edit team name for Manager One' }))
     const remove = screen.getByRole('button', { name: 'Remove Manager One from 2026' })
     expect(remove).toHaveClass('text-app-danger')
     await user.click(remove)
     await user.click(screen.getByRole('button', { name: 'Add Manager Two to 2026' }))
     expect(onPaymentChange).toHaveBeenCalledWith(currentPlayer)
     expect(onOpenPayment).toHaveBeenCalledWith(currentPlayer)
+    expect(onEditTeam).toHaveBeenCalledWith(currentPlayer)
     expect(onDeactivate).toHaveBeenCalledWith(currentPlayer)
     expect(onActivate).toHaveBeenCalledWith(formerPlayer)
 
@@ -125,6 +129,7 @@ describe('Players roster views', () => {
         isViewOnly
         onActivate={onActivate}
         onDeactivate={onDeactivate}
+        onEditTeam={onEditTeam}
         onOpenPayment={onOpenPayment}
         onPaymentChange={onPaymentChange}
         search=""

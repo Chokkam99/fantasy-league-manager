@@ -18,6 +18,12 @@ export type ValidMemberAction =
       season: string
     }
   | {
+      action: 'edit_team'
+      member_id: string
+      season: string
+      team_name: string
+    }
+  | {
       action: 'set_payment'
       member_id: string
       payment_status: PaymentStatus
@@ -45,7 +51,7 @@ export function validateMemberAction(input: unknown): MemberActionValidation {
   const season = typeof body.season === 'string' ? body.season : ''
   const errors: string[] = []
 
-  if (!['add', 'activate', 'deactivate', 'set_payment'].includes(String(action))) {
+  if (!['add', 'activate', 'deactivate', 'edit_team', 'set_payment'].includes(String(action))) {
     errors.push('Choose a supported member action.')
   }
   if (!/^\d{4}$/.test(season)) {
@@ -96,6 +102,22 @@ export function validateMemberAction(input: unknown): MemberActionValidation {
         member_id: memberId,
         payment_status: body.payment_status as PaymentStatus,
         season,
+      },
+    }
+  }
+
+  if (action === 'edit_team') {
+    const teamName = normalizeName(body.team_name)
+    if (!teamName) errors.push('Team name is required.')
+    if (teamName.length > 80) errors.push('Team name must be 80 characters or fewer.')
+    if (errors.length > 0) return { errors, is_valid: false }
+    return {
+      is_valid: true,
+      value: {
+        action: 'edit_team',
+        member_id: memberId,
+        season,
+        team_name: teamName,
       },
     }
   }

@@ -36,18 +36,17 @@ export function ESPNConnectionPanel({
     <div className="border-b border-app-border bg-app-surface-subtle p-4 sm:p-6">
       <h3 className="font-semibold text-app-text">ESPN connection</h3>
       <p className="mt-1 text-sm leading-6 text-app-text-muted">
-        Public leagues only need the league ID. Private leagues also need ESPN cookies. Settings are tested and stored through the commissioner-only server route.
+        Paste the ESPN league URL or enter its league ID. Private leagues also need ESPN cookies. Settings are tested and stored through the commissioner-only server route.
       </p>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="block text-sm font-semibold text-app-text">
-          ESPN league ID *
+          ESPN league URL or ID *
           <input
             autoComplete="off"
             className={inputClass}
-            inputMode="numeric"
             onChange={(event) => onUpdate('espnLeagueId', event.target.value)}
-            placeholder="Example: 123456789"
+            placeholder="Paste the ESPN league URL"
             value={draft.espnLeagueId}
           />
         </label>
@@ -69,7 +68,7 @@ export function ESPNConnectionPanel({
       {draft.privateLeague && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <CredentialField
-            label="ESPN_S2 cookie *"
+            label="espn_s2 cookie *"
             onChange={(value) => onUpdate('espnS2', value)}
             placeholder={hasStoredEspnS2 ? 'Stored, leave blank to keep' : 'Paste ESPN_S2'}
             value={draft.espnS2}

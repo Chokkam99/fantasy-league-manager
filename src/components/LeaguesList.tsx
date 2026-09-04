@@ -11,7 +11,6 @@ import { loadCommissionerPortfolio } from '@/lib/portfolioClient'
 
 interface LeaguesListProps {
   onCreateLeague: () => void
-  refresh: number
 }
 
 function PortfolioSkeleton() {
@@ -26,7 +25,6 @@ function PortfolioSkeleton() {
 
 export default function LeaguesList({
   onCreateLeague,
-  refresh,
 }: LeaguesListProps) {
   const [leagues, setLeagues] = useState<PortfolioLeague[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -53,7 +51,7 @@ export default function LeaguesList({
     }, 0)
 
     return () => window.clearTimeout(loadTimer)
-  }, [fetchLeagues, refresh])
+  }, [fetchLeagues])
 
   const portfolioSummary = useMemo(() => summarizePortfolio(leagues), [leagues])
   const activeLeagues = leagues.filter((league) => !league.archived_at)

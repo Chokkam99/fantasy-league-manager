@@ -1,9 +1,19 @@
 import {
   getAutomationReadiness,
+  normalizeESPNLeagueId,
   validateAutomationSettings,
 } from '../automationSettings'
 
 describe('automation settings', () => {
+  it('extracts a league ID from an ESPN team URL without using the team ID', () => {
+    expect(normalizeESPNLeagueId(
+      'https://fantasy.espn.com/football/team?leagueId=9876543210&teamId=1',
+    )).toBe('9876543210')
+    expect(normalizeESPNLeagueId(
+      'https://example.com/football/team?leagueId=9876543210&teamId=1',
+    )).toBe('')
+  })
+
   it('normalizes a valid public ESPN configuration', () => {
     expect(
       validateAutomationSettings({

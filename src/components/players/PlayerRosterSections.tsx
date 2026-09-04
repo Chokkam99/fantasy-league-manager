@@ -96,6 +96,7 @@ interface PlayerRosterSectionsProps {
   isViewOnly: boolean
   onActivate: (player: PlayerDirectoryEntry) => void
   onDeactivate: (player: PlayerRosterEntry) => void
+  onEditTeam: (player: PlayerRosterEntry) => void
   onOpenPayment: (player: PlayerRosterEntry) => void
   onPaymentChange: (player: PlayerRosterEntry) => void
   search: string
@@ -110,6 +111,7 @@ export function PlayerRosterSections({
   isViewOnly,
   onActivate,
   onDeactivate,
+  onEditTeam,
   onOpenPayment,
   onPaymentChange,
   search,
@@ -175,6 +177,19 @@ export function PlayerRosterSections({
                         player={player}
                       />
                       <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          aria-label={`Edit team name for ${player.managerName}`}
+                          disabled={isBusy}
+                          onClick={() => onEditTeam(player)}
+                          size="compactIcon"
+                          title="Edit team name"
+                          variant="ghost"
+                        >
+                          <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" />
+                            <path d="m14 7 3 3" />
+                          </svg>
+                        </Button>
                         {player.payment && (
                           <Button
                             aria-label={`Payment details for ${player.managerName}`}

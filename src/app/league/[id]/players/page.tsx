@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
 import AddPlayerDialog from '@/components/players/AddPlayerDialog'
+import EditTeamNameDialog from '@/components/players/EditTeamNameDialog'
 import PaymentDetailsDialog from '@/components/players/PaymentDetailsDialog'
 import { PlayerRosterSections } from '@/components/players/PlayerRosterSections'
 import { PlayersOverview } from '@/components/players/PlayersOverview'
@@ -71,6 +72,8 @@ export default function PlayersPage({ params }: PlayersPageProps) {
     useState<PlayerRosterEntry | null>(null)
   const [playerToDeactivate, setPlayerToDeactivate] =
     useState<PlayerRosterEntry | null>(null)
+  const [playerToEdit, setPlayerToEdit] = useState<PlayerRosterEntry | null>(null)
+  const [editTeamError, setEditTeamError] = useState<string | null>(null)
   const {
     error: seasonConfigError,
     refetch: refetchSeasonConfig,
@@ -280,6 +283,30 @@ export default function PlayersPage({ params }: PlayersPageProps) {
     }
   }
 
+  const handleEditTeam = async (teamName: string) => {
+    const memberId = playerToEdit?.currentMemberId
+    if (!memberId) return
+
+    setBusyMemberId(memberId)
+    setEditTeamError(null)
+    setNotice(null)
+    try {
+      const message = await performMemberAction(id, {
+        action: 'edit_team',
+        member_id: memberId,
+        season: selectedSeason,
+        team_name: teamName,
+      })
+      setNotice(message)
+      setPlayerToEdit(null)
+      await fetchPlayers()
+    } catch (error) {
+      setEditTeamError(error instanceof Error ? error.message : 'Team name could not be updated.')
+    } finally {
+      setBusyMemberId(null)
+    }
+  }
+
   if (isLeagueLoading || isDataLoading) return <PlayersSkeleton />
 
   if (!league) {
@@ -356,6 +383,10 @@ export default function PlayersPage({ params }: PlayersPageProps) {
         isViewOnly={isViewOnly}
         onActivate={handleActivate}
         onDeactivate={setPlayerToDeactivate}
+        onEditTeam={(player) => {
+          setEditTeamError(null)
+          setPlayerToEdit(player)
+        }}
         onOpenPayment={(player) => {
           setPaymentDialogError(null)
           setPaymentDialogPlayer(player)
@@ -364,6 +395,21 @@ export default function PlayersPage({ params }: PlayersPageProps) {
         search={search}
         selectedSeason={selectedSeason}
       />
+
+      {playerToEdit && (
+        <EditTeamNameDialog
+          busy={Boolean(playerToEdit.currentMemberId && busyMemberId === playerToEdit.currentMemberId)}
+          error={editTeamError}
+          managerName={playerToEdit.managerName}
+          onClose={() => {
+            if (busyMemberId) return
+            setPlayerToEdit(null)
+            setEditTeamError(null)
+          }}
+          onSubmit={(teamName) => void handleEditTeam(teamName)}
+          teamName={playerToEdit.currentTeamName || ''}
+        />
+      )}
 
       {!isViewOnly && (
         <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-5 text-app-text-muted">

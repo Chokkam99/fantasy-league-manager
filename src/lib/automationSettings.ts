@@ -29,7 +29,22 @@ function optionalCredential(value: unknown) {
 }
 
 export function isValidESPNLeagueId(value: string) {
-  return /^\d{1,20}$/.test(value.trim())
+  return Boolean(normalizeESPNLeagueId(value))
+}
+
+export function normalizeESPNLeagueId(value: string) {
+  const trimmed = value.trim()
+  if (/^\d{1,20}$/.test(trimmed)) return trimmed
+
+  try {
+    const url = new URL(trimmed)
+    const hostname = url.hostname.toLocaleLowerCase()
+    if (hostname !== 'espn.com' && !hostname.endsWith('.espn.com')) return ''
+    const leagueId = url.searchParams.get('leagueId')?.trim() || ''
+    return /^\d{1,20}$/.test(leagueId) ? leagueId : ''
+  } catch {
+    return ''
+  }
 }
 
 export function getAutomationReadiness({
@@ -50,8 +65,8 @@ export function getAutomationReadiness({
   const checks: AutomationReadinessCheck[] = [
     {
       detail: leagueIdReady
-        ? 'A numeric ESPN league ID is ready to test.'
-        : 'Enter the numeric ID from the ESPN league URL.',
+        ? 'The ESPN league link is ready to test.'
+        : 'Paste the ESPN league URL or enter its numeric league ID.',
       key: 'league_id',
       label: 'ESPN league ID',
       ready: leagueIdReady,
@@ -94,15 +109,16 @@ export function validateAutomationSettings(
   }
 
   const body = input as Record<string, unknown>
-  const leagueId =
-    typeof body.league_id === 'string' ? body.league_id.trim() : ''
+  const rawLeagueId =
+    typeof body.league_id === 'string' ? body.league_id : ''
+  const leagueId = normalizeESPNLeagueId(rawLeagueId)
   const season = typeof body.season === 'string' ? body.season.trim() : ''
   const espnS2 = optionalCredential(body.espn_s2)
   const swid = optionalCredential(body.swid)
   const errors: string[] = []
 
   if (!isValidESPNLeagueId(leagueId)) {
-    errors.push('Enter a valid numeric ESPN league ID.')
+    errors.push('Enter a valid ESPN league URL or numeric league ID.')
   }
   if (!/^\d{4}$/.test(season)) {
     errors.push('A valid season is required.')

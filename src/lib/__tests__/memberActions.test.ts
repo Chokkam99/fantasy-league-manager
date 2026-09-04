@@ -33,6 +33,22 @@ describe('member action validation', () => {
     ).toBe(true)
     expect(
       validateMemberAction({
+        action: 'edit_team',
+        member_id: memberId,
+        season: '2025',
+        team_name: ' New   Team Name ',
+      }),
+    ).toEqual({
+      is_valid: true,
+      value: {
+        action: 'edit_team',
+        member_id: memberId,
+        season: '2025',
+        team_name: 'New Team Name',
+      },
+    })
+    expect(
+      validateMemberAction({
         action: 'activate',
         member_id: memberId,
         season: '2025',

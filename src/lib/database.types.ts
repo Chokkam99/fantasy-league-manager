@@ -927,6 +927,17 @@ export type Database = {
       }
     }
     Functions: {
+      create_league_atomically: {
+        Args: {
+          p_configuration: Json
+          p_espn_connection: Json | null
+          p_league_id: string
+          p_members: Json
+          p_name: string
+          p_season: string
+        }
+        Returns: Json
+      }
       assign_prize_recipient: {
         Args: {
           p_award_id: string

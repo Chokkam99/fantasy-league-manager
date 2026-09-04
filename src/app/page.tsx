@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import AdminLogin from '@/components/AdminLogin'
-import CreateLeagueModal from '@/components/CreateLeagueModal'
 import LeaguesList from '@/components/LeaguesList'
 import { Button } from '@/components/ui/Button'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
@@ -10,10 +10,9 @@ import { Card } from '@/components/ui/Card'
 import { checkAdminAuth } from '@/lib/adminAuth'
 
 export default function Home() {
+  const router = useRouter()
   const [authChecked, setAuthChecked] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -28,10 +27,6 @@ export default function Home() {
       active = false
     }
   }, [])
-
-  const handleLeagueCreated = () => {
-    setRefreshKey(prev => prev + 1)
-  }
 
   return (
     <div className="flex flex-1 flex-col bg-app-canvas">
@@ -49,7 +44,7 @@ export default function Home() {
             </p>
           </div>
           {isAdmin && (
-            <Button onClick={() => setIsCreateModalOpen(true)}>
+            <Button onClick={() => router.push('/league/new')}>
               <span aria-hidden="true" className="text-lg leading-none">+</span>
               <span>New league</span>
             </Button>
@@ -59,7 +54,6 @@ export default function Home() {
               isAdmin={isAdmin}
               onAuthChange={(authorized) => {
                 setIsAdmin(authorized)
-                if (!authorized) setIsCreateModalOpen(false)
               }}
             />
           )}
@@ -88,8 +82,7 @@ export default function Home() {
             </div>
 
             <LeaguesList
-              onCreateLeague={() => setIsCreateModalOpen(true)}
-              refresh={refreshKey}
+              onCreateLeague={() => router.push('/league/new')}
             />
           </div>
         ) : (
@@ -135,12 +128,6 @@ export default function Home() {
           </Card>
         )}
       </main>
-
-      <CreateLeagueModal
-        isOpen={isAdmin && isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onLeagueCreated={handleLeagueCreated}
-      />
 
     </div>
   )

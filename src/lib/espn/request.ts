@@ -88,7 +88,7 @@ export async function requestESPNData(
   }
 
   const privateUrl = buildESPNUrl(
-    `https://fantasy.espn.com${leaguePath}`,
+    `https://lm-api-reads.fantasy.espn.com${leaguePath}`,
     endpoint,
     params,
   )
@@ -98,4 +98,19 @@ export async function requestESPNData(
   )
 
   return parseESPNResponse(privateResponse, true)
+}
+
+export async function requestESPNOnboardingData(config: ESPNConfig) {
+  const [settingsData, teamData] = await Promise.all([
+    requestESPNData(config, '', { view: 'mSettings' }),
+    requestESPNData(config, '', { view: 'mTeam' }),
+  ])
+
+  return {
+    ...settingsData,
+    ...teamData,
+    members: teamData.members,
+    settings: settingsData.settings || teamData.settings,
+    teams: teamData.teams,
+  } satisfies ESPNAPIResponse
 }

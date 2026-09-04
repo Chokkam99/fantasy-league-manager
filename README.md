@@ -7,6 +7,7 @@ ESPN remains the source of truth for rosters, lineups, waivers, trades, and live
 ## Current capabilities
 
 - Multi-league and multi-season dashboards.
+- Complete new-league onboarding for a readable league URL, first-season format, roster, money plan, and optional current-season ESPN prefill.
 - Season-specific players, team names, groups/divisions, schedules, playoff settings, fees, draft costs, and prize rules.
 - New-season setup with last season selected by default, earlier league players available to return, editable team names, new-player entry, and even-team validation.
 - Mobile standings with division-aware seeding, published tiebreakers, and a playoff cut line.
@@ -59,7 +60,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 `database-setup.sql` is a retired legacy reference, deliberately fails if executed, and does **not** reproduce the deployed schema. Do not use it for any installation.
 
-The deployed baseline, known drift, data-health audit, and forward migration decision are recorded in [the deployed schema reference](docs/schema/deployed-schema-2026-08-24.md). Production migrations `001`–`015` were applied and verified on 2026-08-27, and migration `016` was applied and verified on 2026-09-02. The chain covers authorization, atomic ESPN imports, finance and stable identity, reversible archival, scoped legacy links, exact cleanup, core constraints, atomic rollover and manual scores, legacy schedule-RPC retirement, per-player payout completion, historical returning players, and even-roster validation.
+The deployed baseline, known drift, data-health audit, and forward migration decision are recorded in [the deployed schema reference](docs/schema/deployed-schema-2026-08-24.md). Production migrations `001`–`015` were applied and verified on 2026-08-27, migration `016` was applied and verified on 2026-09-02, and migration `017` was applied and verified on 2026-09-03. See [atomic new-league setup](docs/schema/atomic-new-league-setup.md).
 
 Validate it locally with synthetic data:
 
@@ -71,7 +72,7 @@ This starts a disposable Supabase PostgreSQL 17 container without publishing a h
 
 Follow [the rollout guide](docs/schema/authorization-foundation-rollout.md), [finance/identity design](docs/schema/finance-identity-foundation.md), and [safe archival design](docs/schema/safe-archival.md) before applying any future remote migration.
 
-For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`016`. Existing Production is current through migration `016`. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
+For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`017`. Existing Production remains current through migration `016`. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
 
 ## Player access
 
@@ -82,6 +83,8 @@ Previously issued `/s/...` links remain supported for compatibility. Those links
 ## ESPN score imports
 
 Commissioners configure and test ESPN access from the Scores page. Stored private-league cookies are write-only and used only on the server.
+
+During new-league onboarding, paste a full ESPN league URL or enter its numeric league ID. ESPN can prefill only the selected current season's owners and teams. The server checks the current ESPN team IDs again immediately before atomic creation. Historical seasons, former members, prior team names, and old scores remain manual imports and are never inferred from the current ESPN response.
 
 - Automatic import is opt-in.
 - The scheduled route runs Wednesday at 2:00 AM Phoenix (`0 9 * * 3`).

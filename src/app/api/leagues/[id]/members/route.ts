@@ -274,6 +274,40 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
     }
 
+    if (memberAction.action === 'edit_team') {
+      const seasonMembers = await loadSeasonMembers(
+        supabase,
+        leagueId,
+        memberAction.season,
+      )
+      const duplicate = seasonMembers.find(
+        (candidate) =>
+          candidate.id !== memberAction.member_id &&
+          candidate.team_name.trim().toLocaleLowerCase() ===
+            memberAction.team_name.toLocaleLowerCase(),
+      )
+      if (duplicate) {
+        return errorResponse('Another team already uses that name this season.', 409)
+      }
+
+      const { data: updatedMember, error } = await supabase
+        .from('league_members')
+        .update({ team_name: memberAction.team_name })
+        .eq('id', memberAction.member_id)
+        .eq('league_id', leagueId)
+        .eq('season', memberAction.season)
+        .eq('is_active', true)
+        .select('id, manager_name, team_name, season, is_active, payment_status')
+        .single()
+
+      if (error) throw error
+      return NextResponse.json({
+        member: updatedMember,
+        message: `${member.manager_name}'s team name was updated.`,
+        success: true,
+      })
+    }
+
     const [scoreResult, teamOneResult, teamTwoResult] = await Promise.all([
       supabase
         .from('weekly_scores')
