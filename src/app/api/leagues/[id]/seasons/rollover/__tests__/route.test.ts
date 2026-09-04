@@ -75,17 +75,23 @@ function request(body: unknown, authorized = false) {
 function databaseWithRpc(result: {
   data: Record<string, unknown> | null
   error: { code?: string; message?: string } | null
+}, league: Record<string, unknown> = {
+  auto_sync_enabled: false,
+  current_season: '2025',
+  id: 'fixture-league',
 }) {
   const leagueQuery = {
     eq: jest.fn(),
     maybeSingle: jest.fn().mockResolvedValue({
-      data: { current_season: '2025', id: 'fixture-league' },
+      data: league,
       error: null,
     }),
     select: jest.fn(),
+    update: jest.fn(),
   }
   leagueQuery.select.mockReturnValue(leagueQuery)
   leagueQuery.eq.mockReturnValue(leagueQuery)
+  leagueQuery.update.mockReturnValue(leagueQuery)
 
   return {
     from: jest.fn().mockReturnValue(leagueQuery),
@@ -160,6 +166,49 @@ describe('atomic season rollover route', () => {
     await expect(response.json()).resolves.toMatchObject({
       error: expect.stringContaining('Another season change'),
       success: false,
+    })
+  })
+
+  it('carries an enabled league-level ESPN connection into the new season', async () => {
+    const database = databaseWithRpc(
+      {
+        data: {
+          copied_players: 2,
+          source_season: '2025',
+          success: true,
+          target_season: '2026',
+        },
+        error: null,
+      },
+      {
+        auto_sync_enabled: true,
+        current_season: '2025',
+        id: 'fixture-league',
+        platform_config: {
+          credentials: { espn_s2: 'stored-s2', swid: 'stored-swid' },
+          private_league: true,
+        },
+        platform_league_id: '123456',
+        platform_type: 'espn',
+      },
+    )
+    mockedCreateServerClient.mockReturnValue(
+      database as unknown as ReturnType<typeof createServerSupabaseClient>,
+    )
+
+    const response = await POST(request(validBody, true), context)
+
+    expect(response.status).toBe(200)
+    expect(database.from).toHaveBeenCalledTimes(2)
+    const query = database.from.mock.results[1].value
+    expect(query.update).toHaveBeenCalledWith({
+      auto_sync_enabled: true,
+      sync_status: 'active',
+    })
+    await expect(response.json()).resolves.toMatchObject({
+      auto_sync_enabled: true,
+      espn_connection_retained: true,
+      success: true,
     })
   })
 })

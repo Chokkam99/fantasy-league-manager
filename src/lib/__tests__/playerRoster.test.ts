@@ -1,5 +1,8 @@
 import type { FinanceSnapshot } from '@/lib/financeClient'
-import { buildPlayerRosterViewModel } from '@/lib/playerRoster'
+import {
+  applyConfirmedPaymentStatus,
+  buildPlayerRosterViewModel,
+} from '@/lib/playerRoster'
 import type { PlayerMembership } from '@/lib/players'
 
 const memberships: PlayerMembership[] = [
@@ -63,7 +66,7 @@ const finance: FinanceSnapshot = {
 }
 
 describe('player roster view model', () => {
-  it('uses canonical finance status, commissioner priority, and season metrics', () => {
+  it('uses canonical finance status, stable alphabetical order, and season metrics', () => {
     const model = buildPlayerRosterViewModel({
       duesFilter: 'all',
       finance,
@@ -131,5 +134,38 @@ describe('player roster view model', () => {
     expect(model.filteredFormerPlayers.map((player) => player.managerName)).toEqual([
       'Casey',
     ])
+  })
+})
+
+describe('confirmed payment updates', () => {
+  it('updates dues and finance totals without reloading the roster', () => {
+    const updated = applyConfirmedPaymentStatus({
+      finance: {
+        ...finance,
+        payments: [
+          {
+            ...finance.payments![0],
+            paid_amount_cents: 0,
+            status: 'pending',
+          },
+        ],
+      },
+      memberId: 'alex-2026',
+      memberships,
+      status: 'paid',
+    })
+
+    expect(
+      updated.memberships.find((member) => member.id === 'alex-2026')
+        ?.payment_status,
+    ).toBe('paid')
+    expect(updated.finance?.payments?.[0]).toMatchObject({
+      paid_amount_cents: 10000,
+      status: 'paid',
+    })
+    expect(updated.finance?.summary).toMatchObject({
+      collected_cents: 10000,
+      outstanding_cents: 0,
+    })
   })
 })

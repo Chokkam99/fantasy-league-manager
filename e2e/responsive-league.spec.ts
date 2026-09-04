@@ -1,4 +1,4 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test'
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test'
 import { installLeagueFixtures } from './fixtures'
 
 const leaguePath = '/league/gridiron-gurus'
@@ -46,6 +46,46 @@ async function expectTypographyScale(page: Page) {
       }),
     )
     .toEqual([])
+}
+
+async function expectTableAlignment(table: Locator) {
+  const audit = await table.evaluate((element) => {
+    const visible = (cell: Element) => {
+      const box = cell.getBoundingClientRect()
+      return box.width > 0 && box.height > 0
+    }
+    const headers = [...element.querySelectorAll('thead th')].filter(visible)
+    const firstRow = element.querySelector('tbody tr:not(.border-y)')
+    const cells = firstRow
+      ? [...firstRow.querySelectorAll(':scope > th, :scope > td')].filter(visible)
+      : []
+    const alignments = headers.map((header, index) => ({
+      body: cells[index] ? getComputedStyle(cells[index]).textAlign : null,
+      header: getComputedStyle(header).textAlign,
+    }))
+
+    return {
+      alignments,
+      bodyLeftPadding: cells[0]
+        ? Number.parseFloat(getComputedStyle(cells[0]).paddingLeft)
+        : 0,
+      bodyRightPadding: cells.at(-1)
+        ? Number.parseFloat(getComputedStyle(cells.at(-1)!).paddingRight)
+        : 0,
+      headerLeftPadding: headers[0]
+        ? Number.parseFloat(getComputedStyle(headers[0]).paddingLeft)
+        : 0,
+      headerRightPadding: headers.at(-1)
+        ? Number.parseFloat(getComputedStyle(headers.at(-1)!).paddingRight)
+        : 0,
+    }
+  })
+
+  expect(audit.alignments.every(({ body, header }) => body === header)).toBe(true)
+  expect(audit.headerLeftPadding).toBeGreaterThanOrEqual(16)
+  expect(audit.headerRightPadding).toBeGreaterThanOrEqual(16)
+  expect(audit.bodyLeftPadding).toBeGreaterThanOrEqual(16)
+  expect(audit.bodyRightPadding).toBeGreaterThanOrEqual(16)
 }
 
 async function expectHeading(page: Page, name: string | RegExp) {
@@ -114,7 +154,7 @@ test.describe('responsive league journeys', () => {
     await page.getByRole('link', { name: 'Open Gridiron Gurus' }).click()
     await expectHeading(page, 'Season overview')
     await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
-    await expect(page.getByRole('cell', { name: '2025 Final' })).toBeVisible()
+    await expect(page.getByRole('rowheader', { name: '2025 Final' })).toBeVisible()
     const completedSeasonPlayoffs = page
       .locator('details')
       .filter({ hasText: 'Playoff teams' })
@@ -125,10 +165,14 @@ test.describe('responsive league journeys', () => {
       page.getByRole('list', { name: '2025 playoff teams' }),
     ).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Player history' })).toBeVisible()
+    await expectTableAlignment(page.getByRole('table', { name: 'Season results' }))
     const playerHistory = page.getByRole('region', {
       name: 'Player results by season',
     })
     await expect(playerHistory).toBeVisible()
+    await expectTableAlignment(
+      playerHistory.getByRole('table', { name: 'Player results by season' }),
+    )
     await expect(
       playerHistory.getByLabel(/Alex Smith, 2026: Champion as Sunday Scaries/),
     ).toBeVisible()
@@ -180,14 +224,36 @@ test.describe('responsive league journeys', () => {
         name: 'Standings through the playoffs',
       }),
     ).toBeVisible()
+    const fullSeasonStandings = page.getByRole('table', {
+      name: 'Full season standings',
+    })
+    await expectTableAlignment(fullSeasonStandings)
     await expect(
       page.getByRole('region', { name: 'Standings by division' }),
     ).toHaveCount(0)
     await expectNoDocumentOverflow(page)
+    const orderingDetails = page
+      .locator('details')
+      .filter({ hasText: 'How these standings are ordered' })
+    const orderingSummary = orderingDetails.locator('summary')
+    await orderingSummary.click()
+    const orderingItems = orderingDetails.locator('ol > li')
+    await expect(orderingItems).toHaveCount(3)
+    const itemTopPositions = await orderingItems.evaluateAll((items) =>
+      items.map((item) => Math.round(item.getBoundingClientRect().top)),
+    )
+    expect(itemTopPositions[1]).toBeGreaterThan(itemTopPositions[0])
+    expect(itemTopPositions[2]).toBeGreaterThan(itemTopPositions[1])
+    if (!isMobile(testInfo)) {
+      await expect(orderingSummary).toHaveCSS('font-size', '16px')
+      await expect(orderingItems.first()).toHaveCSS('font-size', '14px')
+    }
     if (isMobile(testInfo)) {
-      const visibleStandingsHeaders = page.locator('table th:visible')
+      const visibleStandingsHeaders = fullSeasonStandings.locator(
+        'thead th:visible',
+      )
       const finalHeaderBox = await visibleStandingsHeaders.last().boundingBox()
-      const standingsTableBox = await page.locator('table').first().boundingBox()
+      const standingsTableBox = await fullSeasonStandings.boundingBox()
       expect(finalHeaderBox).not.toBeNull()
       expect(standingsTableBox).not.toBeNull()
       expect(Math.abs(finalHeaderBox!.x + finalHeaderBox!.width - (standingsTableBox!.x + standingsTableBox!.width))).toBeLessThanOrEqual(1)
@@ -216,6 +282,7 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'League money')
     await expect(page.getByRole('heading', { name: 'Final & bonus prizes' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Payout tally' })).toBeVisible()
+    await expectTableAlignment(page.getByRole('table', { name: 'Payout tally' }))
     await expect(page.getByLabel(/^Recipient for /).first()).toBeVisible()
     await expect(
       page.getByRole('checkbox', {
@@ -252,6 +319,15 @@ test.describe('responsive league journeys', () => {
     await expect(page.getByRole('button', { name: 'Payment details for Alex Smith' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Remove Alex Smith from 2026' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Add Casey Patel to 2026' })).toBeVisible()
+    if (!isMobile(testInfo)) {
+      const seasonColumns = await page
+        .locator('section[aria-labelledby="current-roster-heading"]')
+        .getByLabel('Seasons played')
+        .evaluateAll((elements) =>
+          elements.map((element) => Math.round(element.getBoundingClientRect().x)),
+        )
+      expect(new Set(seasonColumns).size).toBe(1)
+    }
 
     if (isMobile(testInfo)) {
       await openLeagueAction(page, 'League rules')
@@ -289,7 +365,7 @@ test.describe('responsive league journeys', () => {
     await page.goto(`${leaguePath}?season=2026`)
     await expectHeading(page, 'Season overview')
     await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
-    await expect(page.getByRole('cell', { name: '2025 Final' })).toBeVisible()
+    await expect(page.getByRole('rowheader', { name: '2025 Final' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Player history' })).toBeVisible()
 
     await openPrimaryNav(page, 'Standings')

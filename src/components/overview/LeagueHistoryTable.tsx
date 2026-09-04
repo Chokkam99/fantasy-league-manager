@@ -37,6 +37,8 @@ function TeamName({ member }: { member: LeagueHistoryMember | null }) {
 function PlayoffField({ row }: { row: LeagueHistoryRow }) {
   const count = row.playoffTeams.length
 
+  if (count === 0) return null
+
   return (
     <details className="group">
       <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-lg px-2 text-xs font-semibold text-app-text-muted transition-colors hover:bg-app-surface-subtle hover:text-app-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-brand [&::-webkit-details-marker]:hidden">
@@ -59,27 +61,21 @@ function PlayoffField({ row }: { row: LeagueHistoryRow }) {
       </summary>
 
       <div className="px-2 pb-2 pt-1">
-        {count > 0 ? (
-          <ul className="flex flex-wrap gap-2" aria-label={`${row.season} playoff teams`}>
-            {row.playoffTeams.map((member) => (
-              <li
-                className="min-w-0 rounded-lg border border-app-border bg-app-surface-subtle px-2.5 py-1.5"
-                key={member.id}
-              >
-                <span className="block max-w-48 truncate text-xs font-semibold text-app-text">
-                  {member.team_name}
-                </span>
-                <span className="block max-w-48 truncate text-[0.68rem] text-app-text-muted">
-                  {member.manager_name}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-xs text-app-text-muted">
-            No playoff field has been saved for this season.
-          </p>
-        )}
+        <ul className="flex flex-wrap gap-2" aria-label={`${row.season} playoff teams`}>
+          {row.playoffTeams.map((member) => (
+            <li
+              className="min-w-0 rounded-lg border border-app-border bg-app-surface-subtle px-2.5 py-1.5"
+              key={member.id}
+            >
+              <span className="block max-w-48 truncate text-xs font-semibold text-app-text">
+                {member.team_name}
+              </span>
+              <span className="block max-w-48 truncate text-[0.68rem] text-app-text-muted">
+                {member.manager_name}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     </details>
   )
@@ -208,8 +204,8 @@ export function LeagueHistoryTable({
           </p>
           <h2 className="mt-1 text-xl font-bold text-app-text">Season results</h2>
           <p className="mt-1 text-sm leading-5 text-app-text-muted">
-            Final placements across every saved season. Expand a season to see
-            its playoff teams.
+            Final placements across every saved season. Playoff teams appear
+            after the regular season is complete.
           </p>
         </div>
         <Badge variant="neutral">{rows.length} seasons</Badge>
@@ -225,15 +221,15 @@ export function LeagueHistoryTable({
       ) : rows.length > 0 ? (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full table-fixed">
-              <thead className="bg-app-surface-subtle text-left text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
+            <table aria-label="Season results" className="w-full table-fixed">
+              <thead className="bg-app-surface-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
                 <tr>
-                  <th className="w-[4.75rem] bg-app-surface-subtle px-3 py-2.5 sm:w-24 sm:px-6">
+                  <th className="w-20 bg-app-surface-subtle px-4 py-2.5 text-left sm:w-24 sm:px-6" scope="col">
                     Season
                   </th>
-                  <th className="px-2 py-2.5 sm:px-3">Champion</th>
-                  <th className="px-2 py-2.5 sm:px-3">Runner-up</th>
-                  <th className="px-2 py-2.5 pr-3 sm:px-3 sm:pr-6">Third</th>
+                  <th className="px-2 py-2.5 text-left sm:px-3" scope="col">Champion</th>
+                  <th className="px-2 py-2.5 text-left sm:px-3" scope="col">Runner-up</th>
+                  <th className="py-2.5 pl-2 pr-4 text-left sm:pl-3 sm:pr-6" scope="col">Third</th>
                 </tr>
               </thead>
               {rows.map((row) => (
@@ -242,29 +238,31 @@ export function LeagueHistoryTable({
                   key={row.season}
                 >
                   <tr>
-                    <td className="bg-app-surface px-3 py-3 align-top sm:px-6">
+                    <th className="bg-app-surface px-4 py-3 text-left align-top sm:px-6" scope="row">
                       <p className="font-bold tabular-nums text-app-text">
                         {row.season}
                       </p>
                       <p className="mt-0.5 text-xs text-app-text-muted">
                         {row.status === 'complete' ? 'Final' : 'In progress'}
                       </p>
-                    </td>
-                    <td className="min-w-0 px-2 py-3 align-top sm:px-3">
+                    </th>
+                    <td className="min-w-0 px-2 py-3 text-left align-top sm:px-3">
                       <TeamName member={row.champion} />
                     </td>
-                    <td className="min-w-0 px-2 py-3 align-top sm:px-3">
+                    <td className="min-w-0 px-2 py-3 text-left align-top sm:px-3">
                       <TeamName member={row.runnerUp} />
                     </td>
-                    <td className="min-w-0 px-2 py-3 pr-3 align-top sm:px-3 sm:pr-6">
+                    <td className="min-w-0 py-3 pl-2 pr-4 text-left align-top sm:pl-3 sm:pr-6">
                       <TeamName member={row.thirdPlace} />
                     </td>
                   </tr>
-                  <tr>
-                    <td className="px-1 pb-1 sm:px-4" colSpan={4}>
-                      <PlayoffField row={row} />
-                    </td>
-                  </tr>
+                  {row.playoffTeams.length > 0 ? (
+                    <tr>
+                      <td className="px-2 pb-1 sm:px-4" colSpan={4}>
+                        <PlayoffField row={row} />
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               ))}
             </table>
@@ -286,14 +284,14 @@ export function LeagueHistoryTable({
               role="region"
               tabIndex={0}
             >
-              <table className="min-w-max border-t border-app-border">
+              <table aria-label="Player results by season" className="min-w-max border-t border-app-border">
                 <thead className="bg-app-surface-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
                   <tr>
-                    <th className="sticky left-0 z-10 w-36 min-w-36 bg-app-surface-subtle px-4 py-2.5 text-left sm:w-44 sm:min-w-44 sm:px-6">
+                    <th className="sticky left-0 z-10 w-36 min-w-36 bg-app-surface-subtle px-4 py-2.5 text-left sm:w-44 sm:min-w-44 sm:px-6" scope="col">
                       Manager
                     </th>
                     {rows.map((row) => (
-                      <th className="w-[4.5rem] min-w-[4.5rem] px-2 py-2.5 text-center tabular-nums" key={row.season}>
+                      <th className="w-[4.5rem] min-w-[4.5rem] px-2 py-2.5 text-center tabular-nums last:pr-4 sm:last:pr-6" key={row.season} scope="col">
                         {row.season}
                       </th>
                     ))}
@@ -302,7 +300,7 @@ export function LeagueHistoryTable({
                 <tbody className="divide-y divide-app-border">
                   {matrix.map((player) => (
                     <tr key={player.id}>
-                      <th className="sticky left-0 z-10 w-36 min-w-36 bg-app-surface px-4 py-3 text-left text-sm font-semibold text-app-text sm:w-44 sm:min-w-44 sm:px-6">
+                      <th className="sticky left-0 z-10 w-36 min-w-36 bg-app-surface px-4 py-3 text-left text-sm font-semibold text-app-text sm:w-44 sm:min-w-44 sm:px-6" scope="row">
                         <span
                           className="block truncate"
                           title={player.managerName}
@@ -314,7 +312,7 @@ export function LeagueHistoryTable({
                         const cell = player.cells[row.season]
                         return (
                           <td
-                            className="w-[4.5rem] min-w-[4.5rem] px-2 py-2.5 text-center"
+                            className="w-[4.5rem] min-w-[4.5rem] px-2 py-2.5 text-center last:pr-4 sm:last:pr-6"
                             key={row.season}
                           >
                             {cell ? (

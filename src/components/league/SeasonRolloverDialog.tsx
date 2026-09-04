@@ -19,6 +19,11 @@ interface RolloverMember {
 
 interface RolloverPreview {
   can_start: boolean
+  espn_connection?: {
+    auto_sync_enabled: boolean
+    is_configured: boolean
+    league_id: string
+  }
   members: RolloverMember[]
   source_configuration: {
     divisions?: unknown
@@ -580,9 +585,14 @@ export default function SeasonSetupForm({
                 </div>
               </section>
 
-              <section className="rounded-[var(--app-radius-md)] border border-app-warning/40 bg-app-warning-soft p-4">
+              <section className="rounded-[var(--app-radius-md)] border border-app-info/25 bg-app-info-soft p-4">
                 <h3 className="font-bold text-app-text">Fresh for {preview.target_season}</h3>
-                <p className="mt-1 text-sm leading-6 text-app-text-muted">Scores, matchups, winners, paid status, and ESPN team mappings are not copied. Automatic sync stays off until the new connection and mappings are tested.</p>
+                <p className="mt-1 text-sm leading-6 text-app-text-muted">
+                  Scores, matchups, winners, paid status, and ESPN team assignments start fresh.
+                  {preview.espn_connection?.is_configured
+                    ? ` ESPN league ${preview.espn_connection.league_id} and its securely stored connection carry forward. Automatic weekly sync ${preview.espn_connection.auto_sync_enabled ? 'remains on' : 'remains off'}, and team assignments are checked against the new roster before scores are imported.`
+                    : ' This league is not connected to ESPN, so scores remain manual until a connection is added from Scores.'}
+                </p>
               </section>
 
               {preview.target_exists ? (
@@ -613,7 +623,7 @@ export default function SeasonSetupForm({
         confirmVariant="primary"
         description={
           preview
-            ? `Create the ${preview.target_season} season with ${configuredTeamCount} teams and make it active. The ${preview.source_season} season remains unchanged as history, and ESPN automation stays off.`
+            ? `Create the ${preview.target_season} season with ${configuredTeamCount} teams and make it active. The ${preview.source_season} season remains unchanged as history.${preview.espn_connection?.is_configured ? ` The ESPN connection and ${preview.espn_connection.auto_sync_enabled ? 'enabled' : 'disabled'} automatic-sync preference carry forward.` : ''}`
             : 'Create this season and make it active.'
         }
         onClose={() => setConfirmationOpen(false)}

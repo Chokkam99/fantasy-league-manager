@@ -25,6 +25,7 @@ import {
 } from '@/lib/players'
 import { performMemberAction } from '@/lib/memberClient'
 import {
+  applyConfirmedPaymentStatus,
   buildPlayerRosterViewModel,
   type DuesFilter,
   type PlayerRosterEntry,
@@ -79,6 +80,37 @@ export default function PlayersPage({ params }: PlayersPageProps) {
     refetch: refetchSeasonConfig,
     seasonConfig,
   } = useSeasonConfig(id, selectedSeason)
+
+  const applyPaymentLocally = useCallback((
+    memberId: string,
+    status: DuesStatus,
+    paidAmountCents?: number | null,
+    notes?: string | null,
+    paymentMethod?: string | null,
+  ) => {
+    setMemberships((currentMemberships) =>
+      applyConfirmedPaymentStatus({
+        finance: null,
+        memberId,
+        memberships: currentMemberships,
+        notes,
+        paidAmountCents,
+        paymentMethod,
+        status,
+      }).memberships,
+    )
+    setFinance((currentFinance) =>
+      applyConfirmedPaymentStatus({
+        finance: currentFinance,
+        memberId,
+        memberships: [],
+        notes,
+        paidAmountCents,
+        paymentMethod,
+        status,
+      }).finance,
+    )
+  }, [])
 
   const fetchPlayers = useCallback(async () => {
     if (!selectedSeason) return
@@ -155,6 +187,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
           season: selectedSeason,
           status: nextStatus,
         })
+        applyPaymentLocally(player.currentMemberId, nextStatus)
         setNotice(`${player.managerName} marked ${nextStatus}.`)
       } else {
         const message = await performMemberAction(id, {
@@ -163,9 +196,9 @@ export default function PlayersPage({ params }: PlayersPageProps) {
           payment_status: nextStatus,
           season: selectedSeason,
         })
+        applyPaymentLocally(player.currentMemberId, nextStatus)
         setNotice(message)
       }
-      await fetchPlayers()
     } catch (error) {
       setDataError(
         error instanceof Error ? error.message : 'Payment status could not be updated.',
@@ -197,10 +230,16 @@ export default function PlayersPage({ params }: PlayersPageProps) {
         season: selectedSeason,
         status: details.status,
       })
+      applyPaymentLocally(
+        memberId,
+        details.status,
+        details.paid_amount_cents,
+        details.notes,
+        details.payment_method,
+      )
       const playerName = paymentDialogPlayer.managerName
       setPaymentDialogPlayer(null)
       setNotice(`${playerName}’s payment details were saved.`)
-      await fetchPlayers()
     } catch (error) {
       setPaymentDialogError(
         error instanceof Error ? error.message : 'Payment could not be saved.',

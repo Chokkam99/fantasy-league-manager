@@ -119,7 +119,7 @@ const members = [
   },
 ]
 
-const scores = [
+const currentSeasonScores = [
   [1, [112.4, 106.2, 98.7, 101.1]],
   [2, [119.8, 127.3, 104.5, 110.9]],
 ].flatMap(([week, points]) =>
@@ -136,6 +136,34 @@ const scores = [
     week_status: 'completed',
   })),
 )
+
+const scores = [
+  ...currentSeasonScores,
+  {
+    created_at: '2025-12-09T00:00:00.000Z',
+    id: 'score-2025-14-history',
+    is_final_score: true,
+    is_playoff_week: false,
+    league_id: league.id,
+    member_id: 'member-history',
+    points: 130,
+    season: '2025',
+    week_number: 14,
+    week_status: 'completed',
+  },
+  {
+    created_at: '2025-12-09T00:00:00.000Z',
+    id: 'score-2025-14-alex',
+    is_final_score: true,
+    is_playoff_week: false,
+    league_id: league.id,
+    member_id: 'member-1-history',
+    points: 120,
+    season: '2025',
+    week_number: 14,
+    week_status: 'completed',
+  },
+]
 
 const matchups = [
   {

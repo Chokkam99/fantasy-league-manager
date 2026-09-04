@@ -71,16 +71,18 @@ export function ESPNConnectionPanel({
             label="espn_s2 cookie *"
             onChange={(value) => onUpdate('espnS2', value)}
             placeholder={hasStoredEspnS2 ? 'Stored, leave blank to keep' : 'Paste ESPN_S2'}
+            stored={hasStoredEspnS2}
             value={draft.espnS2}
           />
           <CredentialField
             label="SWID cookie *"
             onChange={(value) => onUpdate('swid', value)}
             placeholder={hasStoredSwid ? 'Stored, leave blank to keep' : 'Paste SWID'}
+            stored={hasStoredSwid}
             value={draft.swid}
           />
           <p className="text-xs leading-5 text-app-text-muted sm:col-span-2">
-            Cookie values are sent only when you save, are never returned to this page, and blank fields keep the stored values.
+            These credentials belong to the whole league and carry into new seasons. Their values are never returned to this page; a Stored badge confirms they are retained, and blank fields keep them unchanged.
           </p>
         </div>
       )}
@@ -139,17 +141,23 @@ function CredentialField({
   label,
   onChange,
   placeholder,
+  stored,
   value,
 }: {
   label: string
   onChange: (value: string) => void
   placeholder: string
+  stored: boolean
   value: string
 }) {
   return (
     <label className="block text-sm font-semibold text-app-text">
-      {label}
+      <span className="flex items-center justify-between gap-2">
+        <span>{label}</span>
+        {stored && <Badge variant="success">Stored</Badge>}
+      </span>
       <input
+        aria-label={label}
         autoComplete="new-password"
         className={inputClass}
         onChange={(event) => onChange(event.target.value)}

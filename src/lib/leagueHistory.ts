@@ -104,14 +104,19 @@ export function buildLeagueHistoryRows(
         regularSeasonEnd,
       )
       const divisions = resolveDivisionNames(seasonConfig.divisions, members)
-      const playoffTeams = calculatePlayoffSeeds(
-        standings,
-        divisions,
-        seasonConfig.playoff_spots || 0,
-      ).flatMap((seed) => {
-        const member = memberById.get(seed.team_id)
-        return member ? [member] : []
-      })
+      const hasReachedPlayoffCutoff = scores.some(
+        (score) => score.week_number >= regularSeasonEnd,
+      )
+      const playoffTeams = hasReachedPlayoffCutoff
+        ? calculatePlayoffSeeds(
+            standings,
+            divisions,
+            seasonConfig.playoff_spots || 0,
+          ).flatMap((seed) => {
+            const member = memberById.get(seed.team_id)
+            return member ? [member] : []
+          })
+        : []
       const winners = finalWinnerIds(seasonConfig.final_winners)
       const champion = memberById.get(winners.first) || null
 

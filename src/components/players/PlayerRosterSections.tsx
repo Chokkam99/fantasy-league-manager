@@ -42,7 +42,7 @@ function DuesStatusToggle({
     <button
       aria-label={action}
       aria-pressed={isPaid}
-      className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`inline-flex min-h-10 w-[5.5rem] items-center justify-center gap-2 rounded-full border px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
         isPaid
           ? 'border-app-success/25 bg-app-brand-soft text-app-success'
           : player.duesStatus === 'partial'
@@ -142,7 +142,7 @@ export function PlayerRosterSections({
 
               return (
                 <article
-                  className="grid min-w-0 gap-3 border-b border-app-border p-3 last:border-b-0 sm:grid-cols-[minmax(0,1.25fr)_minmax(10rem,0.9fr)_auto] sm:items-center sm:px-4"
+                  className="grid min-w-0 gap-3 border-b border-app-border p-3 last:border-b-0 sm:grid-cols-[minmax(0,1.25fr)_minmax(10rem,0.9fr)_13rem] sm:items-center sm:px-4"
                   key={player.currentMemberId}
                 >
                   <div className="flex min-w-0 items-center gap-3">

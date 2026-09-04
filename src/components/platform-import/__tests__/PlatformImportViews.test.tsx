@@ -116,6 +116,8 @@ describe('Platform import views', () => {
     )
 
     expect(screen.getAllByPlaceholderText('Stored, leave blank to keep')).toHaveLength(2)
+    expect(screen.getAllByText('Stored')).toHaveLength(2)
+    expect(screen.getByText(/credentials belong to the whole league and carry into new seasons/i)).toBeInTheDocument()
     expect(screen.getByText(/never returned to this page/)).toBeInTheDocument()
     expect(screen.getByText(/rechecks one prior week/)).toBeInTheDocument()
   })

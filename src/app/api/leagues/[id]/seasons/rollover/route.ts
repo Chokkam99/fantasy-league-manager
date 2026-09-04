@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
+import { resolveESPNConfig } from '@/lib/espn/config'
 import { getLifecycleWriteBlock } from '@/lib/lifecycleServer'
 import { isMissingManagerIdentitySchema } from '@/lib/managerIdentity'
 import {
@@ -25,8 +26,16 @@ interface RouteContext {
 }
 
 interface LeagueRow {
+  auto_sync_enabled: boolean
   current_season: string
+  espn_league_id?: string | null
+  espn_s2?: string | null
+  espn_swid?: string | null
   id: string
+  platform_config?: unknown
+  platform_league_id?: string | null
+  platform_type?: string | null
+  sync_status?: string | null
 }
 
 interface DatabaseError {
@@ -51,11 +60,19 @@ function rolloverSuccessResponse(
   sourceSeason: string,
   targetSeason: string,
   copiedPlayers: number,
+  connectionRetained: boolean,
+  autoSyncEnabled: boolean,
   warning?: string,
 ) {
   return NextResponse.json({
+    auto_sync_enabled: autoSyncEnabled,
     copied_players: copiedPlayers,
-    message: `${targetSeason} is ready. ESPN automation remains off until the connection is tested.`,
+    espn_connection_retained: connectionRetained,
+    message: connectionRetained
+      ? autoSyncEnabled
+        ? `${targetSeason} is ready. The ESPN connection and automatic weekly sync were carried forward.`
+        : `${targetSeason} is ready. The ESPN connection was carried forward and automatic sync remains off.`
+      : `${targetSeason} is ready. Scores can be entered manually or ESPN can be connected from Scores.`,
     source_season: sourceSeason,
     success: true,
     target_season: targetSeason,
@@ -94,7 +111,18 @@ function atomicRolloverErrorResponse(
 async function loadLeague(database: AppSupabaseClient, leagueId: string) {
   const { data, error } = await database
     .from('leagues')
-    .select('id, current_season')
+    .select(`
+      auto_sync_enabled,
+      current_season,
+      espn_league_id,
+      espn_s2,
+      espn_swid,
+      id,
+      platform_config,
+      platform_league_id,
+      platform_type,
+      sync_status
+    `)
     .eq('id', leagueId)
     .maybeSingle()
 
@@ -224,6 +252,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({
       preview: {
         can_start: !rollover.targetExists,
+        espn_connection: {
+          auto_sync_enabled: Boolean(league.auto_sync_enabled),
+          is_configured: Boolean(resolveESPNConfig(league)),
+          league_id: resolveESPNConfig(league)?.league_id || '',
+        },
         members: rollover.members,
         source_configuration: rollover.source,
         source_season: league.current_season,
@@ -317,10 +350,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (!result) {
         throw new Error('Atomic season rollover returned an invalid result.')
       }
+
+      const espnConnectionRetained = Boolean(resolveESPNConfig(league))
+      let automationWarning: string | undefined
+      if (league.auto_sync_enabled && espnConnectionRetained) {
+        const { error: automationError } = await database
+          .from('leagues')
+          .update({ auto_sync_enabled: true, sync_status: 'active' })
+          .eq('id', leagueId)
+          .eq('current_season', settings.target_season)
+
+        if (automationError) {
+          automationWarning =
+            'The season was created, but automatic sync could not be carried forward. Enable it from Scores.'
+        }
+      }
+
       return rolloverSuccessResponse(
         result.source_season,
         result.target_season,
         result.copied_players,
+        espnConnectionRetained,
+        Boolean(
+          league.auto_sync_enabled &&
+          espnConnectionRetained &&
+          !automationWarning
+        ),
+        automationWarning,
       )
     }
 
@@ -406,11 +462,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: activatedLeague, error: activationError } = await database
       .from('leagues')
       .update({
-        auto_sync_enabled: false,
+        auto_sync_enabled: league.auto_sync_enabled,
         current_season: settings.target_season,
         last_sync_at: null,
         last_sync_error: null,
-        sync_status: 'disabled',
+        sync_status: resolveESPNConfig(league) ? 'active' : 'none',
       })
       .eq('id', leagueId)
       .eq('current_season', settings.source_season)
@@ -451,6 +507,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       settings.source_season,
       settings.target_season,
       returningMembers.length,
+      Boolean(resolveESPNConfig(league)),
+      Boolean(league.auto_sync_enabled && resolveESPNConfig(league)),
       sourceUpdateError
         ? `${settings.source_season} history is preserved, but its active flag could not be cleared.`
         : undefined,

@@ -49,13 +49,13 @@ export function PayoutSummaryTable({
 
       {summaries.length > 0 ? (
         <table aria-label="Payout tally" className="w-full table-fixed">
-          <thead className="bg-app-surface-subtle text-left text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
+          <thead className="bg-app-surface-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
             <tr>
-              <th className="px-4 py-2.5 sm:px-6">Player</th>
-              <th className="hidden px-3 py-2.5 text-right sm:table-cell sm:w-28">Weekly</th>
-              <th className="hidden px-3 py-2.5 text-right md:table-cell md:w-28">Season</th>
-              <th className="w-20 px-2 py-2.5 text-right sm:w-24 sm:px-6">Total</th>
-              <th className="w-[4.75rem] px-2 py-2.5 text-center sm:w-20 sm:px-3">Paid</th>
+              <th className="px-4 py-2.5 text-left sm:px-6" scope="col">Player</th>
+              <th className="hidden px-3 py-2.5 text-right sm:table-cell sm:w-28" scope="col">Weekly</th>
+              <th className="hidden px-3 py-2.5 text-right md:table-cell md:w-28" scope="col">Season</th>
+              <th className="w-20 px-2 py-2.5 text-right sm:w-24" scope="col">Total</th>
+              <th className="w-[4.75rem] py-2.5 pl-2 pr-4 text-center sm:w-24 sm:pl-3 sm:pr-6" scope="col">Paid</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-app-border">
@@ -71,7 +71,7 @@ export function PayoutSummaryTable({
 
               return (
                 <tr key={summary.member.id}>
-                  <td className="min-w-0 px-4 py-3 sm:px-6">
+                  <th className="min-w-0 px-4 py-3 text-left font-normal sm:px-6" scope="row">
                     <p className="truncate text-sm font-semibold text-app-text">
                       {summary.member.team_name}
                     </p>
@@ -79,17 +79,17 @@ export function PayoutSummaryTable({
                       {summary.member.manager_name}
                       {details.length > 0 ? ` · ${details.join(' · ')}` : ' · No winnings'}
                     </p>
-                  </td>
+                  </th>
                   <td className="hidden px-3 py-3 text-right text-sm tabular-nums text-app-text sm:table-cell">
                     {currency.format(summary.weeklyAmount)}
                   </td>
                   <td className="hidden px-3 py-3 text-right text-sm tabular-nums text-app-text md:table-cell">
                     {currency.format(summary.finalAmount)}
                   </td>
-                  <td className="px-2 py-3 text-right text-sm font-bold tabular-nums text-app-text sm:px-6">
+                  <td className="px-2 py-3 text-right text-sm font-bold tabular-nums text-app-text">
                     {currency.format(summary.totalAmount)}
                   </td>
-                  <td className="px-2 py-3 text-center sm:px-3">
+                  <td className="py-3 pl-2 pr-4 text-center sm:pl-3 sm:pr-6">
                     {canManagePayouts ? (
                       <input
                         aria-label={`Paid: ${summary.member.team_name} total payout`}

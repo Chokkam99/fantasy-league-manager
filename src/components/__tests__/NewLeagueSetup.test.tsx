@@ -55,7 +55,7 @@ describe('NewLeagueSetup', () => {
   it('explains that ESPN only prefills the current season', () => {
     render(<NewLeagueSetup />)
     expect(screen.getByText(/first tracked season together/i)).toBeInTheDocument()
-    expect(screen.getByText(/begin with a past season, then add the next season separately/i)).toBeInTheDocument()
+    expect(screen.getByText(/begin with a past season and add the next season separately/i)).toHaveClass('sr-only')
     expect(screen.getByText(/does not provide this app with reliable prior-season rosters or scores/i)).toBeInTheDocument()
   })
 

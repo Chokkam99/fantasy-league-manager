@@ -47,15 +47,15 @@ describe('league history summary', () => {
           team1_score: 120,
           team2_member_id: 'bravo-2025',
           team2_score: 100,
-          week_number: 1,
+          week_number: 14,
           winner_member_id: 'alpha-2025',
         },
       ],
       members,
       scores: [
-        { member_id: 'alpha-2025', points: 120, season: '2025', week_number: 1 },
-        { member_id: 'bravo-2025', points: 100, season: '2025', week_number: 1 },
-        { member_id: 'charlie-2025', points: 90, season: '2025', week_number: 1 },
+        { member_id: 'alpha-2025', points: 120, season: '2025', week_number: 14 },
+        { member_id: 'bravo-2025', points: 100, season: '2025', week_number: 14 },
+        { member_id: 'charlie-2025', points: 90, season: '2025', week_number: 14 },
       ],
       seasons: [
         {
@@ -99,7 +99,14 @@ describe('league history summary', () => {
     const [row] = buildLeagueHistoryRows({
       matchups: [],
       members,
-      scores: [],
+      scores: [
+        {
+          member_id: 'alpha-2026',
+          points: 100,
+          season: '2026',
+          week_number: 14,
+        },
+      ],
       seasons: [
         {
           divisions: [],
@@ -115,6 +122,54 @@ describe('league history summary', () => {
     expect(row.champion?.team_name).toBe('New Alpha')
     expect(row.playoffTeams).toHaveLength(1)
     expect(row.playoffTeams[0].season).toBe('2026')
+  })
+
+  it('does not project playoff teams before the regular-season cutoff', () => {
+    const baseSnapshot = {
+      matchups: [],
+      members: members.filter((member) => member.season === '2025'),
+      seasons: [
+        {
+          divisions: ['East', 'West'],
+          final_winners: null,
+          playoff_spots: 2,
+          playoff_start_week: 15,
+          season: '2025',
+          total_weeks: 17,
+        },
+      ],
+    }
+
+    const [emptySeason] = buildLeagueHistoryRows({
+      ...baseSnapshot,
+      scores: [],
+    })
+    const [beforeCutoff] = buildLeagueHistoryRows({
+      ...baseSnapshot,
+      scores: [
+        {
+          member_id: 'alpha-2025',
+          points: 120,
+          season: '2025',
+          week_number: 13,
+        },
+      ],
+    })
+    const [atCutoff] = buildLeagueHistoryRows({
+      ...baseSnapshot,
+      scores: [
+        {
+          member_id: 'alpha-2025',
+          points: 120,
+          season: '2025',
+          week_number: 14,
+        },
+      ],
+    })
+
+    expect(emptySeason.playoffTeams).toEqual([])
+    expect(beforeCutoff.playoffTeams).toEqual([])
+    expect(atCutoff.playoffTeams).toHaveLength(2)
   })
 
   it('keeps one manager row across team-name changes and summarizes each result', () => {

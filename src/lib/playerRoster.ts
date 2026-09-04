@@ -1,3 +1,4 @@
+import { summarizeFinance, type DuesStatus } from '@/lib/finance'
 import type { FinancePayment, FinanceSnapshot } from '@/lib/financeClient'
 import {
   buildPlayerDirectory,
@@ -32,12 +33,6 @@ interface PlayerRosterInput {
   memberships: PlayerMembership[]
   search: string
   selectedSeason: string
-}
-
-const duesOrder: Record<PlayerDuesStatus, number> = {
-  partial: 0,
-  pending: 1,
-  paid: 2,
 }
 
 function matchesSearch(player: PlayerDirectoryEntry, search: string) {
@@ -79,12 +74,7 @@ export function buildPlayerRosterViewModel({
         payment,
       }
     })
-    .sort((a, b) => {
-      if (!isViewOnly && a.duesStatus !== b.duesStatus) {
-        return duesOrder[a.duesStatus] - duesOrder[b.duesStatus]
-      }
-      return a.managerName.localeCompare(b.managerName)
-    })
+    .sort((a, b) => a.managerName.localeCompare(b.managerName))
   const formerPlayers = directory.filter((player) => !player.isParticipating)
   const paidPlayers = currentPlayers.filter(
     (player) => player.duesStatus === 'paid',
@@ -113,5 +103,69 @@ export function buildPlayerRosterViewModel({
     returningPlayers: currentPlayers.filter(
       (player) => player.seasons.length > 1,
     ).length,
+  }
+}
+
+export function applyConfirmedPaymentStatus({
+  finance,
+  memberId,
+  memberships,
+  notes,
+  paidAmountCents,
+  paymentMethod,
+  status,
+}: {
+  finance: FinanceSnapshot | null
+  memberId: string
+  memberships: PlayerMembership[]
+  notes?: string | null
+  paidAmountCents?: number | null
+  paymentMethod?: string | null
+  status: DuesStatus
+}) {
+  const nextMemberships = memberships.map((membership) =>
+    membership.id === memberId
+      ? {
+          ...membership,
+          payment_status: status === 'paid' ? 'paid' as const : 'pending' as const,
+        }
+      : membership,
+  )
+
+  if (!finance?.payments) {
+    return { finance, memberships: nextMemberships }
+  }
+
+  const nextPayments = finance.payments.map((payment) => {
+    if (payment.league_member_id !== memberId) return payment
+
+    const nextPaidAmount =
+      status === 'pending'
+        ? 0
+        : status === 'paid'
+          ? paidAmountCents ?? payment.expected_amount_cents
+          : paidAmountCents ?? payment.paid_amount_cents
+
+    return {
+      ...payment,
+      notes: notes === undefined ? payment.notes : notes,
+      paid_amount_cents: nextPaidAmount,
+      paid_at:
+        status === 'paid'
+          ? payment.paid_at || new Date().toISOString()
+          : null,
+      payment_method:
+        paymentMethod === undefined ? payment.payment_method : paymentMethod,
+      status,
+    }
+  })
+
+  return {
+    finance: {
+      ...finance,
+      payments: nextPayments,
+      summary: summarizeFinance({ payments: nextPayments, payouts: finance.payouts }),
+    },
+    memberships: nextMemberships,
   }
 }

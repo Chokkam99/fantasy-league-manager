@@ -280,9 +280,9 @@ export default function NewLeagueSetup() {
             <label className="text-sm font-semibold text-app-text">League name
               <input className={inputClass} maxLength={100} onChange={(event) => updateName(event.target.value)} placeholder="Example: Sunday Legends" value={name} />
             </label>
-            <label className="text-sm font-semibold text-app-text">First tracked season
-              <input className={inputClass} inputMode="numeric" maxLength={4} onChange={(event) => { setSeason(event.target.value); invalidateESPNPreview() }} value={season} />
-              <span className="mt-1 block text-xs font-normal leading-5 text-app-text-muted">Use the NFL season start year. You can begin with a past season, then add the next season separately.</span>
+            <label className="text-sm font-semibold text-app-text" title="Use the NFL season start year. You can add the next season separately.">First tracked season
+              <input aria-describedby="first-season-description" className={inputClass} inputMode="numeric" maxLength={4} onChange={(event) => { setSeason(event.target.value); invalidateESPNPreview() }} value={season} />
+              <span className="sr-only" id="first-season-description">Use the NFL season start year. You can begin with a past season and add the next season separately.</span>
             </label>
           </div>
           <label className="mt-4 block text-sm font-semibold text-app-text" htmlFor="new-league-slug">League link</label>

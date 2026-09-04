@@ -18,6 +18,11 @@ describe('SeasonSetupForm stable returning players', () => {
         json: async () => ({
           preview: {
             can_start: true,
+            espn_connection: {
+              auto_sync_enabled: true,
+              is_configured: true,
+              league_id: '123456',
+            },
             members: [
               {
                 id: '123e4567-e89b-42d3-a456-426614174000',
@@ -76,6 +81,10 @@ describe('SeasonSetupForm stable returning players', () => {
     )
 
     const managerInput = (await screen.findAllByLabelText('Manager name'))[0]
+    expect(
+      screen.getByText(/ESPN league 123456 and its securely stored connection carry forward/i),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/automatic weekly sync remains on/i)).toBeInTheDocument()
     await user.clear(managerInput)
     await user.type(managerInput, 'Chris Jones')
     await user.clear(screen.getAllByLabelText('Team name')[0])

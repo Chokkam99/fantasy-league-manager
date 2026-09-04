@@ -293,6 +293,7 @@ export default function StandingsPage({ params }: StandingsPageProps) {
                   <span className="text-xs text-app-text-muted">{group.rows.length} teams</span>
                 </div>
                 <StandingsTable
+                  ariaLabel={`${group.division} division standings`}
                   playoffSeeds={seedByTeam}
                   rows={group.rows}
                   showExtendedMetrics={false}
@@ -329,6 +330,7 @@ export default function StandingsPage({ params }: StandingsPageProps) {
             </div>
           ) : (
             <StandingsTable
+              ariaLabel={includePostseason ? 'Full season standings' : 'League standings'}
               playoffSeeds={includePostseason ? undefined : seedByTeam}
               rows={orderedStandings}
               showCutAfter={includePostseason ? undefined : playoffSeeds.length}
@@ -339,24 +341,26 @@ export default function StandingsPage({ params }: StandingsPageProps) {
 
       <Card className="overflow-hidden">
         <details className="group">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-app-text focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-app-brand sm:px-5">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-app-text focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-app-brand sm:px-5 sm:text-base">
             How these standings are ordered
             <svg aria-hidden="true" className="h-4 w-4 shrink-0 text-app-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="m6 9 6 6 6-6" />
             </svg>
           </summary>
-          <div className="border-t border-app-border px-4 py-4 sm:px-5">
-            <p className="text-sm leading-6 text-app-text-muted">
+          <div className="border-t border-app-border px-4 py-4 sm:px-5 sm:py-5">
+            <p className="text-sm leading-6 text-app-text-muted sm:max-w-4xl sm:text-base sm:leading-7">
               {includePostseason
                 ? 'All teams are ranked together using every recorded regular-season and postseason result.'
                 : hasMeaningfulDivisions
                   ? 'Teams are ranked within each division. Division winners receive the first playoff seeds, followed by the best remaining teams.'
                   : 'All teams are ranked together, with the playoff cut line shown after the final qualifying spot.'}
             </p>
-            <ol className="mt-3 grid gap-2 sm:grid-cols-3">
+            <ol className="mt-4 space-y-2.5">
               {STANDINGS_TIEBREAKERS.map((rule, index) => (
-                <li className="flex gap-2 text-xs leading-5 text-app-text" key={rule}>
-                  <span className="font-mono font-bold text-app-brand-strong">{index + 1}.</span>
+                <li className="flex items-start gap-2.5 text-xs leading-5 text-app-text sm:text-sm sm:leading-6" key={rule}>
+                  <span className="w-5 shrink-0 text-center font-mono font-bold text-app-brand-strong">
+                    {index + 1}.
+                  </span>
                   <span>{rule}</span>
                 </li>
               ))}

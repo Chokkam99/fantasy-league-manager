@@ -91,7 +91,10 @@ describe('Overview views', () => {
           team_name: 'Team Two',
         },
       ],
-      scores: [],
+      scores: [
+        { member_id: 'one', points: 120, season: '2025', week_number: 14 },
+        { member_id: 'two', points: 110, season: '2025', week_number: 14 },
+      ],
       seasons: [
         {
           divisions: [],
@@ -117,5 +120,40 @@ describe('Overview views', () => {
 
     expect(details).toHaveAttribute('open')
     expect(screen.getByRole('list', { name: '2025 playoff teams' })).toBeInTheDocument()
+  })
+
+  it('omits playoff teams when a season has not reached its playoff cutoff', async () => {
+    mockedLoadLeagueHistory.mockResolvedValue({
+      matchups: [],
+      members: [
+        {
+          division: null,
+          id: 'one',
+          manager_name: 'Manager One',
+          season: '2026',
+          team_name: 'Team One',
+        },
+      ],
+      scores: [
+        { member_id: 'one', points: 120, season: '2026', week_number: 2 },
+      ],
+      seasons: [
+        {
+          divisions: [],
+          final_winners: null,
+          playoff_spots: 1,
+          playoff_start_week: 15,
+          season: '2026',
+          total_weeks: 17,
+        },
+      ],
+    })
+
+    render(<LeagueHistoryTable leagueId="league-one" selectedSeason="2026" />)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Season results' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Playoff teams')).not.toBeInTheDocument()
   })
 })
