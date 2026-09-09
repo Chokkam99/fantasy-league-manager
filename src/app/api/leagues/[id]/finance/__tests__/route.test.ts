@@ -123,6 +123,7 @@ describe('finance route authorization', () => {
         if (table === 'prize_payouts') return payoutsQuery
         if (table === 'season_payments') return paymentsQuery
         if (table === 'player_payout_statuses') return playerPayoutsQuery
+        if (table === 'league_members') return resultQuery([])
         throw new Error(`Unexpected table ${table}`)
       }),
     }
@@ -197,7 +198,8 @@ describe('finance route authorization', () => {
     const database = {
       from: jest.fn((table: string) => table === 'league_seasons'
         ? resultQuery({ season: '2026' })
-        : table === 'season_payments' ? paymentsQuery : resultQuery([])),
+        : table === 'season_payments' ? paymentsQuery
+        : table === 'league_members' ? resultQuery([{ id: memberId }]) : resultQuery([])),
     }
     mockedCreateServerClient.mockReturnValue(database as never)
 
@@ -221,5 +223,40 @@ describe('finance route authorization', () => {
         'league_member_id, expected_amount_cents, paid_amount_cents, status',
       )
     }
+  })
+
+  it.each([false, true])('excludes removed players from dues and totals while retaining prize payouts (commissioner: %s)', async commissioner => {
+    const activeMembers = Array.from({ length: 12 }, (_, index) => ({ id: `active-${index}` }))
+    const memberQuery = resultQuery(activeMembers)
+    const payment = (id: string, paid: boolean) => ({
+      id: `receipt-${id}`, league_member_id: id, expected_amount_cents: 15000,
+      paid_amount_cents: paid ? 15000 : 0, status: paid ? 'paid' : 'pending',
+      notes: null, payment_method: null, paid_at: null,
+    })
+    const activePayments = activeMembers.map((member, index) => payment(member.id, index < 10))
+    const removedPayments = [payment('removed-one', false), payment('removed-two', false)]
+    const payout = { id: 'prior-prize', league_member_id: 'removed-one', award_id: 'award', amount_cents: 5000, status: 'paid', paid_at: null }
+    const database = {
+      from: jest.fn((table: string) => table === 'league_seasons' ? resultQuery({ season: '2026' })
+        : table === 'league_members' ? memberQuery
+        : table === 'season_payments' ? resultQuery([...activePayments, ...removedPayments])
+        : table === 'prize_payouts' ? resultQuery([payout]) : resultQuery([])),
+    }
+    mockedCreateServerClient.mockReturnValue(database as never)
+    const payload = await (await GET(getRequest(commissioner), context)).json()
+    expect(payload.dues).toHaveLength(12)
+    expect(payload.dues.some((dues: { league_member_id: string }) => dues.league_member_id.startsWith('removed'))).toBe(false)
+    expect(payload.summary).toMatchObject({ expected_cents: 180000, collected_cents: 150000, outstanding_cents: 30000, paid_payouts_cents: 5000 })
+    expect(payload.payouts).toEqual([payout])
+    if (commissioner) expect(payload.payments).toEqual(activePayments)
+    else expect(payload).not.toHaveProperty('payments')
+    expect(memberQuery.eq).toHaveBeenCalledWith('league_id', 'fixture-league')
+    expect(memberQuery.eq).toHaveBeenCalledWith('season', '2026')
+    expect(memberQuery.eq).toHaveBeenCalledWith('is_active', true)
+
+    // Retained receipts for a removed paid player must not inflate collection.
+    removedPayments[0] = payment('removed-one', true)
+    const after = await (await GET(getRequest(commissioner), context)).json()
+    expect(after.summary).toMatchObject({ expected_cents: 180000, collected_cents: 150000, outstanding_cents: 30000 })
   })
 })

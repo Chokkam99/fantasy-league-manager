@@ -85,7 +85,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (seasonResult.error) throw seasonResult.error
     if (!seasonResult.data) return errorResponse('Season not found.', 404)
 
-    const [awardResult, payoutResult, paymentResult] = await Promise.all([
+    const [awardResult, payoutResult, paymentResult, memberResult] = await Promise.all([
       database
         .from('prize_awards')
         .select(
@@ -111,8 +111,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         : database.from('season_payments')
             .select('league_member_id, expected_amount_cents, paid_amount_cents, status')
             .eq('league_id', leagueId).eq('season', season),
+      database.from('league_members')
+        .select('id')
+        .eq('league_id', leagueId).eq('season', season).eq('is_active', true),
     ])
 
+    if (memberResult.error) throw memberResult.error
     const financeError =
       awardResult.error || payoutResult.error || paymentResult.error
     if (isMissingFinanceSchema(financeError)) {
@@ -132,7 +136,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       throw playerPayoutResult.error
     }
 
-    const paymentRecords = paymentResult.data || []
+    // Removed players retain their receipts in the database, but no longer owe
+    // entry fees in the active roster's collection plan. Prize payouts remain
+    // included independently of membership status.
+    const activeMemberIds = new Set((memberResult.data || []).map(member => member.id))
+    const paymentRecords = (paymentResult.data || []).filter(payment =>
+      activeMemberIds.has(payment.league_member_id),
+    )
     const payments = isCommissioner ? paymentRecords : undefined
     return NextResponse.json({
       awards: awardResult.data || [],

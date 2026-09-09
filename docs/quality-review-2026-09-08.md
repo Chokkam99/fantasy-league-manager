@@ -84,3 +84,12 @@ follow-ups; this UI/functional pass does not claim to resolve them.
 | Q26 | Running lint after browser tests also linted generated Playwright bundles. Excluded generated reports, test artifacts, and local backup/preview directories. | Lint scope now consistently covers source files. |
 
 The historical score-finalization repair (D01) and operational follow-ups O01/O02 remain open. This follow-up does not change those records or claim they are resolved.
+
+
+## Removed-player dues total follow-up
+
+| ID | Finding / change | Status |
+| --- | --- | --- |
+| Q28 | The finance endpoint summed every season payment, including retained records for removed players. After a roster import, a 12-player season at $150 incorrectly showed $2,100 because two inactive players each retained $150 pending dues. The import had correctly deactivated them. Scope returned dues, commissioner payment records, and collection summaries to active memberships in the requested league/season. Preserve all database receipts and prize payout obligations. | Fixed; route regressions cover shared and commissioner views, inactive unpaid and paid receipts, $1,800 expected/$1,500 collected/$300 outstanding, and retained prize payouts. All 476 unit/component/API tests pass; lint and application typecheck pass. No database mutation or migration is needed. |
+
+The read-only Couchball 2026 audit found 12 active players and two inactive players, all with $150 expected dues. Both inactive records were pending with zero received. The app-owned prize plan totals $1,800 (17 × $20 weekly plus $1,460 final/special prizes), matching active dues. The portfolio and overview already scoped dues to active members; the Prizes page used the unfiltered finance summary. This change fixes the shared endpoint rather than masking the discrepancy in one screen.
