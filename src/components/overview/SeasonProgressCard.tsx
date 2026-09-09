@@ -37,12 +37,12 @@ export function SeasonProgressCard({
 
   return (
     <Card className="p-5 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-app-text-muted">
-            Season progress
+            This season
           </p>
-          <h2 className="mt-1 text-xl font-bold text-app-text">
+          <h2 className="mt-1 text-lg font-bold text-app-text">
             {overview.latestWeek
               ? `Week ${overview.latestWeek} is the latest completed week`
               : 'Waiting for the first complete score import'}
@@ -65,7 +65,7 @@ export function SeasonProgressCard({
           style={{ width: `${overview.seasonProgress}%` }}
         />
       </div>
-      <div className="mt-5 flex flex-col gap-3 border-t border-app-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-app-border pt-4 text-sm">
         <div className="min-w-0">
           <p className="font-semibold text-app-text">
             {isViewOnly ? 'Score updates' : 'Score sync'}

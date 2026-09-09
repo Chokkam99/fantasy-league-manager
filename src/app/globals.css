@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --app-canvas: #f7f7f4;
+  --app-canvas: #f5f3ee;
   --app-surface: #ffffff;
-  --app-surface-subtle: #f1f2ee;
-  --app-text: #18211d;
-  --app-text-muted: #637069;
-  --app-border: #dfe3df;
-  --app-brand: #176b4d;
-  --app-brand-strong: #0e5038;
-  --app-brand-soft: #e2f2eb;
+  --app-surface-subtle: #efede7;
+  --app-text: #252923;
+  --app-text-muted: #6c7066;
+  --app-border: #e2e1d9;
+  --app-brand: #b34829;
+  --app-brand-strong: #91371e;
+  --app-brand-soft: #f9e9df;
   --app-accent: #d97706;
   --app-danger: #b42318;
   --app-danger-soft: #fef0ed;
@@ -18,11 +18,14 @@
   --app-info: #175cd3;
   --app-info-soft: #eaf2ff;
   --app-success: #16794d;
-  --app-radius-sm: 0.625rem;
-  --app-radius-md: 0.875rem;
-  --app-radius-lg: 1.125rem;
-  --app-shadow-sm: 0 1px 2px rgb(24 33 29 / 0.05);
-  --app-shadow-md: 0 12px 32px rgb(24 33 29 / 0.08);
+  --app-success-soft: #e9f2e8;
+  --app-ink: #242a24;
+  --app-lime: #ddeaac;
+  --app-radius-sm: 0.5rem;
+  --app-radius-md: 1rem;
+  --app-radius-lg: 1.5rem;
+  --app-shadow-sm: 0 2px 3px rgb(37 41 35 / 0.025);
+  --app-shadow-md: 0 16px 48px rgb(37 41 35 / 0.1);
 }
 
 @theme inline {
@@ -43,6 +46,9 @@
   --color-app-info: var(--app-info);
   --color-app-info-soft: var(--app-info-soft);
   --color-app-success: var(--app-success);
+  --color-app-success-soft: var(--app-success-soft);
+  --color-app-ink: var(--app-ink);
+  --color-app-lime: var(--app-lime);
   --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
@@ -59,6 +65,49 @@ body {
   background: var(--app-canvas);
   color: var(--app-text);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01";
+}
+
+.section-kicker {
+  color: var(--app-brand);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.editorial-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+}
+
+.season-banner {
+  background: var(--app-ink);
+  color: #fff;
+  isolation: isolate;
+}
+
+.league-rail { background: var(--app-ink); color: #d6dbd1; }
+.league-rail a { color: inherit; }
+.league-rail a[aria-current="page"] { background: var(--app-lime); color: var(--app-ink); }
+
+[data-league-shell] main { animation: page-enter 240ms ease-out; }
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+table { font-variant-numeric: tabular-nums; }
+thead { background: var(--app-surface-subtle); }
+tbody tr { transition: background-color 150ms ease; }
+tbody tr:hover { background-color: rgb(239 237 231 / 0.5); }
+summary { cursor: pointer; }
+
+@media (min-width: 1280px) {
+  [data-league-shell] #league-content > main { padding: 2rem 2.5rem; max-width: 1440px; }
+  body:has([data-league-shell]) > div + footer { padding-left: 236px; }
 }
 
 *,
@@ -87,7 +136,7 @@ button:not(:disabled),
 }
 
 :focus-visible {
-  outline: 3px solid rgb(23 107 77 / 0.28);
+  outline: 3px solid rgb(179 72 41 / 0.45);
   outline-offset: 2px;
 }
 

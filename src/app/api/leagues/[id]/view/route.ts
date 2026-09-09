@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isMissingFinanceSchema } from '@/lib/finance'
+import { seasonPhase } from '@/lib/seasonNavigation'
 import { isMissingLifecycleSchema } from '@/lib/lifecycle'
 import {
   PUBLIC_LEAGUE_COLUMNS,
@@ -16,6 +18,7 @@ interface RouteContext {
 }
 
 const resources = new Set([
+  'navigation',
   'memberships',
   'history',
   'overview',
@@ -148,13 +151,32 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return errorResponse('A valid season is required.', 400)
     }
 
+    if (resource === 'navigation') {
+      const [config, scores, members, payments] = await Promise.all([
+        database.from('league_seasons').select('total_weeks').eq('league_id', leagueId).eq('season', season).maybeSingle(),
+        database.from('weekly_scores').select('week_number').eq('league_id', leagueId).eq('season', season)
+          .or('is_final_score.eq.true,week_status.eq.completed').order('week_number', { ascending: false }).limit(1),
+        database.from('league_members').select('id, payment_status').eq('league_id', leagueId).eq('season', season).eq('is_active', true),
+        database.from('season_payments').select('league_member_id, status').eq('league_id', leagueId).eq('season', season),
+      ])
+      if (config.error || scores.error || members.error) throw config.error || scores.error || members.error
+      if (payments.error && !isMissingFinanceSchema(payments.error)) throw payments.error
+      const statuses = new Map((payments.data || []).map(payment => [payment.league_member_id, payment.status]))
+      return NextResponse.json({
+        success: true, season,
+        phase: seasonPhase(scores.data?.[0]?.week_number || 0, config.data?.total_weeks || 17),
+        duesRemaining: (members.data || []).filter(member => (statuses.get(member.id) || member.payment_status) !== 'paid').length,
+        playerCount: members.data?.length || 0,
+      })
+    }
+
     if (resource === 'season') {
       const result = await database
         .from('league_seasons')
         .select(SEASON_CONFIG_COLUMNS)
         .eq('league_id', leagueId)
         .eq('season', season)
-        .single()
+        .maybeSingle()
       if (result.error) throw result.error
       return NextResponse.json({ data: result.data, success: true })
     }

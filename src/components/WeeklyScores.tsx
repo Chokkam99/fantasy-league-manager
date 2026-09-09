@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -64,9 +64,11 @@ export default function WeeklyScores({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
 
+  const requestVersion = useRef(0)
   const loadWeekData = useCallback(async () => {
     if (!currentSeason) return
 
+    const version = ++requestVersion.current
     setIsDataLoading(true)
     setLoadError(null)
 
@@ -76,6 +78,7 @@ export default function WeeklyScores({
         currentSeason,
         selectedWeek,
       )
+      if (version !== requestVersion.current) return
       const loadedScores = snapshot.scores
       const scoreByMember = new Map(
         loadedScores.map((score) => [score.member_id, Number(score.points)]),
@@ -94,15 +97,17 @@ export default function WeeklyScores({
         ),
       )
     } catch (error) {
+      if (version !== requestVersion.current) return
       console.error('Failed to load weekly scores:', error)
       setLoadError('This week could not be loaded. Try again in a moment.')
     } finally {
-      setIsDataLoading(false)
+      if (version === requestVersion.current) setIsDataLoading(false)
     }
   }, [currentSeason, leagueId, members, selectedWeek])
 
   useEffect(() => {
     loadWeekData()
+    return () => { requestVersion.current += 1 }
   }, [loadWeekData])
 
   useEffect(() => {
@@ -285,6 +290,7 @@ export default function WeeklyScores({
               <div className="relative w-28 shrink-0">
                 <select
                   className="min-h-11 w-full appearance-none rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface py-2 pl-3 pr-9 text-base font-semibold text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft sm:text-sm"
+                  disabled={isSaving || isClearing || isEditing}
                   id="weekly-score-week"
                   onChange={(event) => changeWeek(Number(event.target.value))}
                   value={selectedWeek}
@@ -355,6 +361,7 @@ export default function WeeklyScores({
                     <input
                       aria-label={`Score for ${member.manager_name}`}
                       className="min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 pr-8 text-right font-mono text-base font-semibold text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20 sm:text-sm"
+                      disabled={isSaving || isClearing}
                       inputMode="decimal"
                       onChange={(event) =>
                         setDraftScores((current) => ({
@@ -395,24 +402,24 @@ export default function WeeklyScores({
         {!loadError && !isDataLoading && !isEditing && (
           <div className="p-4 sm:p-6">
             {weeklyLeaders.length > 0 && (
-              <div className="mb-5 grid gap-3 rounded-[var(--app-radius-md)] border border-app-brand/20 bg-app-brand-soft p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div className="mb-5 grid gap-3 rounded-[var(--app-radius-md)] border border-app-ink bg-app-ink p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-app-success">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-app-lime">
                     {weeklyLeaders.length > 1 ? 'Tied weekly leaders' : 'Weekly leader'}
                   </p>
-                  <p className="mt-1 font-semibold text-app-text">
+                  <p className="mt-1 font-semibold text-white">
                     {weeklyLeaders.map(({ member }) => member.team_name).join(' · ')}
                   </p>
-                  <p className="mt-0.5 text-sm text-app-text-muted">
+                  <p className="mt-0.5 text-sm text-white/65">
                     {weeklyLeaders.map(({ member }) => member.manager_name).join(' · ')}
                   </p>
                 </div>
                 <div className="sm:text-right">
-                  <p className="font-mono text-xl font-bold text-app-brand-strong sm:text-2xl">
+                  <p className="font-mono text-xl font-bold text-app-lime sm:text-2xl">
                     {formatPoints(weeklyLeaders[0].points)}
                   </p>
                   {weeklyPrize > 0 && (
-                    <p className="text-xs font-semibold text-app-success">${weeklyPrize} weekly prize</p>
+                    <p className="text-xs font-semibold text-app-lime">${weeklyPrize} weekly prize</p>
                   )}
                 </div>
               </div>
@@ -491,15 +498,20 @@ export default function WeeklyScores({
               const team1Score = matchup.team1_score ?? scoreByMember.get(matchup.team1_member_id) ?? null
               const team2Score = matchup.team2_score ?? scoreByMember.get(matchup.team2_member_id) ?? null
               const isComplete = team1Score !== null && team2Score !== null
-              const team1Won = matchup.winner_member_id === matchup.team1_member_id
-              const team2Won = matchup.winner_member_id === matchup.team2_member_id
+              const isFinal = isComplete && [matchup.team1_member_id, matchup.team2_member_id].every((memberId) => {
+                const score = weeklyScores.find((record) => record.member_id === memberId)
+                return score && (score.is_final_score === true || score.week_status === 'completed' ||
+                  (score.is_final_score == null && score.week_status == null))
+              })
+              const team1Won = isFinal && matchup.winner_member_id === matchup.team1_member_id
+              const team2Won = isFinal && matchup.winner_member_id === matchup.team2_member_id
 
               return (
                 <article className="rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface" key={matchup.id}>
                   <div className="flex items-center justify-between border-b border-app-border px-3 py-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">Matchup {index + 1}</p>
-                    <Badge variant={!isComplete ? 'warning' : matchup.is_tie ? 'info' : 'success'}>
-                      {!isComplete ? 'Pending' : matchup.is_tie ? 'Tie' : 'Final'}
+                    <Badge variant={!isFinal ? 'warning' : matchup.is_tie ? 'info' : 'success'}>
+                      {!isComplete ? 'Pending' : !isFinal ? 'In progress' : matchup.is_tie ? 'Tie' : 'Final'}
                     </Badge>
                   </div>
                   {[

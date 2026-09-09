@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { ESPNTeamMappingPanel } from '@/components/league/ESPNTeamMappingPanel'
 import { ESPNConnectionPanel } from '@/components/platform-import/ESPNConnectionPanel'
 import { PlatformImportActions } from '@/components/platform-import/PlatformImportActions'
@@ -34,6 +35,7 @@ export default function PlatformImport({ leagueId, season }: PlatformImportProps
 
   return (
     <Card className="mb-6 overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-app-border p-4 sm:px-6"><p className="text-sm text-app-text-muted">Bring in the roster, settings, and all confirmed weeks together.</p><Link className="flex min-h-11 items-center font-semibold text-sm text-app-brand hover:underline" href={`/league/${leagueId}/season-import?season=${season}`}>Import full season from ESPN →</Link></div>
       <PlatformImportSummary
         isLoading={isLoadingConfig}
         onToggleConfig={() => platformImport.setShowConfig((current) => !current)}

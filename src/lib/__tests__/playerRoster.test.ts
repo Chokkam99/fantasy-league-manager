@@ -66,6 +66,18 @@ const finance: FinanceSnapshot = {
 }
 
 describe('player roster view model', () => {
+  it('shows shared canonical dues without creating a private payment record', () => {
+    const model = buildPlayerRosterViewModel({
+      duesFilter: 'all', isViewOnly: true, memberships, search: '', selectedSeason: '2026',
+      finance: { ...finance, is_commissioner: false, payments: undefined,
+        dues: [{ league_member_id: 'alex-2026', expected_amount_cents: 10000,
+          paid_amount_cents: 5000, status: 'partial' }] },
+    })
+    expect(model.currentPlayers[0].duesStatus).toBe('partial')
+    expect(model.currentPlayers[0].payment).toBeUndefined()
+    expect(model.partialPlayers).toBe(1)
+  })
+
   it('uses canonical finance status, stable alphabetical order, and season metrics', () => {
     const model = buildPlayerRosterViewModel({
       duesFilter: 'all',

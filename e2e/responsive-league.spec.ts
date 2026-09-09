@@ -37,7 +37,9 @@ async function expectTypographyScale(page: Page) {
             return box.width > 0 && box.height > 0 && style.visibility !== 'hidden'
           })
           .flatMap((element) => {
-            const limit = limits[element.tagName]
+            const limit = element.tagName === 'H1' && element.classList.contains('editorial-title')
+              ? mobile ? 32 : 56
+              : limits[element.tagName]
             const size = Number.parseFloat(window.getComputedStyle(element).fontSize)
             return limit && size > limit
               ? [`${element.tagName.toLowerCase()} ${size}px > ${limit}px: ${element.textContent?.trim().slice(0, 40) || element.getAttribute('aria-label') || ''}`]
@@ -101,7 +103,7 @@ function isMobile(testInfo: TestInfo) {
 async function openPrimaryNav(page: Page, label: string) {
   await page
     .locator('nav[aria-label="League"]:visible')
-    .getByRole('link', { name: label, exact: true })
+    .getByRole('link', { name: label === 'Players' ? /^Players(?: & dues)?$/ : label, exact: true })
     .click()
 }
 
@@ -153,6 +155,11 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'League dashboard')
     await page.getByRole('link', { name: 'Open Gridiron Gurus' }).click()
     await expectHeading(page, 'Season overview')
+    const attention = page.getByRole('region', { name: 'Commissioner attention' })
+    await expect(attention).toBeVisible()
+    const attentionBox = await attention.boundingBox()
+    const summaryBox = await page.getByRole('region', { name: 'League summary' }).boundingBox()
+    expect(attentionBox!.y).toBeLessThan(summaryBox!.y)
     await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
     await expect(page.getByRole('rowheader', { name: '2025 Final' })).toBeVisible()
     const completedSeasonPlayoffs = page
@@ -212,6 +219,7 @@ test.describe('responsive league journeys', () => {
 
     await openPrimaryNav(page, 'Standings')
     await expectHeading(page, 'Standings')
+    await expect(page.getByText('2/14', { exact: true })).toBeVisible()
     await expect(
       page.getByRole('region', { name: 'Standings by division' }),
     ).toBeVisible()
@@ -312,7 +320,8 @@ test.describe('responsive league journeys', () => {
     await expect(page.getByRole('button', { name: 'Add player' })).toBeVisible()
     const duesFilter = page.getByRole('group', { name: 'Filter roster by dues status' })
     await expect(duesFilter.getByRole('button')).toHaveCount(4)
-    expect((await duesFilter.boundingBox())!.height).toBeLessThanOrEqual(48)
+    // Browser layout can report a fraction of a pixel above the 48px control height.
+    expect((await duesFilter.boundingBox())!.height).toBeLessThanOrEqual(48.1)
     await expect(page.getByText('Manage player')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Mark Alex Smith unpaid' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Mark Taylor Reed paid' })).toHaveText('Partial')
@@ -364,12 +373,16 @@ test.describe('responsive league journeys', () => {
 
     await page.goto(`${leaguePath}?season=2026`)
     await expectHeading(page, 'Season overview')
+    await expect(page.getByRole('region', { name: 'Commissioner attention' })).toHaveCount(0)
+    await expect(page.getByText('Season entry pool', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Still to collect', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Season results' })).toBeVisible()
     await expect(page.getByRole('rowheader', { name: '2025 Final' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Player history' })).toBeVisible()
 
     await openPrimaryNav(page, 'Standings')
     await expectHeading(page, 'Standings')
+    await expect(page.getByText('2/14', { exact: true })).toBeVisible()
     await expect(
       page.getByRole('region', { name: 'Standings by division' }),
     ).toBeVisible()
@@ -405,6 +418,8 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'League roster')
     await expect(page.getByRole('button', { name: 'Add player' })).toHaveCount(0)
     await expect(page.getByText('Mark paid')).toHaveCount(0)
+    await expect(page.getByLabel('Dues for Taylor Reed: Partial')).toBeVisible()
+    await expect(page.getByLabel('Dues for Alex Smith: Paid')).toBeVisible()
 
     if (isMobile(testInfo)) {
       await openLeagueAction(page, 'League rules')
@@ -418,4 +433,41 @@ test.describe('responsive league journeys', () => {
     await expect(page.getByText('Archive league')).toHaveCount(0)
     expect(mutationRequests).toEqual([])
   })
+})
+
+test('compact tablet navigation keeps roster and rules reachable', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chrome', 'One explicit breakpoint regression check')
+  await page.setViewportSize({ width: 680, height: 900 })
+  await installLeagueFixtures(page, { commissioner: false })
+  await page.goto(`${leaguePath}?season=2026`)
+  await expectHeading(page, 'Season overview')
+  await openLeagueAction(page, 'League roster')
+  await expectHeading(page, 'League roster')
+  await openLeagueAction(page, 'League rules')
+  await expectHeading(page, 'League rules')
+  await expect(page.getByLabel('Season', { exact: true })).toHaveValue('2026')
+})
+
+
+test('shared roster refreshes player names and dues without reloading', async ({ page }) => {
+  const fixture = await installLeagueFixtures(page, { commissioner: false })
+  await page.clock.install()
+  await page.goto(`${leaguePath}/players?season=2026`)
+  await expectHeading(page, 'League roster')
+  await expect(page.getByLabel('Dues for Taylor Reed: Partial')).toBeVisible()
+
+  fixture.finance.dues[3].status = 'paid'
+  fixture.finance.dues[3].paid_amount_cents = 5000
+  fixture.roster[3].team_name = 'Updated team name'
+  await page.clock.runFor(30_000)
+  await expect(page.getByLabel('Dues for Taylor Reed: Paid')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Updated team name' })).toBeVisible()
+  await expectNoDocumentOverflow(page)
+
+  fixture.finance.dues[3].status = 'pending'
+  fixture.finance.dues[3].paid_amount_cents = 0
+  await page.clock.runFor(6_000)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByLabel('Dues for Taylor Reed: Unpaid')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Mark Taylor Reed/ })).toHaveCount(0)
 })

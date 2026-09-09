@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminLogin from '../AdminLogin'
 
@@ -171,6 +171,22 @@ describe('AdminLogin', () => {
       expect(mockAuthenticateAdmin).toHaveBeenCalledWith('league-secret')
       expect(onAuthChange).toHaveBeenCalledWith(true)
     })
+  })
+
+  it('waits for logout confirmation and lets the commissioner retry a failure', async () => {
+    let rejectLogout!: (error: Error) => void
+    mockLogoutAdmin.mockImplementationOnce(() => new Promise((_, reject) => { rejectLogout = reject }))
+      .mockResolvedValueOnce(undefined)
+    const user = userEvent.setup()
+    const { onAuthChange } = renderLogin({ isAdmin: true, display: 'menu' })
+    await user.click(screen.getByRole('button', { name: 'Log out' }))
+    expect(screen.getByRole('button', { name: 'Logging out' })).toBeDisabled()
+    expect(onAuthChange).not.toHaveBeenCalled()
+    await act(async () => { rejectLogout(new Error('Connection lost. Try again.')) })
+    expect(screen.getByRole('alert')).toHaveTextContent('Connection lost. Try again.')
+    expect(onAuthChange).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Log out' }))
+    expect(onAuthChange).toHaveBeenCalledWith(false)
   })
 
   it('logs the commissioner out and reports the auth change', async () => {

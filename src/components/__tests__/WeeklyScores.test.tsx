@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WeeklyScores from '@/components/WeeklyScores'
 import type { LeagueMember, WeeklyScore } from '@/lib/supabase'
@@ -103,6 +103,31 @@ function renderScores(props: Partial<React.ComponentProps<typeof WeeklyScores>> 
 }
 
 describe('WeeklyScores', () => {
+  it('does not label provisional scores as final or announce a winner', async () => {
+    mockScoresResult = { data: scores.map(score => ({ ...score, is_final_score: false, week_status: 'pending' })), error: null }
+    renderScores()
+    await screen.findByText('In progress')
+    expect(screen.queryByText('Final', { exact: true })).not.toBeInTheDocument()
+    expect(screen.queryByText('Winner', { exact: true })).not.toBeInTheDocument()
+  })
+
+  it('ignores a delayed earlier week after selecting a newer week', async () => {
+    let resolveWeekTwo!: (snapshot: unknown) => void
+    const user = userEvent.setup()
+    mockLoadWeeklyScoresData.mockImplementation(async (_league, _season, week) => {
+      if (week === 2) return new Promise(resolve => { resolveWeekTwo = resolve })
+      return { scores: [{ ...scores[0], points: week === 3 ? 333 : 111 }], matchups: [] }
+    })
+    render(<WeeklyScores leagueId="league-1" members={members} season="2026" />)
+    await screen.findAllByText('111.00')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Week' }), '2')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Week' }), '3')
+    await screen.findAllByText('333.00')
+    await act(async () => { resolveWeekTwo({ scores: [{ ...scores[0], points: 222 }], matchups: [] }) })
+    expect(screen.queryByText('222.00')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Week' })).toHaveValue('3')
+  })
+
   const originalFetch = global.fetch
   const mockFetch = jest.fn()
 

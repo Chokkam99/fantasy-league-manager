@@ -41,10 +41,11 @@ export function LeagueCard({ league }: { league: PortfolioLeague }) {
 
   return (
     <Card className="group flex min-w-0 flex-col overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-app-brand/30 hover:shadow-[var(--app-shadow-md)]">
+      <div className="h-1.5 bg-app-ink" />
       <div className="flex flex-1 flex-col p-4 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-app-text-muted">
+            <p className="section-kicker">
               {league.current_season} season
             </p>
             <h2 className="mt-1 truncate text-lg font-bold text-app-text sm:text-xl">
@@ -121,10 +122,10 @@ export function LeagueCard({ league }: { league: PortfolioLeague }) {
 
       <Link
         aria-label={`Open ${league.name}`}
-        className="flex min-h-12 items-center justify-between border-t border-app-border bg-app-surface-subtle px-5 text-sm font-semibold text-app-brand transition-colors group-hover:bg-app-brand-soft sm:px-6"
+        className="flex min-h-12 items-center justify-between border-t border-app-border bg-app-ink px-5 text-sm font-semibold text-app-lime transition-colors group-hover:bg-app-brand-strong group-hover:text-white sm:px-6"
         href={`/league/${league.id}?season=${league.current_season}`}
       >
-        Open league office
+        Enter clubhouse
         <span aria-hidden="true">→</span>
       </Link>
     </Card>

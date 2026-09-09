@@ -4,10 +4,13 @@ import Link from 'next/link'
 import { useState, useEffect, use, useCallback } from 'react'
 import WeeklyScores from '@/components/WeeklyScores'
 import PlatformImport from '@/components/PlatformImport'
+import { invalidateFinanceCache } from '@/lib/financeClient'
+import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Notice } from '@/components/ui/Notice'
 import { PageSkeleton, PageState } from '@/components/ui/PageState'
@@ -96,6 +99,8 @@ export default function WeeklyScoresPage({ params }: WeeklyScoresPageProps) {
         kind: 'success',
         message: payload.message || `${selectedSeason} season scores cleared.`,
       })
+      invalidateLeagueReadCache(resolvedParams.id, selectedSeason)
+      invalidateFinanceCache(resolvedParams.id, selectedSeason)
       window.dispatchEvent(new CustomEvent('league-scores-imported'))
     } catch (error) {
       setNotice({
@@ -162,17 +167,7 @@ export default function WeeklyScoresPage({ params }: WeeklyScoresPageProps) {
 
   return (
     <main className="mx-auto min-w-0 max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand-strong">
-          {selectedSeason} season
-        </p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
-          Weekly scores
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
-          Review each week&apos;s high score, full ranking, and head-to-head results.
-        </p>
-      </div>
+      <div className="mb-6"><PageHeader eyebrow={`${selectedSeason} season / Game day`} title="Weekly scores" description="Big weeks, close calls, and the results that settle the debate." /></div>
 
       {notice?.kind === 'error' && <Notice className="mb-4" tone="danger">{notice.message}</Notice>}
       <Toast

@@ -927,6 +927,15 @@ export type Database = {
       }
     }
     Functions: {
+      import_espn_season_atomically: {
+        Args: {
+          p_league_id: string; p_season: string; p_current_season: string
+          p_configuration: Json; p_teams: Json; p_weeks: Json
+          p_expected_members: Json; p_expected_seasons: Json; p_expected_scores: Json
+          p_platform_config: Json; p_expected_platform: Json
+        }
+        Returns: Json
+      }
       create_league_atomically: {
         Args: {
           p_configuration: Json

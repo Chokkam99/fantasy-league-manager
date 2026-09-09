@@ -77,7 +77,7 @@ function canonicalDues(
   feeAmount: number,
 ) {
   const paymentByMemberId = new Map(
-    (finance?.payments || []).map((payment) => [
+    (finance?.payments || finance?.dues || []).map((payment) => [
       payment.league_member_id,
       payment,
     ]),

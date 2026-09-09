@@ -2,14 +2,14 @@ import type { WeeklyScoreRow } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
 import { loadLeagueView } from '@/lib/leagueReadClient'
 
-export const WEEKLY_SCORE_COLUMNS = 'member_id, points'
+export const WEEKLY_SCORE_COLUMNS = 'member_id, points, is_final_score, week_status'
 export const WEEKLY_MATCHUP_COLUMNS =
   'id, is_tie, team1_member_id, team1_score, team2_member_id, team2_score, winner_member_id'
 
 export type WeeklyScoreSummary = Pick<
   WeeklyScoreRow,
   'member_id' | 'points'
->
+> & Partial<Pick<WeeklyScoreRow, 'is_final_score' | 'week_status'>>
 
 export interface WeeklyMatchupSummary {
   id: string

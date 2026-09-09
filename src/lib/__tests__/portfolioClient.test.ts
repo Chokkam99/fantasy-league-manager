@@ -75,6 +75,21 @@ function dataSource(
 }
 
 describe('portfolio query plan', () => {
+  it('loads canonical payments in one additional batched query', async () => {
+    const source = dataSource()
+    source.loadPayments = jest.fn().mockResolvedValue({ data: [], error: null })
+    await loadPortfolioLeagues(source)
+    expect(source.loadPayments).toHaveBeenCalledWith(['league-one', 'league-two'], ['2026', '2027'])
+  })
+
+  it('falls back only for missing finance schema and reports other payment failures', async () => {
+    const source = dataSource()
+    source.loadPayments = jest.fn().mockResolvedValue({ data: null, error: { code: '42P01' } })
+    await expect(loadPortfolioLeagues(source)).resolves.toHaveLength(2)
+    source.loadPayments.mockResolvedValue({ data: null, error: { code: '42501' } })
+    await expect(loadPortfolioLeagues(source)).rejects.toMatchObject({ code: '42501' })
+  })
+
   it('uses four batched reads regardless of league count and scopes details to current seasons', async () => {
     const source = dataSource()
 

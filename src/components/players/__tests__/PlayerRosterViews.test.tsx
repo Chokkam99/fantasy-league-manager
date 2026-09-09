@@ -138,5 +138,6 @@ describe('Players roster views', () => {
     )
     expect(screen.queryByRole('button', { name: /Manager One/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Dues for Manager One: Partial')).toHaveTextContent('Dues: Partial')
   })
 })

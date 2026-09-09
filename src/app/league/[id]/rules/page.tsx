@@ -7,6 +7,7 @@ import { useLeagueShell } from '@/components/league/LeagueShellContext'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Notice } from '@/components/ui/Notice'
 import { PageSkeleton } from '@/components/ui/PageState'
 import { useSeasonConfig } from '@/hooks/useSeasonConfig'
@@ -125,25 +126,10 @@ export default function RulesPage({ params }: RulesPageProps) {
         </Notice>
       )}
 
-      <Card className="overflow-hidden">
-        <div className="p-4 sm:p-7">
-          <div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand">
-                {selectedSeason} season
-              </p>
-              <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
-                League rules
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
-                The saved season format, money rules, playoff structure, and
-                score process in one clear reference.
-              </p>
-            </div>
-          </div>
-        </div>
+      <section>
+        <PageHeader eyebrow={`${selectedSeason} season / The playbook`} title="League rules" description="The format, the stakes, and the fine print. Everyone plays by the same rules." />
 
-        <dl className="grid grid-cols-2 divide-x divide-y divide-app-border border-t border-app-border lg:grid-cols-4 lg:divide-y-0">
+        <dl className="mt-6 grid grid-cols-2 overflow-hidden rounded-xl border border-app-border bg-app-surface lg:grid-cols-4 [&>div+div]:border-l [&>div+div]:border-app-border">
           <RuleMetric
             detail={currency.format(seasonConfig?.fee_amount || 0)}
             label="Entry fee"
@@ -162,7 +148,7 @@ export default function RulesPage({ params }: RulesPageProps) {
             label="Weekly prize"
           />
         </dl>
-      </Card>
+      </section>
 
       <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-2">
         <Card className="min-w-0 p-5 sm:p-6">

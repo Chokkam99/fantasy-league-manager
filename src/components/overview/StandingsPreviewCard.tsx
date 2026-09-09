@@ -26,7 +26,7 @@ export function StandingsPreviewCard({
           </p>
           <h2 className="mt-1 text-xl font-bold text-app-text">Standings leaders</h2>
         </div>
-        <Link className="font-semibold text-app-brand hover:text-app-brand-strong" href={standingsHref}>
+        <Link className="shrink-0 text-xs font-semibold text-app-brand hover:text-app-brand-strong" href={standingsHref}>
           Full standings <span aria-hidden="true">→</span>
         </Link>
       </div>
@@ -39,7 +39,7 @@ export function StandingsPreviewCard({
         <ol className="divide-y divide-app-border">
           {standings.map((standing, index) => (
             <li className="flex min-w-0 items-center gap-3 px-5 py-3.5 sm:px-6" key={standing.row.member.id}>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-app-surface-subtle font-mono text-sm font-bold text-app-text">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-bold ${index === 0 ? 'bg-app-ink text-app-lime' : 'bg-app-surface-subtle text-app-text-muted'}`}>
                 {standing.seed || index + 1}
               </span>
               <div className="min-w-0 flex-1">
@@ -51,9 +51,9 @@ export function StandingsPreviewCard({
                 <p className="text-xs text-app-text-muted">{standing.row.points_for.toFixed(2)} PF</p>
               </div>
               {standing.isDivisionLeader ? (
-                <Badge variant="success">Division</Badge>
+                <span className="hidden sm:block"><Badge variant="success">Division</Badge></span>
               ) : standing.isPlayoffPosition ? (
-                <Badge variant="info">Seed {standing.seed}</Badge>
+                <span className="hidden sm:block"><Badge variant="info">Seed {standing.seed}</Badge></span>
               ) : null}
             </li>
           ))}

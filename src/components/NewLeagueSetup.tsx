@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Notice } from '@/components/ui/Notice'
 import { normalizeESPNLeagueId } from '@/lib/automationSettings'
+import type { ESPNSeasonSnapshot } from '@/lib/espn/seasonSnapshot'
 import type { ESPNOnboardingSnapshot } from '@/lib/espn/onboarding'
 import { leagueSlug } from '@/lib/newLeagueSetup'
 
@@ -73,6 +74,8 @@ export default function NewLeagueSetup() {
   const [espnS2, setEspnS2] = useState('')
   const [swid, setSwid] = useState('')
   const [espnSnapshot, setEspnSnapshot] = useState<ESPNOnboardingSnapshot | null>(null)
+  const [confirmedOwners, setConfirmedOwners] = useState<number[]>([])
+  const [espnSeason, setEspnSeason] = useState<ESPNSeasonSnapshot | null>(null)
   const [cronConfigured, setCronConfigured] = useState(false)
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false)
   const [isPulling, setIsPulling] = useState(false)
@@ -102,6 +105,7 @@ export default function NewLeagueSetup() {
       : ''
 
   const rosterIssue = useMemo(() => {
+    if (espnSeason?.teams.some(team => team.status === 'unconfirmed' && !confirmedOwners.includes(team.team_id))) return 'Confirm the players ESPN could not identify.'
     if (members.length < 2) return 'Add at least two teams.'
     if (members.length % 2 !== 0) return 'Head-to-head seasons require an even number of teams.'
     if (members.some((member) => !member.managerName.trim() || !member.teamName.trim())) {
@@ -116,7 +120,7 @@ export default function NewLeagueSetup() {
       return 'Playoff teams must be between 2 and the roster size.'
     }
     return ''
-  }, [members, playoffSpots])
+  }, [members, playoffSpots, espnSeason, confirmedOwners])
 
   const updateName = (value: string) => {
     setName(value)
@@ -125,6 +129,8 @@ export default function NewLeagueSetup() {
 
   const invalidateESPNPreview = () => {
     setEspnSnapshot(null)
+    setEspnSeason(null)
+    setConfirmedOwners([])
     setAutoSyncEnabled(false)
     setEspnError('')
     setEspnNotice('')
@@ -151,23 +157,31 @@ export default function NewLeagueSetup() {
         cron_configured?: boolean
         error?: string
         snapshot?: ESPNOnboardingSnapshot
+        season_snapshot?: ESPNSeasonSnapshot
       } | null
       if (!response.ok || !payload?.snapshot) {
         throw new Error(payload?.error || 'The ESPN teams could not be loaded.')
       }
 
       setEspnSnapshot(payload.snapshot)
+      const imported = payload.season_snapshot
+      setEspnSeason(imported || null)
+      setConfirmedOwners([])
+      if (imported?.format.total_weeks) setTotalWeeks(String(imported.format.total_weeks))
+      if (imported?.format.playoff_start_week) setPlayoffStartWeek(String(imported.format.playoff_start_week))
+      if (imported?.format.playoff_spots) setPlayoffSpots(String(imported.format.playoff_spots))
+      if (imported?.format.divisions) setGroups(imported.format.divisions.join(', '))
       setCronConfigured(Boolean(payload.cron_configured))
       setMembers(payload.snapshot.teams.map((team) => ({
-        division: '',
+        division: imported?.teams.find(value => value.team_id === team.team_id)?.division || '',
         espnTeamId: team.team_id,
         key: `espn-${team.team_id}`,
-        managerName: team.manager_name,
-        teamName: team.team_name,
+        managerName: imported?.teams.find(value => value.team_id === team.team_id)?.manager_name ?? team.manager_name,
+        teamName: imported?.teams.find(value => value.team_id === team.team_id)?.team_name ?? team.team_name,
       })))
       if (!name.trim()) updateName(payload.snapshot.league_name)
       setEspnNotice(
-        `${payload.snapshot.teams.length} current ${season} teams loaded from ESPN. Review every manager and team name before creating the league.`,
+        `${payload.snapshot.teams.length} ${season} teams loaded from ESPN. Confirm only missing information; completed results are imported next.`,
       )
     } catch (loadError) {
       setEspnError(loadError instanceof Error ? loadError.message : 'The ESPN teams could not be loaded.')
@@ -253,7 +267,7 @@ export default function NewLeagueSetup() {
       if (!response.ok || !payload?.league) {
         throw new Error(payload?.error || 'The league could not be created.')
       }
-      router.push(`/league/${encodeURIComponent(payload.league.id)}?season=${season}`)
+      router.push(`/league/${encodeURIComponent(payload.league.id)}${espnSnapshot ? '/season-import' : ''}?season=${season}`)
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'The league could not be created.')
       setIsSaving(false)
@@ -274,40 +288,24 @@ export default function NewLeagueSetup() {
       {error && <Notice className="mt-5" tone="danger">{error}</Notice>}
 
       <div className="mt-6 space-y-5">
-        <Card className="p-4 sm:p-6">
-          <h2 className="text-lg font-bold text-app-text">League basics</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
-            <label className="text-sm font-semibold text-app-text">League name
-              <input className={inputClass} maxLength={100} onChange={(event) => updateName(event.target.value)} placeholder="Example: Sunday Legends" value={name} />
-            </label>
-            <label className="text-sm font-semibold text-app-text" title="Use the NFL season start year. You can add the next season separately.">First tracked season
-              <input aria-describedby="first-season-description" className={inputClass} inputMode="numeric" maxLength={4} onChange={(event) => { setSeason(event.target.value); invalidateESPNPreview() }} value={season} />
-              <span className="sr-only" id="first-season-description">Use the NFL season start year. You can begin with a past season and add the next season separately.</span>
-            </label>
-          </div>
-          <label className="mt-4 block text-sm font-semibold text-app-text" htmlFor="new-league-slug">League link</label>
-            <div className="mt-1 flex min-h-11 items-center rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface focus-within:border-app-brand focus-within:ring-2 focus-within:ring-app-brand/20">
-              <span className="shrink-0 pl-3 text-sm text-app-text-muted">/league/</span>
-              <input className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-base text-app-text outline-none sm:text-sm" id="new-league-slug" maxLength={64} onChange={(event) => { setSlugEdited(true); setSlug(leagueSlug(event.target.value)) }} placeholder="sunday-legends" value={slug} />
-            </div>
-          <span className="mt-1 block text-xs font-normal text-app-text-muted">This readable link represents the whole league across seasons.</span>
-          {slugIssue && slug.trim() && <span className="mt-1 block text-xs font-semibold text-app-danger">{slugIssue}</span>}
-        </Card>
-
         <Card className="overflow-hidden">
           <div className="p-4 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-app-text">Current ESPN roster <span className="font-normal text-app-text-muted">(optional)</span></h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-app-text-muted">Pull owners and teams for {season || 'this season'} before the draft or afterward. ESPN does not provide this app with reliable prior-season rosters or scores.</p>
+                <h2 className="text-lg font-bold text-app-text">Start with ESPN</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-app-text-muted">Import {season || 'this season'} directly from ESPN. Confirmed owners, teams, divisions, and format are filled automatically. Missing information stays available for your review.</p>
               </div>
               {espnSnapshot && <Badge variant="success">{espnSnapshot.teams.length} teams loaded</Badge>}
             </div>
+            <div className="mt-4 max-w-48">            <label className="text-sm font-semibold text-app-text" title="Use the NFL season start year. You can add the next season separately.">First tracked season
+              <input aria-describedby="first-season-description" className={inputClass} inputMode="numeric" maxLength={4} onChange={(event) => { setSeason(event.target.value); invalidateESPNPreview() }} value={season} />
+              <span className="sr-only" id="first-season-description">Use the NFL season start year. You can begin with a past season and add the next season separately.</span>
+            </label></div>
             <label className="mt-4 block text-sm font-semibold text-app-text" htmlFor="new-espn-league">ESPN league URL or ID</label>
             <div className="mt-1 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
               <input autoComplete="off" className={`${inputClass} !mt-0`} id="new-espn-league" onChange={(event) => { setEspnLeagueId(event.target.value); invalidateESPNPreview() }} placeholder="Paste the ESPN league URL" value={espnLeagueId} />
               <Button disabled={isPulling || !canPullESPN} onClick={() => void pullESPNTeams()}>
-                {isPulling ? 'Loading teams…' : espnSnapshot ? 'Refresh teams' : 'Pull current teams'}
+                {isPulling ? 'Loading teams…' : espnSnapshot ? 'Refresh ESPN data' : 'Import ESPN season'}
               </Button>
             </div>
             {normalizedEspnLeagueId && espnLeagueId.trim() !== normalizedEspnLeagueId && (
@@ -355,20 +353,37 @@ export default function NewLeagueSetup() {
         </Card>
 
         <Card className="p-4 sm:p-6">
-          <h2 className="text-lg font-bold text-app-text">Season format</h2>
+          <h2 className="text-lg font-bold text-app-text">League basics</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-1">
+            <label className="text-sm font-semibold text-app-text">League name
+              <input className={inputClass} maxLength={100} onChange={(event) => updateName(event.target.value)} placeholder="Example: Sunday Legends" value={name} />
+            </label>
+
+          </div>
+          <label className="mt-4 block text-sm font-semibold text-app-text" htmlFor="new-league-slug">League link</label>
+            <div className="mt-1 flex min-h-11 items-center rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface focus-within:border-app-brand focus-within:ring-2 focus-within:ring-app-brand/20">
+              <span className="shrink-0 pl-3 text-sm text-app-text-muted">/league/</span>
+              <input className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-base text-app-text outline-none sm:text-sm" id="new-league-slug" maxLength={64} onChange={(event) => { setSlugEdited(true); setSlug(leagueSlug(event.target.value)) }} placeholder="sunday-legends" value={slug} />
+            </div>
+          <span className="mt-1 block text-xs font-normal text-app-text-muted">This readable link represents the whole league across seasons.</span>
+          {slugIssue && slug.trim() && <span className="mt-1 block text-xs font-semibold text-app-danger">{slugIssue}</span>}
+        </Card>
+
+        <Card className="p-4 sm:p-6">
+          <h2 className="text-lg font-bold text-app-text">Season format</h2>{espnSeason && <p className="mt-2 text-sm text-app-text-muted">Confirmed ESPN values are filled and locked. Complete only fields ESPN could not confirm.</p>}
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <label className="text-sm font-semibold text-app-text">Total weeks
-              <input className={inputClass} max={25} min={1} onChange={(event) => setTotalWeeks(event.target.value)} type="number" value={totalWeeks} />
+              <input readOnly={Boolean(espnSeason?.format.total_weeks)} className={inputClass} max={25} min={1} onChange={(event) => setTotalWeeks(event.target.value)} type="number" value={totalWeeks} />
             </label>
             <label className="text-sm font-semibold text-app-text">Playoffs start
-              <input className={inputClass} max={25} min={1} onChange={(event) => setPlayoffStartWeek(event.target.value)} type="number" value={playoffStartWeek} />
+              <input readOnly={Boolean(espnSeason?.format.playoff_start_week)} className={inputClass} max={25} min={1} onChange={(event) => setPlayoffStartWeek(event.target.value)} type="number" value={playoffStartWeek} />
             </label>
             <label className="text-sm font-semibold text-app-text">Playoff teams
-              <input className={inputClass} max={64} min={2} onChange={(event) => setPlayoffSpots(event.target.value)} type="number" value={playoffSpots} />
+              <input readOnly={Boolean(espnSeason?.format.playoff_spots)} className={inputClass} max={64} min={2} onChange={(event) => setPlayoffSpots(event.target.value)} type="number" value={playoffSpots} />
             </label>
           </div>
           <label className="mt-3 block text-sm font-semibold text-app-text">Groups or divisions <span className="font-normal text-app-text-muted">(optional)</span>
-            <input className={inputClass} onChange={(event) => setGroups(event.target.value)} placeholder="Example: East, West" value={groups} />
+            <input readOnly={espnSeason?.format.divisions != null} className={inputClass} onChange={(event) => setGroups(event.target.value)} placeholder="Example: East, West" value={groups} />
             <span className="mt-1 block text-xs font-normal text-app-text-muted">Separate names with commas, then assign each team below.</span>
           </label>
         </Card>
@@ -377,9 +392,9 @@ export default function NewLeagueSetup() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-app-text">Players and teams</h2>
-              <p className="mt-1 text-sm text-app-text-muted">Review ESPN results or build the current roster manually. Team names are saved only for this season.</p>
+              <p className="mt-1 text-sm text-app-text-muted">Confirmed ESPN players are ready. Fill missing owner names, or use manual setup when ESPN is unavailable.</p>
             </div>
-            <Button onClick={addMember} size="sm" variant="secondary">Add player</Button>
+            <Button disabled={Boolean(espnSnapshot)} onClick={addMember} size="sm" variant="secondary">Add player</Button>
           </div>
           {rosterIssue && members.length > 0 && <p className="mt-3 text-sm font-semibold text-app-danger">{rosterIssue}</p>}
           {members.length === 0 ? (
@@ -390,18 +405,19 @@ export default function NewLeagueSetup() {
                 <div className="rounded-[var(--app-radius-md)] border border-app-border p-3" key={member.key}>
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-bold text-app-text">Team {index + 1}</p>
-                    <button aria-label={`Remove team ${index + 1}`} className="min-h-10 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-danger hover:bg-app-danger-soft" onClick={() => setMembers((current) => current.filter((item) => item.key !== member.key))} type="button">Remove</button>
+                    <button disabled={Boolean(espnSnapshot)} aria-label={`Remove team ${index + 1}`} className="min-h-10 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-danger hover:bg-app-danger-soft" onClick={() => setMembers((current) => current.filter((item) => item.key !== member.key))} type="button">Remove</button>
                   </div>
+                  {espnSeason?.teams.find(team => team.team_id === member.espnTeamId)?.status === 'unconfirmed' && <label className="mt-3 flex min-h-11 items-center gap-3 text-sm text-app-text"><input type="checkbox" checked={confirmedOwners.includes(member.espnTeamId!)} onChange={event => setConfirmedOwners(current => event.target.checked ? [...current, member.espnTeamId!] : current.filter(id => id !== member.espnTeamId))} />I confirmed this player’s identity</label>}
                   <div className="mt-2 grid gap-3 sm:grid-cols-3">
                     <label className="text-xs font-semibold text-app-text-muted">Manager name
-                      <input className={inputClass} maxLength={80} onChange={(event) => updateMember(member.key, { managerName: event.target.value })} value={member.managerName} />
+                      <input readOnly={Boolean(espnSeason?.teams.find(team => team.team_id === member.espnTeamId && team.status !== 'unconfirmed' && team.manager_name))} className={inputClass} maxLength={80} onChange={(event) => updateMember(member.key, { managerName: event.target.value })} value={member.managerName} />
                     </label>
                     <label className="text-xs font-semibold text-app-text-muted">Team name
-                      <input className={inputClass} maxLength={80} onChange={(event) => updateMember(member.key, { teamName: event.target.value })} value={member.teamName} />
+                      <input readOnly={Boolean(espnSeason?.teams.find(team => team.team_id === member.espnTeamId)?.team_name)} className={inputClass} maxLength={80} onChange={(event) => updateMember(member.key, { teamName: event.target.value })} value={member.teamName} />
                     </label>
                     <label className="text-xs font-semibold text-app-text-muted">Group
                       <span className="relative mt-1 block">
-                        <select className={`${inputClass} !mt-0 appearance-none pr-10`} disabled={groupNames.length === 0} onChange={(event) => updateMember(member.key, { division: event.target.value })} value={groupNames.includes(member.division) ? member.division : ''}>
+                        <select className={`${inputClass} !mt-0 appearance-none pr-10`} disabled={groupNames.length === 0 || espnSeason?.format.divisions != null} onChange={(event) => updateMember(member.key, { division: event.target.value })} value={groupNames.includes(member.division) ? member.division : ''}>
                           <option value="">No group</option>
                           {groupNames.map((group) => <option key={group} value={group}>{group}</option>)}
                         </select>

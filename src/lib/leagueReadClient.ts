@@ -1,3 +1,5 @@
+export const LEAGUE_DATA_CHANGED = 'league-data-changed'
+
 function currentShareToken() {
   if (typeof window === 'undefined') return null
   return new URLSearchParams(window.location.search).get('share')
@@ -32,10 +34,14 @@ export function invalidateLeagueReadCache(
     : null
   const seasonFragment = season ? `season=${encodeURIComponent(season)}` : null
 
-  for (const key of leagueViewCache.keys()) {
+  for (const key of new Set([...leagueViewCache.keys(), ...leagueViewRequests.keys()])) {
     if (leagueFragment && !key.startsWith(leagueFragment)) continue
     if (seasonFragment && !key.includes(seasonFragment)) continue
     leagueViewCache.delete(key)
+    leagueViewRequests.delete(key)
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(LEAGUE_DATA_CHANGED, { detail: { leagueId, season } }))
   }
 }
 
@@ -65,8 +71,8 @@ export async function loadLeagueView<T>(
     if (pending) return pending as Promise<T>
   }
 
-  const request = (async () => {
-    const response = await fetch(path)
+  const request: Promise<T> = Promise.resolve().then(async () => {
+    const response = await fetch(path, { cache: 'no-store' })
     const payload = await response.json().catch(() => null)
     if (!response.ok) {
       throw new Error(
@@ -75,17 +81,19 @@ export async function loadLeagueView<T>(
           : 'League data could not be loaded.',
       )
     }
-    leagueViewCache.set(path, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      value: payload,
-    })
+    if (leagueViewRequests.get(path) === request) {
+      leagueViewCache.set(path, {
+        expiresAt: Date.now() + CACHE_TTL_MS,
+        value: payload,
+      })
+    }
     return payload as T
-  })()
+  })
   leagueViewRequests.set(path, request)
   try {
     return await request
   } finally {
-    leagueViewRequests.delete(path)
+    if (leagueViewRequests.get(path) === request) leagueViewRequests.delete(path)
   }
 }
 

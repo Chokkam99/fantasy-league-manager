@@ -196,7 +196,7 @@ export function LeagueHistoryTable({
   }
 
   return (
-    <Card className="mt-6 min-w-0 overflow-hidden">
+    <Card className="mt-6 min-w-0 scroll-mt-24 overflow-hidden" id="league-history">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-app-border p-4 sm:p-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -284,7 +284,7 @@ export function LeagueHistoryTable({
               role="region"
               tabIndex={0}
             >
-              <table aria-label="Player results by season" className="min-w-max border-t border-app-border">
+              <table aria-label="Player results by season" className="w-full min-w-max border-t border-app-border">
                 <thead className="bg-app-surface-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
                   <tr>
                     <th className="sticky left-0 z-10 w-36 min-w-36 bg-app-surface-subtle px-4 py-2.5 text-left sm:w-44 sm:min-w-44 sm:px-6" scope="col">

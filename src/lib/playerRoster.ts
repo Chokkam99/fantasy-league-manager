@@ -62,6 +62,9 @@ export function buildPlayerRosterViewModel({
       payment,
     ]),
   )
+  const duesByMemberId = new Map(
+    (finance?.dues || []).map((dues) => [dues.league_member_id, dues]),
+  )
   const currentPlayers = directory
     .filter((player) => player.isParticipating)
     .map<PlayerRosterEntry>((player) => {
@@ -70,7 +73,9 @@ export function buildPlayerRosterViewModel({
         : undefined
       return {
         ...player,
-        duesStatus: payment?.status || player.paymentStatus || 'pending',
+        duesStatus: payment?.status ||
+          (player.currentMemberId ? duesByMemberId.get(player.currentMemberId)?.status : undefined) ||
+          player.paymentStatus || 'pending',
         payment,
       }
     })

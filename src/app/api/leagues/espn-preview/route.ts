@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { validateAutomationSettings } from '@/lib/automationSettings'
+import { parseESPNSeasonSnapshot } from '@/lib/espn/seasonSnapshot'
 import { parseESPNOnboardingSnapshot } from '@/lib/espn/onboarding'
 import {
   ESPNRequestError,
-  requestESPNOnboardingData,
+  requestESPNSeasonData,
 } from '@/lib/espn/request'
 
 export const dynamic = 'force-dynamic'
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const data = await requestESPNOnboardingData({
+    const data = await requestESPNSeasonData({
       espn_s2: settings.espn_s2,
       league_id: settings.league_id,
       private_league: settings.private_league,
@@ -62,7 +63,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const seasonSnapshot = parseESPNSeasonSnapshot(data, settings.season, [], {}, settings.league_id)
     return NextResponse.json({
+      season_snapshot: seasonSnapshot,
       cron_configured: Boolean(process.env.CRON_SECRET),
       snapshot,
       success: true,

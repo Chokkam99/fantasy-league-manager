@@ -45,6 +45,7 @@ export default function EditTeamNameDialog({
       >
         <FormField htmlFor="editedTeamName" label="Team name">
           <TextInput
+              disabled={busy}
             id="editedTeamName"
             maxLength={80}
             onChange={(event) => setValue(event.target.value)}

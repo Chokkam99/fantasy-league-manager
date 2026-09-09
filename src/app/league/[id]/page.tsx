@@ -1,20 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
-import { OverviewHeader } from '@/components/overview/OverviewHeader'
+import { OverviewHeader, OverviewMetrics } from '@/components/overview/OverviewHeader'
 import { LeagueHistoryTable } from '@/components/overview/LeagueHistoryTable'
 import { OverviewMoneyCard } from '@/components/overview/OverviewMoneyCard'
 import {
   OverviewSidebar,
+  OverviewAttention,
   type OverviewAttentionItem,
 } from '@/components/overview/OverviewSidebar'
 import { SeasonProgressCard } from '@/components/overview/SeasonProgressCard'
 import { StandingsPreviewCard } from '@/components/overview/StandingsPreviewCard'
 import { Button } from '@/components/ui/Button'
 import { PageSkeleton, PageState } from '@/components/ui/PageState'
+import { useReadOnlyRefresh } from '@/hooks/useReadOnlyRefresh'
 import { useSeasonConfig } from '@/hooks/useSeasonConfig'
 import {
   buildOverviewAttentionReasons,
@@ -71,26 +73,44 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
     seasonConfig,
   } = useSeasonConfig(id, selectedSeason)
 
-  const fetchOverviewData = useCallback(async () => {
+  const requestVersion = useRef(0)
+  const fetchOverviewData = useCallback(async (background = false) => {
     if (!selectedSeason) return
-    setIsDataLoading(true)
-    setDataError(null)
+    const version = ++requestVersion.current
+    if (!background) {
+      setIsDataLoading(true)
+      setDataError(null)
+    }
 
     try {
-      setData(await loadOverviewData(id, selectedSeason))
+      const snapshot = await loadOverviewData(id, selectedSeason)
+      if (version !== requestVersion.current) return
+      setDataError(null)
+      setData(snapshot)
     } catch (error) {
+      if (version !== requestVersion.current) return
       const message = getErrorMessage(error, 'The overview could not be loaded.')
       setDataError(message)
       console.error('Failed to load league overview:', message)
     } finally {
-      setIsDataLoading(false)
+      if (version === requestVersion.current) setIsDataLoading(false)
     }
   }, [id, selectedSeason])
 
   useEffect(() => {
     const loadTimer = window.setTimeout(fetchOverviewData, 0)
-    return () => window.clearTimeout(loadTimer)
+    return () => {
+      window.clearTimeout(loadTimer)
+      requestVersion.current += 1
+    }
   }, [fetchOverviewData])
+
+  useReadOnlyRefresh({
+    enabled: isViewOnly,
+    leagueId: id,
+    season: selectedSeason,
+    onRefresh: () => fetchOverviewData(true),
+  })
 
   const settings = useMemo(
     () => ({
@@ -128,7 +148,7 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
   if (dataError) {
     return (
       <PageState
-        action={<Button onClick={fetchOverviewData}>Try again</Button>}
+        action={<Button onClick={() => void fetchOverviewData()}>Try again</Button>}
         description="The season summary could not be assembled, so totals and progress are hidden rather than showing incomplete values."
         eyebrow={`${selectedSeason} season`}
         title="Overview data couldn’t be loaded"
@@ -196,6 +216,9 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
         totalWeeks={settings.total_weeks}
       />
 
+      {!isViewOnly && <div className="mt-4"><OverviewAttention attentionItems={attentionItems} /></div>}
+      <OverviewMetrics overview={overview} isViewOnly={isViewOnly} />
+
       {seasonConfigError && (
         <div
           className="mt-6 rounded-[var(--app-radius-md)] border border-app-warning/30 bg-app-warning-soft p-4 text-sm leading-6 text-app-text"
@@ -208,17 +231,8 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
         </div>
       )}
 
-      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.85fr)]">
+      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(16rem,0.85fr)]">
         <div className="min-w-0 space-y-6">
-          <SeasonProgressCard
-            autoSyncEnabled={Boolean(league.auto_sync_enabled)}
-            isViewOnly={isViewOnly}
-            lastSyncAt={league.last_sync_at}
-            overview={overview}
-            syncHasError={syncHasError}
-            syncIsConnected={syncIsConnected}
-            totalWeeks={settings.total_weeks}
-          />
           <StandingsPreviewCard
             loadError={data.standingsError}
             standings={overview.standings}
@@ -230,16 +244,28 @@ export default function LeagueDetails({ params }: LeagueDetailsProps) {
           />
         </div>
 
-        <OverviewSidebar
-          attentionItems={attentionItems}
-          historyHref={buildPageHref('players')}
-          isViewOnly={isViewOnly}
-          overview={overview}
-          playoffSpots={settings.playoff_spots}
-          playoffStartWeek={settings.playoff_start_week}
-          rulesHref={buildPageHref('rules')}
-          standingsHref={buildPageHref('standings')}
-        />
+        <div className="min-w-0 space-y-5">
+          <SeasonProgressCard
+            autoSyncEnabled={Boolean(league.auto_sync_enabled)}
+            isViewOnly={isViewOnly}
+            lastSyncAt={league.last_sync_at}
+            overview={overview}
+            syncHasError={syncHasError}
+            syncIsConnected={syncIsConnected}
+            totalWeeks={settings.total_weeks}
+          />
+          <OverviewSidebar
+            attentionItems={attentionItems}
+            showAttention={false}
+            historyHref="#league-history"
+            isViewOnly={isViewOnly}
+            overview={overview}
+            playoffSpots={settings.playoff_spots}
+            playoffStartWeek={settings.playoff_start_week}
+            rulesHref={buildPageHref('rules')}
+            standingsHref={buildPageHref('standings')}
+          />
+        </div>
       </div>
       <LeagueHistoryTable leagueId={id} selectedSeason={selectedSeason} />
     </main>

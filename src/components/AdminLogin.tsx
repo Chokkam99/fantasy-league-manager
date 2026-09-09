@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { TextInput } from '@/components/ui/FormField'
 import { Notice } from '@/components/ui/Notice'
+import { Toast } from '@/components/ui/Toast'
 import { authenticateAdmin, logoutAdmin } from '@/lib/adminAuth'
 
 interface AdminLoginProps {
@@ -52,9 +53,17 @@ export default function AdminLogin({
     }
   }
 
-  const handleLogout = () => {
-    logoutAdmin()
-    onAuthChange(false)
+  const handleLogout = async () => {
+    setIsLoading(true)
+    setError('')
+    try {
+      await logoutAdmin()
+      onAuthChange(false)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not log out. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isAdmin) {
@@ -62,7 +71,9 @@ export default function AdminLogin({
     return (
       <div className={isMenu ? 'w-full' : 'flex items-center'}>
         <button
-          aria-label="Log out"
+          aria-label={isLoading ? 'Logging out' : 'Log out'}
+          disabled={isLoading}
+          type="button"
           onClick={handleLogout}
           className={isMenu
             ? 'flex min-h-11 w-full items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle'
@@ -72,8 +83,9 @@ export default function AdminLogin({
           <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" />
           </svg>
-          {isMenu && 'Log out'}
+          {isMenu && (isLoading ? 'Logging out…' : 'Log out')}
         </button>
+        <Toast duration={0} message={error || null} onDismiss={() => setError('')} tone="danger" />
       </div>
     )
   }
@@ -141,13 +153,14 @@ export default function AdminLogin({
     <>
       <button
         aria-label="Commissioner login"
+        type="button"
         onClick={() => setShowLogin(true)}
         className={display === 'menu'
           ? 'flex min-h-11 w-full items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle'
           : 'flex h-11 w-11 items-center justify-center rounded-[var(--app-radius-sm)] text-app-text-muted transition-colors hover:bg-app-surface-subtle hover:text-app-text'}
         title="Commissioner login"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
         {display === 'menu' && <span>Commissioner login</span>}

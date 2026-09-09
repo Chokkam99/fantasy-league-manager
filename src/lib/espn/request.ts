@@ -62,6 +62,7 @@ async function fetchESPNUrl(url: URL, cookie?: string) {
       ...(cookie ? { Cookie: cookie } : {}),
     },
     method: 'GET',
+    cache: 'no-store',
     signal: AbortSignal.timeout(15_000),
   })
 }
@@ -77,10 +78,16 @@ export async function requestESPNData(
     endpoint,
     params,
   )
+  if (config.private_league && config.espn_s2 && config.swid) {
+    return parseESPNResponse(await fetchESPNUrl(publicUrl, `espn_s2=${config.espn_s2}; SWID=${config.swid};`), true)
+  }
   const publicResponse = await fetchESPNUrl(publicUrl)
 
   if (publicResponse.ok) {
-    return parseESPNResponse(publicResponse, false)
+    try { return await parseESPNResponse(publicResponse, false) }
+    catch (error) {
+      if (!(error instanceof ESPNRequestError) || error.status !== 401 || !config.espn_s2 || !config.swid) throw error
+    }
   }
 
   if (!config.espn_s2 || !config.swid) {
@@ -113,4 +120,16 @@ export async function requestESPNOnboardingData(config: ESPNConfig) {
     settings: settingsData.settings || teamData.settings,
     teams: teamData.teams,
   } satisfies ESPNAPIResponse
+}
+
+/** Load the requested season's own records; never substitute the current season. */
+export async function requestESPNSeasonData(config: ESPNConfig) {
+  const responses = await Promise.all(['mSettings', 'mTeam', 'mMatchup'].map(view => requestESPNData(config, '', { view })))
+  for (const response of responses) {
+    const identity = response as ESPNAPIResponse & { id?: number; seasonId?: number }
+    if (String(identity.id) !== config.league_id || identity.seasonId !== config.year) {
+      throw new ESPNRequestError('ESPN did not confirm the requested league and season. No data was imported.', 422)
+    }
+  }
+  return { ...responses[0], ...responses[1], ...responses[2], settings: responses[0].settings, teams: responses[1].teams, members: responses[1].members, schedule: responses[2].schedule }
 }

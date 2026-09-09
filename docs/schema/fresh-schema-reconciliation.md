@@ -100,3 +100,8 @@ The 2026-08-27 rollout completed these gates. Reuse them before requesting appro
 - [ ] The provider plan remains free and no branch, database, compute, or add-on with recurring cost is created.
 
 After migration, verify direct anonymous-read denial, public-safe league reads, legacy-link isolation if affected, credential denial, commissioner writes, atomic score import, stable identities, finance reconciliation, payout completion, archive/restore, automatic-sync state, Security Advisor results, and historical row counts before closing the window.
+
+
+## September 8 production extension
+
+Migration `202609080018_espn_season_import.sql` adds the restricted atomic ESPN season import and was applied with explicit approval on September 8. The preflight audit found migration `017` already applied. Production now has all 18 migration versions and no pending migration; pre/post row fingerprints match for all 15 inspected public tables. A fresh public-schema/data backup was restored successfully in disposable PostgreSQL 17 before applying 018. The fresh-schema script exercises migrations 001–018 and synthetic season import assertions. See [the release checkpoint](../deployment/production-release-2026-09-08.md) and [ESPN-first workflow](../espn-first-season-import-2026-09-08.md).

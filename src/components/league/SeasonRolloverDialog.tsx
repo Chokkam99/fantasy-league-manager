@@ -1,637 +1,171 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { FormField, TextInput } from '@/components/ui/FormField'
 import { Notice } from '@/components/ui/Notice'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
-import { getConfiguredDivisions } from '@/lib/rules'
+import { SeasonRosterBuilder } from './SeasonRosterBuilder'
+import { invalidateFinanceCache } from '@/lib/financeClient'
+import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
+import { createSeasonSetupDraft, draftIssues, draftMembers, draftRequest, numberValue, restoreSeasonSetupDraft, rosterIssue, type RolloverPreview, type SeasonSetupDraft, type SettingsDraft } from '@/lib/seasonSetupDraft'
 
-interface RolloverMember {
-  division?: string | null
-  id: string
-  last_season: string
-  manager_id?: string | null
-  manager_name: string
-  selected_by_default: boolean
-  team_name: string
-}
+const steps = ['Players', 'Format', 'Money', 'Review']
+const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })
+const draftKey = (leagueId: string, season: string) => `flm-season-draft:${leagueId}:${season}`
 
-interface RolloverPreview {
-  can_start: boolean
-  espn_connection?: {
-    auto_sync_enabled: boolean
-    is_configured: boolean
-    league_id: string
-  }
-  members: RolloverMember[]
-  source_configuration: {
-    divisions?: unknown
-    draft_food_cost?: number | null
-    fee_amount?: number | null
-    playoff_spots?: number | null
-    playoff_start_week?: number | null
-    prize_structure?: Record<string, unknown> | null
-    total_weeks?: number | null
-    weekly_prize_amount?: number | null
-  }
-  source_season: string
-  target_exists: boolean
-  target_season: string
-}
-
-interface MemberDraft {
-  division: string
-  managerName: string
-  selected: boolean
-  teamName: string
-}
-
-interface NewMemberDraft {
-  division: string
-  key: string
-  managerName: string
-  teamName: string
-}
-
-interface PrizeDraft {
-  amount: string
-  id: string
-  label: string
-  originalKey?: string
-}
-
-interface SettingsDraft {
-  draftCost: string
-  entryFee: string
-  groups: string
-  playoffSpots: string
-  playoffStartWeek: string
-  totalWeeks: string
-  weeklyPrize: string
-}
-
-interface SeasonSetupFormProps {
-  leagueId: string
-  onCancel: () => void
-  onStarted: (season: string) => Promise<void> | void
-}
-
-const currency = new Intl.NumberFormat('en-US', {
-  currency: 'USD',
-  maximumFractionDigits: 2,
-  style: 'currency',
-})
-
-const prizeLabels: Record<string, string> = {
-  first: '1st place',
-  fourth: '4th place',
-  highest_points: 'Highest season points',
-  highest_weekly: 'Highest weekly score',
-  lowest_weekly: 'Lowest weekly score',
-  second: '2nd place',
-  third: '3rd place',
-}
-
-const inputClass =
-  'min-h-11 w-full rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface px-3 text-base text-app-text outline-none focus:border-app-brand focus:ring-2 focus:ring-app-brand/20 disabled:bg-app-surface-subtle disabled:text-app-text-muted sm:text-sm'
-
-function prizeLabel(key: string) {
-  return (
-    prizeLabels[key] ||
-    key.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-  )
-}
-
-function prizeKey(label: string) {
-  return label
-    .trim()
-    .toLocaleLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 64)
-}
-
-function numberValue(value: string) {
-  return value.trim() ? Number(value) : Number.NaN
-}
-
-export default function SeasonSetupForm({
-  leagueId,
-  onCancel,
-  onStarted,
-}: SeasonSetupFormProps) {
+export default function SeasonSetupForm({ leagueId, onCancel, onStarted }: {
+  leagueId: string; onCancel: () => void; onStarted: (season: string) => Promise<void> | void
+}) {
   const [preview, setPreview] = useState<RolloverPreview | null>(null)
-  const [memberDrafts, setMemberDrafts] = useState<Record<string, MemberDraft>>({})
-  const [newMembers, setNewMembers] = useState<NewMemberDraft[]>([])
-  const [prizes, setPrizes] = useState<PrizeDraft[]>([])
-  const [settings, setSettings] = useState<SettingsDraft>({
-    draftCost: '0',
-    entryFee: '0',
-    groups: '',
-    playoffSpots: '6',
-    playoffStartWeek: '15',
-    totalWeeks: '17',
-    weeklyPrize: '0',
-  })
-  const [confirmationOpen, setConfirmationOpen] = useState(false)
+  const [draft, setDraft] = useState<SeasonSetupDraft | null>(null)
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const [restored, setRestored] = useState(false)
+  const [storageAvailable, setStorageAvailable] = useState(true)
   const [isStarting, setIsStarting] = useState(false)
-  const newMemberSequence = useRef(0)
+  const [createdSeason, setCreatedSeason] = useState('')
+  const [resetOpen, setResetOpen] = useState(false)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const stepsRef = useRef<HTMLElement>(null)
+  const submitting = useRef(false)
   const prizeSequence = useRef(0)
-
-  const groupNames = useMemo(
-    () =>
-      [...new Set(
-        settings.groups
-          .split(',')
-          .map((group) => group.trim().replace(/\s+/g, ' '))
-          .filter(Boolean),
-      )],
-    [settings.groups],
-  )
-
-  const selectedReturningMembers = useMemo(
-    () =>
-      preview?.members.filter((member) => memberDrafts[member.id]?.selected) || [],
-    [memberDrafts, preview],
-  )
-  const configuredTeamCount = selectedReturningMembers.length + newMembers.length
-  const playoffSpots = numberValue(settings.playoffSpots)
-  const rosterIssue =
-    configuredTeamCount < 2
-      ? 'Choose at least two teams.'
-      : configuredTeamCount % 2 !== 0
-        ? 'Add or remove one team. Head-to-head seasons require an even number of teams.'
-        : !Number.isInteger(playoffSpots) || playoffSpots < 2
-          ? 'Configure at least two playoff teams.'
-          : playoffSpots > configuredTeamCount
-            ? 'Playoff teams cannot exceed the total number of teams.'
-            : ''
-  const allReturningSelected =
-    Boolean(preview?.members.length) &&
-    selectedReturningMembers.length === preview?.members.length
-
-  const moneySummary = useMemo(() => {
-    const entryFee = numberValue(settings.entryFee) || 0
-    const draftCost = numberValue(settings.draftCost) || 0
-    const weeklyPrize = numberValue(settings.weeklyPrize) || 0
-    const totalWeeks = numberValue(settings.totalWeeks) || 0
-    const finalPrizes = prizes.reduce(
-      (total, prize) => total + (numberValue(prize.amount) || 0),
-      0,
-    )
-    const expected = configuredTeamCount * entryFee
-    const planned = draftCost + weeklyPrize * totalWeeks + finalPrizes
-
-    return { balance: expected - planned, expected, planned }
-  }, [configuredTeamCount, prizes, settings])
 
   useEffect(() => {
     let cancelled = false
-    const loadPreview = async () => {
-      setIsLoading(true)
-      setError('')
-      setPreview(null)
-      setConfirmationOpen(false)
-      setNewMembers([])
-
+    setPreview(null); setDraft(null); setError(''); setCreatedSeason(''); setRestored(false)
+    const load = async () => {
       try {
-        const response = await fetch(
-          `/api/leagues/${encodeURIComponent(leagueId)}/seasons/rollover`,
-          { cache: 'no-store' },
-        )
-        const payload = (await response.json()) as {
-          error?: string
-          preview?: RolloverPreview
-        }
-
-        if (!response.ok || !payload.preview) {
-          throw new Error(payload.error || 'The next season setup could not be loaded.')
-        }
+        const response = await fetch(`/api/leagues/${encodeURIComponent(leagueId)}/seasons/rollover`, { cache: 'no-store' })
+        const payload = await response.json() as { preview?: RolloverPreview; error?: string }
+        if (!response.ok || !payload.preview) throw new Error(payload.error || 'Season setup could not be loaded.')
         if (cancelled) return
-
-        const nextPreview = payload.preview
-        const divisions = getConfiguredDivisions(
-          nextPreview.source_configuration.divisions,
-        )
-        setPreview(nextPreview)
-        setSettings({
-          draftCost: String(nextPreview.source_configuration.draft_food_cost ?? 0),
-          entryFee: String(nextPreview.source_configuration.fee_amount ?? 0),
-          groups: divisions.join(', '),
-          playoffSpots: String(nextPreview.source_configuration.playoff_spots ?? 6),
-          playoffStartWeek: String(
-            nextPreview.source_configuration.playoff_start_week ?? 15,
-          ),
-          totalWeeks: String(nextPreview.source_configuration.total_weeks ?? 17),
-          weeklyPrize: String(
-            nextPreview.source_configuration.weekly_prize_amount ?? 0,
-          ),
-        })
-        setMemberDrafts(
-          Object.fromEntries(
-            nextPreview.members.map((member) => [
-              member.id,
-              {
-                division:
-                  member.division && divisions.includes(member.division)
-                    ? member.division
-                    : '',
-                managerName: member.manager_name,
-                selected: member.selected_by_default,
-                teamName: member.team_name,
-              },
-            ]),
-          ),
-        )
-        setPrizes(
-          Object.entries(nextPreview.source_configuration.prize_structure || {})
-            .filter(([, amount]) => Number.isFinite(Number(amount)))
-            .map(([key, amount]) => ({
-              amount: String(amount),
-              id: `saved-${key}`,
-              label: prizeLabel(key),
-              originalKey: key,
-            })),
-        )
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'The next season setup could not be loaded.',
-          )
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
+        const next = payload.preview
+        let saved: SeasonSetupDraft | null = null
+        try { saved = restoreSeasonSetupDraft(sessionStorage.getItem(draftKey(leagueId, next.target_season)), next) } catch { setStorageAvailable(false) }
+        setPreview(next); setDraft(saved || createSeasonSetupDraft(next)); setRestored(Boolean(saved))
+      } catch (reason) { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Season setup could not be loaded.') }
     }
+    void load()
+    return () => { cancelled = true }
+  }, [leagueId, attempt])
 
-    void loadPreview()
-    return () => {
-      cancelled = true
-    }
-  }, [leagueId])
-
-  const updateSetting = (key: keyof SettingsDraft, value: string) => {
-    setSettings((current) => ({ ...current, [key]: value }))
-  }
-
-  const updateMember = (memberId: string, changes: Partial<MemberDraft>) => {
-    setMemberDrafts((current) => ({
-      ...current,
-      [memberId]: { ...current[memberId], ...changes },
-    }))
-  }
-
-  const addNewMember = () => {
-    newMemberSequence.current += 1
-    setNewMembers((current) => [
-      ...current,
-      {
-        division: '',
-        key: `new-member-${newMemberSequence.current}`,
-        managerName: '',
-        teamName: '',
-      },
-    ])
-  }
-
-  const addPrize = () => {
-    prizeSequence.current += 1
-    setPrizes((current) => [
-      ...current,
-      {
-        amount: '0',
-        id: `new-prize-${prizeSequence.current}`,
-        label: '',
-      },
-    ])
-  }
-
-  const startSeason = async () => {
-    if (!preview || !preview.can_start) return
-
-    const prizeEntries = prizes.map((prize) => [
-      prize.originalKey && prize.label.trim() === prizeLabel(prize.originalKey)
-        ? prize.originalKey
-        : prizeKey(prize.label),
-      numberValue(prize.amount),
-    ] as const)
-    if (prizeEntries.some(([key]) => !key)) {
-      setConfirmationOpen(false)
-      setError('Every payout needs a name.')
-      return
-    }
-    if (new Set(prizeEntries.map(([key]) => key)).size !== prizeEntries.length) {
-      setConfirmationOpen(false)
-      setError('Every payout needs a unique name.')
-      return
-    }
-
-    const returningMembers = selectedReturningMembers.map((member) => {
-      const draft = memberDrafts[member.id]
-      return {
-        division: groupNames.includes(draft.division) ? draft.division : null,
-        manager_name: draft.managerName,
-        source_member_id: member.id,
-        team_name: draft.teamName,
-      }
-    })
-    const addedMembers = newMembers.map((member) => ({
-      division: groupNames.includes(member.division) ? member.division : null,
-      manager_name: member.managerName,
-      source_member_id: null,
-      team_name: member.teamName,
-    }))
-
-    setIsStarting(true)
-    setError('')
-
+  useEffect(() => {
+    if (!preview || !draft || createdSeason || preview.target_exists) return
     try {
-      const response = await fetch(
-        `/api/leagues/${encodeURIComponent(leagueId)}/seasons/rollover`,
-        {
-          body: JSON.stringify({
-            configuration: {
-              divisions: groupNames,
-              draft_food_cost: numberValue(settings.draftCost),
-              fee_amount: numberValue(settings.entryFee),
-              playoff_spots: numberValue(settings.playoffSpots),
-              playoff_start_week: numberValue(settings.playoffStartWeek),
-              prize_structure: Object.fromEntries(prizeEntries),
-              total_weeks: numberValue(settings.totalWeeks),
-              weekly_prize_amount: numberValue(settings.weeklyPrize),
-            },
-            confirmed: true,
-            members: [...returningMembers, ...addedMembers],
-            source_season: preview.source_season,
-            target_season: preview.target_season,
-          }),
-          headers: { 'content-type': 'application/json' },
-          method: 'POST',
-        },
-      )
-      const payload = (await response.json()) as {
-        error?: string
-        target_season?: string
+      if (JSON.stringify(draft) === JSON.stringify(createSeasonSetupDraft(preview))) {
+        sessionStorage.removeItem(draftKey(leagueId, preview.target_season))
+        return
       }
+      sessionStorage.setItem(draftKey(leagueId, preview.target_season), JSON.stringify({ version: 1, source: preview.source_season, target: preview.target_season, draft }))
+    } catch { setStorageAvailable(false) }
+  }, [leagueId, preview, draft, createdSeason])
 
-      if (!response.ok || !payload.target_season) {
-        throw new Error(payload.error || 'The new season could not be started.')
-      }
-
-      await onStarted(payload.target_season)
-    } catch (startError) {
-      setConfirmationOpen(false)
-      setError(
-        startError instanceof Error
-          ? startError.message
-          : 'The new season could not be started.',
-      )
-    } finally {
-      setIsStarting(false)
-    }
+  const changeDraft = (next: SeasonSetupDraft) => { setDraft(next); setError('') }
+  const goToStep = (step: number) => {
+    if (!draft || step === draft.step) return
+    changeDraft({ ...draft, step })
+    requestAnimationFrame(() => { headingRef.current?.focus({ preventScroll: true }); stepsRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }) })
+  }
+  const openCreated = async (season: string) => {
+    try { await onStarted(season) } catch { setError('The season was created, but could not be opened. Use Open players & dues to try again.') }
+  }
+  const start = async () => {
+    if (!preview || !draft || submitting.current || createdSeason) return
+    const issues = draftIssues(preview, draft)
+    if (issues.length) { setError(issues.join(' ')); return }
+    submitting.current = true; setIsStarting(true); setError('')
+    try {
+      const response = await fetch(`/api/leagues/${encodeURIComponent(leagueId)}/seasons/rollover`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(draftRequest(preview, draft)),
+      })
+      const payload = await response.json() as { target_season?: string; error?: string }
+      if (!response.ok || !payload.target_season) throw new Error(payload.error || 'The season could not be created. Your draft is still here.')
+      setCreatedSeason(payload.target_season)
+      invalidateFinanceCache(leagueId)
+      invalidateLeagueReadCache(leagueId)
+      try { sessionStorage.removeItem(draftKey(leagueId, preview.target_season)) } catch { /* Creation succeeded even if local storage is unavailable. */ }
+      await openCreated(payload.target_season)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'The season could not be created. Your draft is still here.') }
+    finally { submitting.current = false; setIsStarting(false) }
   }
 
-  return (
-    <>
-      <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-app-brand">Season setup</p>
-            <h1 className="mt-1 text-2xl font-bold text-app-text sm:text-3xl">
-              {preview ? `Set up the ${preview.target_season} season` : 'Set up the next season'}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted">Last season provides editable starting values. Nothing is saved until the final review, and the historical season remains unchanged.</p>
-          </div>
-          <Button
-            className="shrink-0 self-start"
-            disabled={isStarting}
-            onClick={onCancel}
-            variant="secondary"
-          >
-            Back to league
-          </Button>
-        </div>
+  if (!preview || !draft) return <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    {error ? <Notice tone="danger"><p>{error}</p><Button className="mt-3" onClick={() => setAttempt(value => value + 1)} variant="secondary">Retry season setup</Button></Notice> : <SkeletonGroup label="Loading season setup"><Skeleton className="h-24" /><Skeleton className="mt-6 h-96" /></SkeletonGroup>}
+    <Button className="mt-4" onClick={onCancel} variant="ghost">Back to league</Button>
+  </main>
 
-        <div className="mt-6 rounded-[var(--app-radius-lg)] border border-app-border bg-app-surface p-4 shadow-sm sm:p-6">
-          {isLoading && (
-            <SkeletonGroup className="space-y-3" label="Loading season setup">
-              <Skeleton className="h-40" />
-              <Skeleton className="h-64" />
-            </SkeletonGroup>
-          )}
+  if (createdSeason || preview.target_exists || !preview.can_start) return <main className="mx-auto max-w-xl px-4 py-12 sm:px-6"><div className="rounded-2xl border border-app-border bg-app-surface p-6 sm:p-8">
+    <p className="text-xs font-bold uppercase tracking-widest text-app-brand">New season</p>
+    <h1 className="mt-3 text-2xl font-bold text-app-text">{createdSeason ? `${createdSeason} is ready` : preview.target_exists ? `${preview.target_season} already exists` : 'Season setup is unavailable'}</h1>
+    <p className="mt-3 text-sm leading-6 text-app-text-muted">{createdSeason || preview.target_exists ? 'Open the roster to manage players and start collecting dues.' : 'Return to the league to review its current status.'}</p>
+    {error && <Notice className="mt-4" tone="danger">{error}</Notice>}
+    <div className="mt-6 flex flex-wrap gap-2">{(createdSeason || preview.target_exists) && <Button disabled={isStarting} onClick={() => void openCreated(createdSeason || preview.target_season)}>Open players & dues</Button>}<Button onClick={onCancel} variant="secondary">Back to league</Button></div>
+  </div></main>
 
-          {preview && (
-            <div className="space-y-6">
-              <section>
-                <div>
-                  <h3 className="text-lg font-bold text-app-text">League format</h3>
-                  <p className="mt-1 text-sm leading-6 text-app-text-muted">Set this season’s schedule, playoffs, and optional groups independently. The season uses its NFL start year, so January playoff weeks remain part of the prior year’s season.</p>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <label className="text-sm font-semibold text-app-text">Total weeks
-                    <input className={`${inputClass} mt-1`} inputMode="numeric" max="25" min="1" onChange={(event) => updateSetting('totalWeeks', event.target.value)} type="number" value={settings.totalWeeks} />
-                  </label>
-                  <label className="text-sm font-semibold text-app-text">Playoffs start
-                    <input className={`${inputClass} mt-1`} inputMode="numeric" max="25" min="1" onChange={(event) => updateSetting('playoffStartWeek', event.target.value)} type="number" value={settings.playoffStartWeek} />
-                  </label>
-                  <label className="text-sm font-semibold text-app-text">Playoff teams
-                    <input className={`${inputClass} mt-1`} inputMode="numeric" max="64" min="2" onChange={(event) => updateSetting('playoffSpots', event.target.value)} type="number" value={settings.playoffSpots} />
-                  </label>
-                </div>
-                <label className="mt-3 block text-sm font-semibold text-app-text">Groups or divisions <span className="font-normal text-app-text-muted">(optional)</span>
-                  <input className={`${inputClass} mt-1`} onChange={(event) => updateSetting('groups', event.target.value)} placeholder="Example: East, West" type="text" value={settings.groups} />
-                  <span className="mt-1 block text-xs font-normal text-app-text-muted">Separate group names with commas. Leave blank for one standings table.</span>
-                </label>
-              </section>
+  const members = draftMembers(preview, draft)
+  const rosterError = rosterIssue(preview, draft)
+  const issues = draftIssues(preview, draft)
+  // Validate format independently of money so incomplete later steps never block earlier ones.
+  const formatDraft = { ...draft, prizes: [], settings: { ...draft.settings, entryFee: '0', draftCost: '0', weeklyPrize: '0' } }
+  const stepIssues = draft.step === 0 ? (rosterError ? [rosterError] : []) : draft.step === 1 ? draftIssues(preview, formatDraft) : issues
+  const expected = members.length * (numberValue(draft.settings.entryFee) || 0)
+  const weeklyTotal = (numberValue(draft.settings.weeklyPrize) || 0) * (numberValue(draft.settings.totalWeeks) || 0)
+  const finalTotal = draft.prizes.reduce((sum, prize) => sum + (numberValue(prize.amount) || 0), 0)
+  const planned = (numberValue(draft.settings.draftCost) || 0) + weeklyTotal + finalTotal
+  const balance = Math.round((expected - planned) * 100) / 100
+  const returning = preview.members.filter(member => member.selected_by_default && draft.members[member.id]?.selected).length
+  const comeback = members.length - returning - draft.newMembers.length
+  const sittingOut = preview.members.filter(member => member.selected_by_default && !draft.members[member.id]?.selected)
+  const setting = (key: keyof SettingsDraft, label: string, max: number, hint?: string) => <FormField htmlFor={`setup-${key}`} label={label} description={hint}><TextInput id={`setup-${key}`} type="number" min={key === 'playoffSpots' ? 2 : key === 'totalWeeks' || key === 'playoffStartWeek' ? 1 : 0} max={max} step={['entryFee', 'draftCost', 'weeklyPrize'].includes(key) ? '0.01' : '1'} value={draft.settings[key]} onChange={event => changeDraft({ ...draft, settings: { ...draft.settings, [key]: event.target.value } })} /></FormField>
+  const moneySummary = <div className={`rounded-xl border p-4 ${balance < 0 ? 'border-app-danger/30 bg-app-danger-soft' : balance === 0 ? 'border-app-success/30 bg-app-success-soft' : 'border-app-border bg-app-surface-subtle'}`}>
+    <div className="grid grid-cols-2 gap-4 text-sm"><div><p className="text-app-text-muted">Expected dues</p><p className="mt-1 text-xl font-bold text-app-text">{currency.format(expected)}</p></div><div><p className="text-app-text-muted">Planned spending</p><p className="mt-1 text-xl font-bold text-app-text">{currency.format(planned)}</p></div></div>
+    <p className="mt-3 text-sm font-semibold text-app-text">{balance === 0 ? 'Every dollar is assigned.' : balance < 0 ? `${currency.format(-balance)} over budget. Adjust payouts or dues, or plan for extra funding.` : `${currency.format(balance)} unassigned. You can allocate it now or later.`}</p>
+  </div>
 
-              <section className="border-t border-app-border pt-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-app-text">Players and teams</h3>
-                    <p className="mt-1 text-sm leading-6 text-app-text-muted">{configuredTeamCount} teams configured. Last season’s players are selected by default; earlier league players remain available below. Manager and team names are editable for the new season, and dues begin as pending.</p>
-                    {rosterIssue ? <p className="mt-1 text-sm font-semibold text-app-danger">{rosterIssue}</p> : null}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {preview.members.length > 0 && (
-                      <Button onClick={() => setMemberDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, { ...draft, selected: !allReturningSelected }]))) } size="sm" variant="secondary">
-                        {allReturningSelected ? 'Clear all' : 'Select all'}
-                      </Button>
-                    )}
-                    <Button onClick={addNewMember} size="sm" variant="secondary">Add new player</Button>
-                  </div>
-                </div>
-
-                <div className="mt-3 space-y-3">
-                  {preview.members.map((member, index) => {
-                    const draft = memberDrafts[member.id]
-                    if (!draft) return null
-                    const selectedDivision = groupNames.includes(draft.division) ? draft.division : ''
-                    const beginsEarlierPlayers =
-                      !member.selected_by_default &&
-                      (index === 0 || preview.members[index - 1]?.selected_by_default)
-
-                    return (
-                      <Fragment key={member.id}>
-                        {index === 0 && member.selected_by_default ? (
-                          <div className="pt-1">
-                            <h4 className="text-sm font-bold text-app-text">Last season</h4>
-                            <p className="mt-0.5 text-xs text-app-text-muted">Selected automatically from {preview.source_season}.</p>
-                          </div>
-                        ) : null}
-                        {beginsEarlierPlayers ? (
-                          <div className="border-t border-app-border pt-4">
-                            <h4 className="text-sm font-bold text-app-text">Earlier league players</h4>
-                            <p className="mt-0.5 text-xs text-app-text-muted">Available to bring back and unchecked by default.</p>
-                          </div>
-                        ) : null}
-                        <div className="min-w-0 rounded-[var(--app-radius-md)] border border-app-border p-3">
-                          <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold text-app-text">
-                            <input checked={draft.selected} className="h-5 w-5 shrink-0 accent-app-brand" onChange={(event) => updateMember(member.id, { selected: event.target.checked })} type="checkbox" />
-                            <span className="min-w-0 truncate">{draft.managerName || member.manager_name}</span>
-                            <span className="ml-auto shrink-0 text-xs font-semibold text-app-text-muted">{member.selected_by_default ? 'Last season' : `Last played ${member.last_season}`}</span>
-                          </label>
-                          <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                            <label className="text-xs font-semibold text-app-text-muted">Manager name
-                              <input className={`${inputClass} mt-1`} disabled={!draft.selected} maxLength={80} onChange={(event) => updateMember(member.id, { managerName: event.target.value })} type="text" value={draft.managerName} />
-                            </label>
-                            <label className="text-xs font-semibold text-app-text-muted">Team name
-                              <input className={`${inputClass} mt-1`} disabled={!draft.selected} maxLength={80} onChange={(event) => updateMember(member.id, { teamName: event.target.value })} type="text" value={draft.teamName} />
-                            </label>
-                            <label className="text-xs font-semibold text-app-text-muted">Group
-                              <select className={`${inputClass} mt-1`} disabled={!draft.selected || groupNames.length === 0} onChange={(event) => updateMember(member.id, { division: event.target.value })} value={selectedDivision}>
-                                <option value="">No group</option>
-                                {groupNames.map((group) => <option key={group} value={group}>{group}</option>)}
-                              </select>
-                            </label>
-                          </div>
-                        </div>
-                      </Fragment>
-                    )
-                  })}
-
-                  {newMembers.map((member, index) => (
-                    <div className="min-w-0 rounded-[var(--app-radius-md)] border border-app-brand/30 bg-app-brand-soft p-3" key={member.key}>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-bold text-app-text">New player {index + 1}</p>
-                        <button className="min-h-10 rounded-[var(--app-radius-sm)] px-3 text-xs font-bold text-app-danger hover:bg-app-danger-soft" onClick={() => setNewMembers((current) => current.filter((item) => item.key !== member.key))} type="button">Remove</button>
-                      </div>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                        <label className="text-xs font-semibold text-app-text-muted">Manager name
-                          <input className={`${inputClass} mt-1`} maxLength={80} onChange={(event) => setNewMembers((current) => current.map((item) => item.key === member.key ? { ...item, managerName: event.target.value } : item))} type="text" value={member.managerName} />
-                        </label>
-                        <label className="text-xs font-semibold text-app-text-muted">Team name
-                          <input className={`${inputClass} mt-1`} maxLength={80} onChange={(event) => setNewMembers((current) => current.map((item) => item.key === member.key ? { ...item, teamName: event.target.value } : item))} type="text" value={member.teamName} />
-                        </label>
-                        <label className="text-xs font-semibold text-app-text-muted">Group
-                          <select className={`${inputClass} mt-1`} disabled={groupNames.length === 0} onChange={(event) => setNewMembers((current) => current.map((item) => item.key === member.key ? { ...item, division: event.target.value } : item))} value={groupNames.includes(member.division) ? member.division : ''}>
-                            <option value="">No group</option>
-                            {groupNames.map((group) => <option key={group} value={group}>{group}</option>)}
-                          </select>
-                        </label>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="border-t border-app-border pt-5">
-                <div>
-                  <h3 className="text-lg font-bold text-app-text">Money plan</h3>
-                  <p className="mt-1 text-sm leading-6 text-app-text-muted">Every amount is editable for {preview.target_season}; none of these changes affect {preview.source_season}.</p>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <label className="text-sm font-semibold text-app-text">Buy-in per player
-                    <input className={`${inputClass} mt-1`} min="0" onChange={(event) => updateSetting('entryFee', event.target.value)} step="0.01" type="number" value={settings.entryFee} />
-                  </label>
-                  <label className="text-sm font-semibold text-app-text">Draft food and costs
-                    <input className={`${inputClass} mt-1`} min="0" onChange={(event) => updateSetting('draftCost', event.target.value)} step="0.01" type="number" value={settings.draftCost} />
-                  </label>
-                  <label className="text-sm font-semibold text-app-text">Weekly prize
-                    <input className={`${inputClass} mt-1`} min="0" onChange={(event) => updateSetting('weeklyPrize', event.target.value)} step="0.01" type="number" value={settings.weeklyPrize} />
-                  </label>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <h4 className="font-bold text-app-text">Final and special payouts</h4>
-                  <Button onClick={addPrize} size="sm" variant="secondary">Add payout</Button>
-                </div>
-                {prizes.length === 0 ? (
-                  <p className="mt-2 rounded-[var(--app-radius-sm)] border border-dashed border-app-border p-3 text-sm text-app-text-muted">No final or special payouts configured.</p>
-                ) : (
-                  <div className="mt-2 space-y-2">
-                    {prizes.map((prize) => (
-                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto]" key={prize.id}>
-                        <label className="sr-only" htmlFor={`${prize.id}-name`}>Payout name</label>
-                        <input className={inputClass} id={`${prize.id}-name`} maxLength={64} onChange={(event) => setPrizes((current) => current.map((item) => item.id === prize.id ? { ...item, label: event.target.value } : item))} placeholder="Payout name" type="text" value={prize.label} />
-                        <label className="sr-only" htmlFor={`${prize.id}-amount`}>Payout amount</label>
-                        <input className={`${inputClass} col-span-2 row-start-2 sm:col-span-1 sm:col-start-2 sm:row-start-1`} id={`${prize.id}-amount`} min="0" onChange={(event) => setPrizes((current) => current.map((item) => item.id === prize.id ? { ...item, amount: event.target.value } : item))} step="0.01" type="number" value={prize.amount} />
-                        <button aria-label={`Remove ${prize.label || 'payout'}`} className="col-start-2 row-start-1 min-h-11 min-w-11 rounded-[var(--app-radius-sm)] text-app-danger hover:bg-app-danger-soft sm:col-start-3" onClick={() => setPrizes((current) => current.filter((item) => item.id !== prize.id))} type="button">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className={`mt-4 rounded-[var(--app-radius-md)] border p-4 ${moneySummary.balance === 0 ? 'border-app-success/30 bg-app-success-soft' : 'border-app-warning/40 bg-app-warning-soft'}`}>
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="font-bold text-app-text">New-season check</p>
-                    <p className="text-sm font-bold text-app-text">{configuredTeamCount} teams</p>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-app-text-muted">{currency.format(moneySummary.expected)} expected − {currency.format(moneySummary.planned)} planned = <span className="font-bold text-app-text">{currency.format(moneySummary.balance)} remaining</span></p>
-                </div>
-              </section>
-
-              <section className="rounded-[var(--app-radius-md)] border border-app-info/25 bg-app-info-soft p-4">
-                <h3 className="font-bold text-app-text">Fresh for {preview.target_season}</h3>
-                <p className="mt-1 text-sm leading-6 text-app-text-muted">
-                  Scores, matchups, winners, paid status, and ESPN team assignments start fresh.
-                  {preview.espn_connection?.is_configured
-                    ? ` ESPN league ${preview.espn_connection.league_id} and its securely stored connection carry forward. Automatic weekly sync ${preview.espn_connection.auto_sync_enabled ? 'remains on' : 'remains off'}, and team assignments are checked against the new roster before scores are imported.`
-                    : ' This league is not connected to ESPN, so scores remain manual until a connection is added from Scores.'}
-                </p>
-              </section>
-
-              {preview.target_exists ? (
-                <Notice tone="danger">{preview.target_season} is already configured. No changes can be made here.</Notice>
-              ) : null}
-            </div>
-          )}
-
-          {error && <Notice className="mt-4" tone="danger">{error}</Notice>}
-        </div>
-
-        <div className="mt-4 flex flex-col-reverse gap-2 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface p-3 shadow-[var(--app-shadow-sm)] sm:sticky sm:bottom-4 sm:z-20 sm:flex-row sm:items-center sm:justify-between sm:bg-app-surface/95 sm:shadow-[var(--app-shadow-md)] sm:backdrop-blur">
-          <p className="px-1 text-sm text-app-text-muted">
-            {configuredTeamCount} teams · {currency.format(moneySummary.balance)} remaining
-          </p>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button disabled={isStarting} onClick={onCancel} variant="secondary">Cancel</Button>
-            <Button disabled={!preview?.can_start || Boolean(rosterIssue) || isLoading || isStarting} onClick={() => setConfirmationOpen(true)}>
-              {preview ? `Review and start ${preview.target_season}` : 'Review season'}
-            </Button>
-          </div>
-        </div>
-      </main>
-
-      <ConfirmDialog
-        busy={isStarting}
-        confirmLabel={preview ? `Start ${preview.target_season}` : 'Start season'}
-        confirmVariant="primary"
-        description={
-          preview
-            ? `Create the ${preview.target_season} season with ${configuredTeamCount} teams and make it active. The ${preview.source_season} season remains unchanged as history.${preview.espn_connection?.is_configured ? ` The ESPN connection and ${preview.espn_connection.auto_sync_enabled ? 'enabled' : 'disabled'} automatic-sync preference carry forward.` : ''}`
-            : 'Create this season and make it active.'
-        }
-        onClose={() => setConfirmationOpen(false)}
-        onConfirm={() => void startSeason()}
-        open={confirmationOpen}
-        title={preview ? `Start the ${preview.target_season} season?` : 'Start this season?'}
-        tone="warning"
-      />
-    </>
-  )
+  return <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><p className="text-xs font-bold uppercase tracking-widest text-app-brand">A fresh start</p><h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl text-app-text">Set up {preview.target_season}</h1><p className="mt-2 text-sm text-app-text-muted">Start with {preview.source_season}, then make this season your own.</p></div>
+      <Button disabled={isStarting} onClick={onCancel} variant="ghost">{storageAvailable ? 'Save & exit' : 'Exit setup'}</Button>
+    </div>
+    <p className="mt-4 text-xs leading-5 text-app-text-muted" role="status">{storageAvailable ? restored ? 'Draft restored. Changes are saved in this browser tab until you create the season.' : 'Your draft saves in this browser tab. Nothing changes in the league until you create the season.' : 'This browser cannot save your draft. Keep this tab open until you create the season.'}</p>
+    <nav ref={stepsRef} aria-label="Season setup steps" className="my-6 scroll-mt-24 md:scroll-mt-36 xl:scroll-mt-24 grid grid-cols-4 gap-1 rounded-xl border border-app-border bg-app-surface p-1">
+      {steps.map((label, index) => <button aria-current={draft.step === index ? 'step' : undefined} className={`min-h-12 rounded-lg px-1 text-xs font-semibold sm:text-sm ${draft.step === index ? 'bg-app-brand text-white' : 'text-app-text-muted hover:bg-app-surface-subtle disabled:opacity-50'}`} disabled={isStarting || index > draft.step} key={label} onClick={() => goToStep(index)}><span className="mr-1 opacity-70">{index + 1}.</span>{label}</button>)}
+    </nav>
+    <div className="rounded-2xl border border-app-border bg-app-surface p-4 shadow-sm sm:p-7">
+      <h2 className="sr-only scroll-mt-24" ref={headingRef} tabIndex={-1}>{steps[draft.step]} · Step {draft.step + 1} of 4</h2>
+      {draft.step === 0 && <SeasonRosterBuilder preview={preview} draft={draft} onChange={changeDraft} />}
+      {draft.step === 1 && <div className="space-y-6">
+        <div><h2 className="text-xl font-bold text-app-text">Shape the season</h2><p className="mt-1 text-sm leading-6 text-app-text-muted">These settings carry over from {preview.source_season}. Check that they fit your {members.length}-player roster.</p></div>
+        <div className="grid gap-5 sm:grid-cols-2">{setting('totalWeeks', 'Total weeks', 25)}{setting('playoffStartWeek', 'Playoffs start in week', 25)}{setting('playoffSpots', 'Playoff teams', members.length, `${members.length} teams are on your roster.`)}</div>
+        <FormField htmlFor="setup-groups" label="Divisions" optional description="Separate names with commas. Leave blank for one league-wide standings table."><TextInput id="setup-groups" value={draft.settings.groups} onChange={event => changeDraft({ ...draft, settings: { ...draft.settings, groups: event.target.value } })} placeholder="East, West" /></FormField>
+        {draft.settings.groups.trim() && <p className="text-sm leading-6 text-app-text-muted">To assign a player to a division, return to Players and choose Edit. Players without a division stay unassigned.</p>}
+      </div>}
+      {draft.step === 2 && <div className="space-y-6">
+        <div><h2 className="text-xl font-bold text-app-text">Set dues and payouts</h2><p className="mt-1 text-sm leading-6 text-app-text-muted">Start with last season’s amounts. New-season dues begin unpaid; prior payments stay with their original season.</p></div>
+        <div className="grid gap-5 sm:grid-cols-2">{setting('entryFee', 'Entry fee per player ($)', 1000000)}{setting('draftCost', 'Draft food / expenses ($)', 1000000)}{setting('weeklyPrize', 'Weekly prize ($)', 1000000, `Budgeted for all ${draft.settings.totalWeeks} weeks: ${currency.format(weeklyTotal)}.`)}</div>
+        <section aria-label="Season payouts"><div className="mb-3 flex items-center justify-between gap-2"><h3 className="font-semibold text-app-text">Season payouts</h3><Button disabled={draft.prizes.length >= 32} onClick={() => changeDraft({ ...draft, prizes: [...draft.prizes, { id: `new-${Date.now()}-${++prizeSequence.current}`, label: '', amount: '0' }] })} size="sm" variant="secondary">Add payout</Button></div>
+          {!draft.prizes.length && <p className="rounded-xl border border-dashed border-app-border p-4 text-sm text-app-text-muted">No season payouts yet. Add places or special awards, or decide later.</p>}
+          <div className="space-y-3">{draft.prizes.map((prize, index) => <div className="flex flex-wrap items-end gap-2 rounded-xl bg-app-surface-subtle p-3" key={prize.id}><div className="min-w-0 flex-1 basis-36"><FormField htmlFor={`payout-${prize.id}`} label={`Payout ${index + 1}`}><TextInput id={`payout-${prize.id}`} maxLength={80} value={prize.label} placeholder="1st place" onChange={event => changeDraft({ ...draft, prizes: draft.prizes.map(item => item.id === prize.id ? { ...item, label: event.target.value } : item) })} /></FormField></div><div className="w-28"><FormField htmlFor={`amount-${prize.id}`} label="Amount ($)"><TextInput id={`amount-${prize.id}`} type="number" min={0} max={1000000} step="0.01" value={prize.amount} onChange={event => changeDraft({ ...draft, prizes: draft.prizes.map(item => item.id === prize.id ? { ...item, amount: event.target.value } : item) })} /></FormField></div><Button aria-label={`Remove payout ${index + 1}`} onClick={() => changeDraft({ ...draft, prizes: draft.prizes.filter(item => item.id !== prize.id) })} variant="dangerGhost">Remove</Button></div>)}</div>
+        </section>{moneySummary}
+      </div>}
+      {draft.step === 3 && <div className="space-y-6">
+        <div><h2 className="text-xl font-bold text-app-text">Ready for {preview.target_season}?</h2><p className="mt-1 text-sm leading-6 text-app-text-muted">Review the lineup and budget. Creating this season makes it the current season. All earlier rosters, results, and payments are preserved.</p></div>
+        <section><div className="flex items-center justify-between gap-2"><h3 className="font-semibold text-app-text">{members.length} players</h3><Button onClick={() => goToStep(0)} disabled={isStarting} size="sm" variant="ghost">Edit players</Button></div><p className="mb-3 text-xs text-app-text-muted">{returning} returning · {comeback} coming back · {draft.newMembers.length} new</p><ul className="divide-y divide-app-border rounded-xl border border-app-border px-3">{members.map((member, index) => <li key={member.source_member_id || `new-${index}`} className="py-3 text-sm"><span className="break-words font-semibold text-app-text">{member.manager_name}</span><span className="mt-0.5 block break-words text-app-text-muted">{member.team_name}{member.division ? ` · ${member.division}` : ''}</span></li>)}</ul>{sittingOut.length > 0 && <p className="mt-3 text-xs leading-5 text-app-text-muted">Sitting out: {sittingOut.map(member => member.manager_name).join(', ')}. They can return in a later season.</p>}</section>
+        <section><div className="flex items-center justify-between gap-2"><h3 className="font-semibold text-app-text">Season format</h3><Button onClick={() => goToStep(1)} disabled={isStarting} size="sm" variant="ghost">Edit format</Button></div><p className="text-sm leading-6 text-app-text-muted">{draft.settings.totalWeeks} weeks · {draft.settings.playoffSpots} playoff teams · Playoffs start week {draft.settings.playoffStartWeek}</p><p className="text-sm text-app-text-muted">{draft.settings.groups.trim() ? `Divisions: ${draft.settings.groups}` : 'No divisions'}</p></section>
+        <section><div className="mb-2 flex items-center justify-between gap-2"><h3 className="font-semibold text-app-text">Dues & payouts</h3><Button onClick={() => goToStep(2)} disabled={isStarting} size="sm" variant="ghost">Edit money</Button></div><p className="mb-3 text-sm leading-6 text-app-text-muted">{currency.format(numberValue(draft.settings.entryFee) || 0)} per player · {currency.format(numberValue(draft.settings.weeklyPrize) || 0)} weekly · {currency.format(numberValue(draft.settings.draftCost) || 0)} expenses</p>{draft.prizes.length > 0 && <ul className="mb-4 space-y-1 text-sm text-app-text-muted">{draft.prizes.map(prize => <li className="flex justify-between gap-3" key={prize.id}><span className="break-words">{prize.label}</span><span>{currency.format(numberValue(prize.amount) || 0)}</span></li>)}</ul>}{moneySummary}</section>
+        {preview.espn_connection?.is_configured && <Notice tone="info">ESPN league {preview.espn_connection.league_id} and its securely stored connection carry forward. {preview.espn_connection.auto_sync_enabled ? 'Automatic weekly sync remains on.' : 'Automatic weekly sync remains off.'}</Notice>}
+        <Notice tone="info">Next, you’ll land on Players & dues to track payments for your new roster.</Notice>
+      </div>}
+      {stepIssues.length > 0 && <Notice className="mt-5" tone="warning">{stepIssues.map(issue => <p key={issue}>{issue}</p>)}</Notice>}
+      {error && <Notice className="mt-5" tone="danger">{error}</Notice>}
+    </div>
+    <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 mt-5 flex items-center justify-between gap-3 rounded-xl border border-app-border bg-app-surface p-3 shadow-lg md:bottom-4">
+      <Button disabled={isStarting} onClick={() => draft.step === 0 ? onCancel() : goToStep(draft.step - 1)} variant="secondary">{draft.step === 0 ? storageAvailable ? 'Save & exit' : 'Exit setup' : 'Back'}</Button>
+      {draft.step < 3 ? <Button disabled={Boolean(stepIssues.length)} onClick={() => goToStep(draft.step + 1)}>Continue to {steps[draft.step + 1].toLowerCase()}</Button> : <Button disabled={isStarting || issues.length > 0} onClick={() => void start()}>{isStarting ? 'Creating season…' : `Create ${preview.target_season} season`}</Button>}
+    </div>
+    <div className="mt-5 flex justify-center"><Button disabled={isStarting} onClick={() => setResetOpen(true)} size="sm" variant="ghost">Start over</Button></div>
+    <ConfirmDialog open={resetOpen} onClose={() => setResetOpen(false)} title="Start this draft over?" description={`Your unsaved roster and settings will be replaced with the defaults from ${preview.source_season}. Existing seasons are unchanged.`} confirmLabel="Reset draft" onConfirm={() => { changeDraft(createSeasonSetupDraft(preview)); setRestored(false); setResetOpen(false) }} />
+  </main>
 }

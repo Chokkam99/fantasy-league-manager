@@ -1,13 +1,8 @@
 import Link from 'next/link'
-import { Card } from '@/components/ui/Card'
-import { cn } from '@/lib/cn'
+import { FieldArtwork } from '@/components/ui/BrandMark'
 import type { OverviewViewModel } from '@/lib/overview'
 
-const currency = new Intl.NumberFormat('en-US', {
-  currency: 'USD',
-  maximumFractionDigits: 0,
-  style: 'currency',
-})
+const currency = new Intl.NumberFormat('en-US', { currency: 'USD', maximumFractionDigits: 0, style: 'currency' })
 
 interface OverviewHeaderProps {
   overview: OverviewViewModel
@@ -16,107 +11,46 @@ interface OverviewHeaderProps {
   totalWeeks: number
 }
 
-export function OverviewHeader({
-  overview,
-  scoresHref,
-  selectedSeason,
-  totalWeeks,
-}: OverviewHeaderProps) {
-  const duesAttention = overview.pendingMembers + overview.partialMembers
-
+export function OverviewHeader({ overview, scoresHref, selectedSeason, totalWeeks }: OverviewHeaderProps) {
   return (
-    <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
-            Season overview
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
-            Scores, standings, dues, and the prize picture for the {selectedSeason} season.
-          </p>
-        </div>
-        <Link
-          className="inline-flex min-h-11 items-center font-semibold text-app-brand hover:text-app-brand-strong"
-          href={scoresHref}
-        >
-          View weekly scores <span aria-hidden="true" className="ml-2">→</span>
+    <section className="season-banner relative overflow-hidden rounded-[var(--app-radius-lg)] px-5 py-7 sm:px-8 sm:py-8">
+      <FieldArtwork className="pointer-events-none absolute -right-20 -top-8 hidden h-80 w-[520px] rotate-[-18deg] text-app-lime/20 md:block" />
+      <div className="relative max-w-lg">
+        <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-app-lime">
+          <span className="h-1.5 w-1.5 rounded-full bg-app-lime" aria-hidden="true" />
+          {selectedSeason} season <span className="mx-1 text-white/30">/</span> The league at a glance
+        </p>
+        <h1 className="editorial-title mt-4 text-2xl text-white sm:text-4xl">Season overview</h1>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-white/65">The scores, the stakes, and the stories.<br className="hidden sm:block" /> Everything your season comes down to.</p>
+        <Link className="mt-6 inline-flex min-h-11 items-center gap-6 rounded-lg bg-app-lime px-4 text-sm font-semibold text-app-ink transition-colors hover:bg-white" href={scoresHref}>
+          View weekly scores <span aria-hidden="true">↗</span>
         </Link>
       </div>
-
-      <section
-        aria-label="League summary"
-        className="mt-6 grid grid-cols-1 gap-3 min-[340px]:grid-cols-2 lg:grid-cols-4"
-      >
-        <MetricCard
-          detail={`${overview.paidMembers} of ${overview.totalMembers} paid${overview.partialMembers ? ` · ${overview.partialMembers} partial` : ''}`}
-          label="Dues collected"
-          tone={duesAttention === 0 ? 'positive' : 'warning'}
-          value={currency.format(overview.collected)}
-        />
-        <MetricCard
-          detail={
-            duesAttention > 0
-              ? `${duesAttention} ${duesAttention === 1 ? 'player needs' : 'players need'} attention`
-              : 'Everyone is paid'
-          }
-          label="Outstanding"
-          tone={overview.outstanding > 0 ? 'warning' : 'positive'}
-          value={currency.format(overview.outstanding)}
-        />
-        <MetricCard
-          detail={`${overview.latestWeek} of ${totalWeeks || 'unconfigured'} weeks imported`}
-          label="Season progress"
-          value={overview.latestWeek ? `Week ${overview.latestWeek}` : 'Not started'}
-        />
-        <MetricCard
-          detail={
-            overview.latestWeeklyScore === null
-              ? 'No completed scores yet'
-              : `${overview.latestWeeklyScore.toFixed(2)} points`
-          }
-          label="Latest weekly leader"
-          tone={overview.latestWeeklyScore === null ? 'default' : 'positive'}
-          value={
-            overview.latestWeeklyWinners.length > 1
-              ? `${overview.latestWeeklyWinners.length}-way tie`
-              : overview.latestWeeklyWinners[0] || 'Waiting'
-          }
-          valueClassName="text-xl sm:text-2xl"
-        />
-      </section>
-    </>
+      <div className="absolute bottom-8 right-8 hidden text-right md:block">
+        <p className="font-mono text-xs uppercase tracking-[0.15em] text-white/50">Season checkpoint</p>
+        <p className="mt-1 font-mono text-3xl font-light text-app-lime">{String(overview.latestWeek).padStart(2, '0')}<span className="text-base text-white/40"> / {totalWeeks || '—'}</span></p>
+        <p className="mt-1 text-xs text-white/60">weeks in the books</p>
+      </div>
+    </section>
   )
 }
 
-function MetricCard({
-  detail,
-  label,
-  tone = 'default',
-  value,
-  valueClassName,
-}: {
-  detail: string
-  label: string
-  tone?: 'default' | 'positive' | 'warning'
-  value: string
-  valueClassName?: string
-}) {
+export function OverviewMetrics({ overview, isViewOnly }: { overview: OverviewViewModel; isViewOnly: boolean }) {
+  const attention = overview.pendingMembers + overview.partialMembers
+  const metrics = [
+    { label: isViewOnly ? 'Season entry pool' : 'Dues collected', value: currency.format(isViewOnly ? overview.expected : overview.collected), detail: isViewOnly ? `${overview.totalMembers} teams in the running` : `${overview.paidMembers} of ${overview.totalMembers} paid${overview.partialMembers ? ` · ${overview.partialMembers} partial` : ''}`, accent: false },
+    { label: isViewOnly ? 'Entry fee' : 'Still to collect', value: currency.format(isViewOnly ? overview.feeAmount : overview.outstanding), detail: isViewOnly ? 'Per player, per season' : attention ? `${attention} ${attention === 1 ? 'player needs' : 'players need'} attention` : 'Everyone is paid up', accent: !isViewOnly && overview.outstanding > 0 },
+    { label: 'Latest weekly leader', value: overview.latestWeeklyWinners.length > 1 ? `${overview.latestWeeklyWinners.length}-way tie` : overview.latestWeeklyWinners[0] || 'Waiting for kickoff', detail: overview.latestWeeklyScore === null ? 'No completed scores yet' : `${overview.latestWeeklyScore.toFixed(2)} points · Week ${overview.latestWeek}`, accent: false },
+  ]
   return (
-    <Card className="min-w-0 p-4 sm:p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-app-text-muted">
-        {label}
-      </p>
-      <p
-        className={cn(
-          'mt-2 break-words text-xl font-bold tracking-tight text-app-text sm:text-2xl',
-          tone === 'positive' && 'text-app-success',
-          tone === 'warning' && 'text-app-warning',
-          valueClassName,
-        )}
-      >
-        {value}
-      </p>
-      <p className="mt-1 text-sm text-app-text-muted">{detail}</p>
-    </Card>
+    <section aria-label="League summary" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {metrics.map((metric, index) => (
+        <div key={metric.label} className={`min-w-0 rounded-xl border border-app-border bg-app-surface p-4 sm:p-5 ${index === 2 ? 'col-span-2 sm:col-span-1' : ''}`}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">{metric.label}</p>
+          <p className={`mt-3 break-words font-bold tracking-tight ${index === 2 ? 'text-lg sm:text-xl' : 'text-2xl sm:text-3xl'} ${metric.accent ? 'text-app-brand' : 'text-app-text'}`}>{metric.value}</p>
+          <p className="mt-2 text-xs leading-5 text-app-text-muted">{metric.detail}</p>
+        </div>
+      ))}
+    </section>
   )
 }

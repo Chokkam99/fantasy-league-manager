@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { cn } from '@/lib/cn'
 import type { DuesFilter } from '@/lib/playerRoster'
 
@@ -30,6 +31,7 @@ interface PlayersOverviewProps {
   expectedAmount: number
   isViewOnly: boolean
   onAddPlayer: () => void
+  onImportSeason?: () => void
   onDuesFilterChange: (filter: DuesFilter) => void
   onSearchChange: (search: string) => void
   paidPlayers: number
@@ -49,6 +51,7 @@ export function PlayersOverview({
   expectedAmount,
   isViewOnly,
   onAddPlayer,
+  onImportSeason,
   onDuesFilterChange,
   onSearchChange,
   paidPlayers,
@@ -61,32 +64,10 @@ export function PlayersOverview({
 }: PlayersOverviewProps) {
   return (
     <>
-      <Card className="overflow-hidden">
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between sm:p-7">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand">
-              {selectedSeason} season
-            </p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
-              {isViewOnly ? 'League roster' : 'Players & dues'}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
-              {isViewOnly
-                ? 'Meet the current teams and explore who has participated across league seasons.'
-                : 'Track dues at a glance. Partial amounts and optional notes stay tucked into payment details.'}
-            </p>
-          </div>
-          {!isViewOnly && (
-            <Button className="w-full shrink-0 sm:w-auto" onClick={onAddPlayer}>
-              <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Add player
-            </Button>
-          )}
-        </div>
+      <section>
+        <PageHeader eyebrow={`${selectedSeason} season / The roster`} title={isViewOnly ? 'League roster' : 'Players & dues'} description={isViewOnly ? 'The players, their teams, and current dues status. Payment notes stay private.' : 'Your people, their teams, and every entry fee accounted for.'} action={!isViewOnly ? <div className="flex flex-wrap gap-2">{onImportSeason && <Button onClick={onImportSeason}><span aria-hidden="true">↻</span> Import from ESPN</Button>}<Button onClick={onAddPlayer} variant={onImportSeason ? 'secondary' : 'primary'}><span aria-hidden="true">＋</span> Add player</Button></div> : undefined} />
 
-        <dl className="grid grid-cols-2 divide-x divide-y divide-app-border border-t border-app-border lg:grid-cols-4 lg:divide-y-0">
+        <dl className="mt-6 grid grid-cols-2 overflow-hidden rounded-xl border border-app-border bg-app-surface lg:grid-cols-4 [&>div+div]:border-l [&>div+div]:border-app-border">
           <RosterMetric label="Current players" value={String(currentPlayerCount)} />
           {isViewOnly ? (
             <>
@@ -112,9 +93,9 @@ export function PlayersOverview({
             </>
           )}
         </dl>
-      </Card>
+      </section>
 
-      <Card className="mt-6 p-4 sm:p-5">
+      <Card className="mt-6 border-0 bg-transparent shadow-none">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
             <label className="sr-only" htmlFor="player-search">

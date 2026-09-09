@@ -1,3 +1,5 @@
+import { invalidateFinanceCache } from './financeClient'
+import { invalidateLeagueReadCache } from './leagueReadClient'
 import type { ValidLifecycleAction } from './lifecycle'
 
 export interface LifecycleSnapshot {
@@ -47,5 +49,7 @@ export async function performLifecycleAction(
   if (!response.ok) {
     throw new Error(body?.error || 'Archive state could not be updated.')
   }
+  invalidateLeagueReadCache(leagueId)
+  invalidateFinanceCache(leagueId)
   return body
 }

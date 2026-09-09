@@ -7,6 +7,7 @@ import { StandingsTable } from '@/components/standings/StandingsTable'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Notice } from '@/components/ui/Notice'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
@@ -201,24 +202,9 @@ export default function StandingsPage({ params }: StandingsPageProps) {
         </Notice>
       )}
 
-      <Card className="overflow-hidden">
-        <div className="p-4 sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand-strong">
-                {selectedSeason} season
-              </p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
-                Standings
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted">
-                {includePostseason
-                  ? `Combined regular-season and postseason results through week ${displayMaximumWeek}. Records and rankings use every recorded matchup.`
-                  : hasMeaningfulDivisions
-                    ? `Division standings through week ${regularSeasonEnd}. Division winners are seeded first, followed by the best remaining teams.`
-                    : `Regular-season standings through week ${regularSeasonEnd}. The top ${playoffSeeds.length} teams qualify.`}
-              </p>
-            </div>
+      <section>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <PageHeader eyebrow={`${selectedSeason} season / The competition`} title="Standings" description={includePostseason ? `The full season story, including playoff results through week ${displayMaximumWeek}.` : hasMeaningfulDivisions ? 'Division leaders set the pace. The rest are chasing a playoff spot.' : `The race for ${playoffSeeds.length} playoff spots. Every matchup counts.`} />
             <div aria-label="Standings scope" className="grid grid-cols-2 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface-subtle p-1">
               <button
                 aria-pressed={!includePostseason}
@@ -245,10 +231,9 @@ export default function StandingsPage({ params }: StandingsPageProps) {
                 Full season
               </button>
             </div>
-          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-px border-t border-app-border bg-app-border">
+        <div className="mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-app-border bg-app-border">
           {(includePostseason
             ? [
                 { label: 'Weeks', value: `${completedWeeks}/${displayMaximumWeek}` },
@@ -272,7 +257,7 @@ export default function StandingsPage({ params }: StandingsPageProps) {
             </div>
           ))}
         </div>
-      </Card>
+      </section>
 
       {!includePostseason && hasMeaningfulDivisions ? (
         <section aria-labelledby="division-standings-heading">
@@ -285,7 +270,7 @@ export default function StandingsPage({ params }: StandingsPageProps) {
             </div>
             <Badge variant="info">Top {playoffSeeds.length} qualify</Badge>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className={`grid gap-4 md:grid-cols-2 ${divisionStandings.length > 2 ? '2xl:grid-cols-3' : ''}`}>
             {divisionStandings.map((group) => (
               <Card className="overflow-hidden" key={group.division}>
                 <div className="flex items-center justify-between border-b border-app-border px-3 py-2.5">

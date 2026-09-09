@@ -10,7 +10,7 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 const variantClasses: Record<BadgeVariant, string> = {
   neutral: 'bg-app-surface-subtle text-app-text-muted',
   info: 'bg-app-info-soft text-app-info',
-  success: 'bg-app-brand-soft text-app-success',
+  success: 'bg-app-success-soft text-app-success',
   warning: 'bg-app-warning-soft text-app-warning',
   danger: 'bg-app-danger-soft text-app-danger',
 }

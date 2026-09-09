@@ -18,6 +18,7 @@ interface OverviewSidebarProps {
   attentionItems: OverviewAttentionItem[]
   historyHref: string
   isViewOnly: boolean
+  showAttention?: boolean
   overview: OverviewViewModel
   playoffSpots: number
   playoffStartWeek: number
@@ -29,6 +30,7 @@ export function OverviewSidebar({
   attentionItems,
   historyHref,
   isViewOnly,
+  showAttention = true,
   overview,
   playoffSpots,
   playoffStartWeek,
@@ -37,35 +39,8 @@ export function OverviewSidebar({
 }: OverviewSidebarProps) {
   return (
     <aside className="min-w-0 space-y-6">
-      {!isViewOnly && (
-        <Card className="p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-app-text">Needs attention</h2>
-            <Badge variant={attentionItems.length ? 'warning' : 'success'}>
-              {attentionItems.length || 'All clear'}
-            </Badge>
-          </div>
-          {attentionItems.length ? (
-            <ul className="mt-4 space-y-2">
-              {attentionItems.map((item) => (
-                <li key={`${item.href}-${item.label}`}>
-                  <Link
-                    className="flex min-h-11 items-center justify-between gap-3 rounded-[var(--app-radius-sm)] bg-app-warning-soft px-3 py-2.5 text-sm font-medium text-app-text hover:text-app-brand-strong"
-                    href={item.href}
-                  >
-                    <span className="min-w-0 break-words">{item.label}</span>
-                    <span aria-hidden="true" className="shrink-0">→</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-sm leading-6 text-app-text-muted">
-              Dues, sync health, season setup, and prize allocation all look good.
-            </p>
-          )}
-        </Card>
-      )}
+      {!isViewOnly && showAttention && <OverviewAttention attentionItems={attentionItems} />}
+
 
       <Card className="p-5 sm:p-6">
         <h2 className="text-lg font-bold text-app-text">League snapshot</h2>
@@ -104,5 +79,24 @@ function SidebarLink({ children, href }: { children: React.ReactNode; href: stri
     >
       {children} <span aria-hidden="true" className="ml-2">→</span>
     </Link>
+  )
+}
+
+export function OverviewAttention({ attentionItems }: { attentionItems: OverviewAttentionItem[] }) {
+  return (
+    <section aria-label="Commissioner attention" className={`rounded-xl border px-4 py-3 ${attentionItems.length ? 'border-app-warning/20 bg-app-warning-soft/60' : 'border-app-border bg-app-surface'}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex shrink-0 items-center gap-2">
+          <span aria-hidden="true" className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${attentionItems.length ? 'bg-app-warning/10 text-app-warning' : 'bg-app-success-soft text-app-success'}`}>{attentionItems.length ? '!' : '✓'}</span>
+          <h2 className="text-sm font-semibold text-app-text">Needs attention</h2>
+          <Badge variant={attentionItems.length ? 'warning' : 'success'}>{attentionItems.length || 'All clear'}</Badge>
+        </div>
+        {attentionItems.length ? (
+          <ul className="flex flex-1 flex-wrap gap-x-5 gap-y-1">
+            {attentionItems.map((item) => <li key={`${item.href}-${item.label}`}><Link className="inline-flex min-h-10 items-center gap-3 text-sm text-app-text hover:underline" href={item.href}>{item.label}<span aria-hidden="true">→</span></Link></li>)}
+          </ul>
+        ) : <p className="text-xs leading-5 text-app-text-muted">Dues, sync health, season setup, and prize allocation all look good.</p>}
+      </div>
+    </section>
   )
 }

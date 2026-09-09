@@ -28,7 +28,7 @@ export function SeasonAwardCards({
   schemaReady,
 }: SeasonAwardCardsProps) {
   return (
-    <Card className="mt-6 min-w-0 max-w-4xl overflow-hidden">
+    <Card className="mt-6 min-w-0 overflow-hidden">
       <div className="border-b border-app-border p-4 sm:px-5 sm:py-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">

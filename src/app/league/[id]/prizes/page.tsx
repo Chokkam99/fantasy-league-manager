@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
 import { PrizeMoneyOverview } from '@/components/prizes/PrizeMoneyOverview'
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Notice } from '@/components/ui/Notice'
 import { PageSkeleton, PageState } from '@/components/ui/PageState'
 import { Toast } from '@/components/ui/Toast'
+import { useReadOnlyRefresh } from '@/hooks/useReadOnlyRefresh'
 import { useSeasonConfig } from '@/hooks/useSeasonConfig'
 import {
   type FinanceAward,
@@ -63,31 +64,48 @@ export default function PrizesPage({ params }: PrizesPageProps) {
     seasonConfig,
   } = useSeasonConfig(id, selectedSeason)
 
-  const loadPageData = useCallback(async () => {
+  const requestVersion = useRef(0)
+  const loadPageData = useCallback(async (background = false) => {
     if (!selectedSeason) return
-    setIsDataLoading(true)
-    setDataError(null)
-    setFinanceError(null)
+    const version = ++requestVersion.current
+    if (!background) {
+      setIsDataLoading(true)
+      setDataError(null)
+    }
+    if (!background) setFinanceError(null)
 
     try {
       const snapshot = await loadPrizeData(id, selectedSeason)
+      if (version !== requestVersion.current) return
+      setDataError(null)
       setMembers(snapshot.members)
       setScores(snapshot.scores)
       setFinance(snapshot.finance)
       setFinanceError(snapshot.financeError)
     } catch (error) {
+      if (version !== requestVersion.current) return
       const message = getErrorMessage(error, 'Prize details could not be loaded.')
       setDataError(message)
       console.error('Failed to load prize details:', message)
     } finally {
-      setIsDataLoading(false)
+      if (version === requestVersion.current) setIsDataLoading(false)
     }
   }, [id, selectedSeason])
 
   useEffect(() => {
     const loadTimer = window.setTimeout(loadPageData, 0)
-    return () => window.clearTimeout(loadTimer)
+    return () => {
+      window.clearTimeout(loadTimer)
+      requestVersion.current += 1
+    }
   }, [loadPageData])
+
+  useReadOnlyRefresh({
+    enabled: isViewOnly,
+    leagueId: id,
+    season: selectedSeason,
+    onRefresh: () => loadPageData(true),
+  })
 
   const refreshFinance = useCallback(async () => {
     if (!selectedSeason) return
@@ -175,7 +193,7 @@ export default function PrizesPage({ params }: PrizesPageProps) {
   if (dataError) {
     return (
       <PageState
-        action={<Button onClick={loadPageData}>Try again</Button>}
+        action={<Button onClick={() => void loadPageData()}>Try again</Button>}
         description="Player payments and weekly scores could not both be loaded, so prize totals are hidden rather than showing an incomplete calculation."
         eyebrow={`${selectedSeason} season`}
         title="Prize details couldn’t be loaded"

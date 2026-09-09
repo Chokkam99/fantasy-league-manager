@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import type { FinalPrizeRule, PrizePlan } from '@/lib/prizes'
 
 const currency = new Intl.NumberFormat('en-US', {
@@ -76,23 +77,10 @@ export function PrizeMoneyOverview({
 
   return (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-brand">
-            {selectedSeason} season
-          </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">
-            League money
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted sm:text-base">
-            See what comes in, how every dollar is divided, and whether the plan adds up.
-          </p>
-        </div>
-        <Badge variant={balanceBadge.variant}>{balanceBadge.label}</Badge>
-      </div>
+      <PageHeader eyebrow={`${selectedSeason} season / The money`} title="League money" description="A clear picture of every entry fee, every prize, and who gets paid." action={<Badge variant={balanceBadge.variant}>{balanceBadge.label}</Badge>} />
 
       <Card className="mt-6 min-w-0 overflow-hidden">
-        <section aria-labelledby="money-in-heading" className="bg-app-brand-soft/55 p-4 sm:p-6">
+        <section aria-labelledby="money-in-heading" className="bg-app-success-soft/70 p-4 sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-success">
@@ -207,7 +195,7 @@ export function PrizeMoneyOverview({
 
         <div className={`border-t p-5 sm:p-6 ${
           prizePlan.status === 'balanced'
-            ? 'border-app-success/20 bg-app-brand-soft'
+            ? 'border-app-success/20 bg-app-success-soft'
             : prizePlan.status === 'unallocated'
               ? 'border-app-warning/20 bg-app-warning-soft'
               : 'border-app-danger/20 bg-app-danger-soft'

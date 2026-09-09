@@ -2,6 +2,7 @@ import type { League, LeagueSeason } from '@/lib/supabase'
 import { normalizePlatformSyncHealth } from '@/lib/platformImport'
 
 export interface PortfolioMemberRow {
+  id?: string
   is_active: boolean | null
   league_id: string | null
   payment_status: string | null
@@ -36,7 +37,17 @@ export interface PortfolioSummary {
   totalPlayers: number
 }
 
+export interface PortfolioPaymentRow {
+  league_id: string
+  season: string
+  league_member_id: string
+  expected_amount_cents: number
+  paid_amount_cents: number
+  status: string
+}
+
 interface PortfolioInput {
+  payments?: PortfolioPaymentRow[]
   leagues: League[]
   members: PortfolioMemberRow[]
   scores: PortfolioScoreRow[]
@@ -68,6 +79,7 @@ export function buildPortfolioLeagues({
   members,
   scores,
   seasons,
+  payments = [],
 }: PortfolioInput): PortfolioLeague[] {
   const seasonByScope = new Map(
     seasons.map((season) => [
@@ -75,18 +87,26 @@ export function buildPortfolioLeagues({
       season,
     ]),
   )
+  const paymentsByMember = new Map(payments.map((payment) => [
+    `${scopeKey(payment.league_id, payment.season)}\u0000${payment.league_member_id}`, payment,
+  ]))
+  const emptyCounts = () => ({ paidMembers: 0, totalMembers: 0, collectedAmount: 0, expectedAmount: 0 })
   const memberCounts = new Map<
     string,
-    { paidMembers: number; totalMembers: number }
+    { paidMembers: number; totalMembers: number; collectedAmount: number; expectedAmount: number }
   >()
   const latestWeekByScope = new Map<string, number>()
 
   for (const member of members) {
     if (!member.league_id || !member.season || !member.is_active) continue
     const key = scopeKey(member.league_id, member.season)
-    const counts = memberCounts.get(key) || { paidMembers: 0, totalMembers: 0 }
+    const counts = memberCounts.get(key) || emptyCounts()
     counts.totalMembers += 1
-    if (member.payment_status === 'paid') counts.paidMembers += 1
+    const payment = paymentsByMember.get(`${key}\u0000${member.id}`)
+    const fee = seasonByScope.get(key)?.fee_amount ?? 0
+    if ((payment?.status || member.payment_status) === 'paid') counts.paidMembers += 1
+    counts.expectedAmount += payment ? payment.expected_amount_cents / 100 : fee
+    counts.collectedAmount += payment ? payment.paid_amount_cents / 100 : member.payment_status === 'paid' ? fee : 0
     memberCounts.set(key, counts)
   }
 
@@ -109,11 +129,10 @@ export function buildPortfolioLeagues({
   return leagues.map((league) => {
     const key = scopeKey(league.id, league.current_season)
     const season = seasonByScope.get(key)
-    const counts = memberCounts.get(key) || { paidMembers: 0, totalMembers: 0 }
+    const counts = memberCounts.get(key) || emptyCounts()
     const feeAmount = season?.fee_amount ?? 0
     const pendingMembers = counts.totalMembers - counts.paidMembers
-    const expectedAmount = counts.totalMembers * feeAmount
-    const collectedAmount = counts.paidMembers * feeAmount
+    const { expectedAmount, collectedAmount } = counts
     const availablePrizePool = expectedAmount - (season?.draft_food_cost ?? 0)
     const prizeDifference = season
       ? availablePrizePool - prizeAllocation(season)

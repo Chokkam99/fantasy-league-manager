@@ -1,4 +1,4 @@
-import { authenticateAdmin } from '@/lib/adminAuth'
+import { authenticateAdmin, logoutAdmin } from '@/lib/adminAuth'
 
 describe('admin authentication client', () => {
   const originalFetch = global.fetch
@@ -10,6 +10,7 @@ describe('admin authentication client', () => {
 
   it('reports a successful commissioner login', async () => {
     global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
       json: jest.fn().mockResolvedValue({ success: true, isAdmin: true }),
     }) as jest.MockedFunction<typeof fetch>
 
@@ -20,6 +21,7 @@ describe('admin authentication client', () => {
 
   it('preserves an actionable server authentication error', async () => {
     global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
       json: jest.fn().mockResolvedValue({
         success: false,
         error: 'Commissioner authentication is not configured.',
@@ -40,5 +42,17 @@ describe('admin authentication client', () => {
       error: 'Authentication failed. Check your connection and try again.',
       success: false,
     })
+  })
+})
+
+
+describe('logout confirmation', () => {
+  it('rejects failed server responses instead of claiming success', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, json: async () => ({ error: 'Try again later' }) })
+    await expect(logoutAdmin()).rejects.toThrow('Try again later')
+  })
+  it('rejects connection failures', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('offline'))
+    await expect(logoutAdmin()).rejects.toThrow('offline')
   })
 })

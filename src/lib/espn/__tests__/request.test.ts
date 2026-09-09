@@ -1,6 +1,7 @@
 import {
   requestESPNData,
   requestESPNOnboardingData,
+  requestESPNSeasonData,
 } from '@/lib/espn/request'
 
 describe('ESPN requests', () => {
@@ -26,7 +27,7 @@ describe('ESPN requests', () => {
     await expect(requestESPNData({
       espn_s2: 'private-cookie',
       league_id: '9876543210',
-      private_league: true,
+      private_league: false,
       swid: '{ABC}',
       year: 2026,
     }, '', { view: 'mSettings,mTeam' })).resolves.toMatchObject({ id: 123 })
@@ -41,6 +42,18 @@ describe('ESPN requests', () => {
         Cookie: 'espn_s2=private-cookie; SWID={ABC};',
       }),
     })
+  })
+
+  it('uses saved private access immediately instead of treating a public partial response as complete', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify({ id: 123456 }) })
+    await requestESPNData({ league_id: '123456', year: 2026, private_league: true, espn_s2: 'cookie', swid: '{owner}' })
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect((global.fetch as jest.Mock).mock.calls[0][1]).toMatchObject({ cache: 'no-store', headers: expect.objectContaining({ Cookie: 'espn_s2=cookie; SWID={owner};' }) })
+  })
+
+  it('rejects a season response if any ESPN view refers to another year', async () => {
+    global.fetch = jest.fn().mockImplementation(async (url: URL) => ({ ok: true, text: async () => JSON.stringify({ id:123456,seasonId:url.searchParams.get('view') === 'mTeam' ? 2025 : 2026 }) }))
+    await expect(requestESPNSeasonData({ league_id:'123456',year:2026 })).rejects.toThrow(/requested league and season/)
   })
 
   it('loads settings and teams as separate ESPN views before merging them', async () => {

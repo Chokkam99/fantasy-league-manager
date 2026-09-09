@@ -19,8 +19,7 @@ export default function SeasonSelector({
   disabled = false,
   showLabel = true,
 }: SeasonSelectorProps) {
-  const currentYear = new Date().getFullYear().toString()
-  const selectedSeason = currentSeason || currentYear
+  const selectedSeason = currentSeason || ''
   const seasonsToShow = [...new Set([...availableSeasons, selectedSeason])]
     .filter(Boolean)
     .sort((a, b) => parseInt(b) - parseInt(a))
@@ -39,9 +38,10 @@ export default function SeasonSelector({
           id="league-season-selector"
           value={selectedSeason}
           onChange={(e) => onSeasonChange(e.target.value)}
-          disabled={disabled}
+          disabled={disabled || !selectedSeason}
           className="min-h-11 w-24 appearance-none rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface py-2 pl-3 pr-8 text-center text-sm font-semibold text-app-text shadow-sm outline-none transition focus:border-app-brand focus:ring-2 focus:ring-app-brand-soft disabled:cursor-not-allowed disabled:bg-app-surface-subtle"
         >
+          {!selectedSeason && <option value="">Loading…</option>}
           {seasonsToShow.map(season => (
             <option
               className="text-center"

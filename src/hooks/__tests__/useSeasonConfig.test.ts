@@ -38,6 +38,19 @@ describe('useSeasonConfig', () => {
     mockSingle.mockResolvedValue({ data: savedSeason, error: null })
   })
 
+  it('ignores an older season response that arrives after the new season', async () => {
+    let resolveOld!: (value: unknown) => void
+    mockSingle.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
+      .mockResolvedValueOnce({ data: { ...savedSeason, season: '2025', fee_amount: 25 }, error: null })
+    const { result, rerender } = renderHook(({ season }) => useSeasonConfig('league-1', season),
+      { initialProps: { season: '2026' } })
+    rerender({ season: '2025' })
+    await waitFor(() => expect(result.current.seasonConfig?.fee_amount).toBe(25))
+    await act(async () => { resolveOld({ data: savedSeason, error: null }) })
+    expect(result.current.seasonConfig?.season).toBe('2025')
+    expect(result.current.seasonConfig?.fee_amount).toBe(25)
+  })
+
   it('loads and normalizes the saved season configuration', async () => {
     const { result } = renderHook(() => useSeasonConfig('league-1', '2026'))
 

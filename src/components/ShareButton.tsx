@@ -5,6 +5,7 @@ import { Toast } from '@/components/ui/Toast'
 
 interface ShareButtonProps {
   leagueId: string
+  display?: 'icon' | 'menu'
   className?: string
 }
 
@@ -32,7 +33,7 @@ async function copyText(value: string) {
   }
 }
 
-export default function ShareButton({ leagueId, className = '' }: ShareButtonProps) {
+export default function ShareButton({ leagueId, display = 'icon', className = '' }: ShareButtonProps) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [tone, setTone] = useState<'danger' | 'success'>('success')
@@ -55,13 +56,13 @@ export default function ShareButton({ leagueId, className = '' }: ShareButtonPro
 
   return (
     <>
-      <button aria-label="Share league" className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface text-app-text transition-colors hover:bg-app-surface-subtle disabled:cursor-wait disabled:opacity-60 ${className}`} disabled={loading} onClick={copyLeagueLink} title="Share league" type="button">
+      <button aria-label="Share league" className={`${display === 'menu' ? 'flex min-h-11 w-full items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-left text-sm font-semibold text-app-text hover:bg-app-surface-subtle' : 'flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface text-app-text hover:bg-app-surface-subtle'} transition-colors disabled:cursor-wait disabled:opacity-60 ${className}`} disabled={loading} onClick={copyLeagueLink} title="Share league" type="button">
         <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path d="M8.7 13.3a3 3 0 1 0 0-2.6m0 2.6 6.6 3.4m-6.6-6 6.6-3.4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
           <circle cx="18" cy="6" r="3" strokeWidth="2" />
           <circle cx="18" cy="18" r="3" strokeWidth="2" />
         </svg>
-        <span className="sr-only">{loading ? 'Copying league link' : 'Share league'}</span>
+        <span className={display === 'menu' ? undefined : 'sr-only'}>{loading ? 'Copying league link' : 'Share league'}</span>
       </button>
       <Toast message={message} onDismiss={() => setMessage(null)} tone={tone} />
     </>

@@ -1,9 +1,10 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
+import { ESPNSeasonImport } from '@/components/league/ESPNSeasonImport'
 import SeasonSetupForm from '@/components/league/SeasonRolloverDialog'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
 import { Button } from '@/components/ui/Button'
@@ -15,9 +16,10 @@ interface SeasonSetupPageProps {
 export default function SeasonSetupPage({ params }: SeasonSetupPageProps) {
   const { id } = use(params)
   const router = useRouter()
+  const [manual, setManual] = useState(false)
   const {
     isLeagueLoading,
-    isViewOnly,
+    isAdmin,
     league,
     leagueLoadError,
     reloadLeague,
@@ -40,7 +42,7 @@ export default function SeasonSetupPage({ params }: SeasonSetupPageProps) {
 
   const overviewUrl = `/league/${id}?season=${league.current_season}`
 
-  if (isViewOnly) {
+  if (!isAdmin || league.archived_at) {
     return (
       <main className="mx-auto max-w-xl px-4 py-12 text-center sm:px-6">
         <div className="rounded-[var(--app-radius-lg)] border border-app-border bg-app-surface p-6 shadow-sm sm:p-8">
@@ -56,13 +58,18 @@ export default function SeasonSetupPage({ params }: SeasonSetupPageProps) {
     )
   }
 
+  if (!manual) return <ESPNSeasonImport leagueId={id} onCancel={() => router.push(overviewUrl)} onManualSetup={() => setManual(true)} onImported={async (season) => {
+    await reloadLeague()
+    router.replace(`/league/${id}/players?season=${season}`)
+  }} />
+
   return (
     <SeasonSetupForm
       leagueId={id}
       onCancel={() => router.push(overviewUrl)}
       onStarted={async (season) => {
         await reloadLeague()
-        router.replace(`/league/${id}?season=${season}`)
+        router.replace(`/league/${id}/players?season=${season}`)
       }}
     />
   )

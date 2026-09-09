@@ -44,7 +44,7 @@ function DuesStatusToggle({
       aria-pressed={isPaid}
       className={`inline-flex min-h-10 w-[5.5rem] items-center justify-center gap-2 rounded-full border px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
         isPaid
-          ? 'border-app-success/25 bg-app-brand-soft text-app-success'
+          ? 'border-app-success/25 bg-app-success-soft text-app-success'
           : player.duesStatus === 'partial'
             ? 'border-app-warning/30 bg-app-warning-soft text-app-warning'
             : 'border-app-border bg-app-surface text-app-text-muted hover:text-app-text'
@@ -89,6 +89,7 @@ function SeasonChips({ seasons }: { seasons: string[] }) {
 }
 
 interface PlayerRosterSectionsProps {
+  duesUnavailable?: boolean
   busyMemberId: string | null
   currentPlayerCount: number
   currentPlayers: PlayerRosterEntry[]
@@ -104,6 +105,7 @@ interface PlayerRosterSectionsProps {
 }
 
 export function PlayerRosterSections({
+  duesUnavailable = false,
   busyMemberId,
   currentPlayerCount,
   currentPlayers,
@@ -139,6 +141,7 @@ export function PlayerRosterSections({
                 (teamName) => teamName !== player.currentTeamName,
               )
               const isBusy = busyMemberId === player.currentMemberId
+              const publicStatus = duesUnavailable ? 'Unavailable' : player.duesStatus === 'paid' ? 'Paid' : player.duesStatus === 'partial' ? 'Partial' : 'Unpaid'
 
               return (
                 <article
@@ -169,6 +172,16 @@ export function PlayerRosterSections({
                     )}
                   </div>
 
+                  {isViewOnly && (
+                    <div className="sm:justify-self-end">
+                      <Badge
+                        aria-label={`Dues for ${player.managerName}: ${publicStatus}`}
+                        variant={duesUnavailable ? 'neutral' : player.duesStatus === 'paid' ? 'success' : player.duesStatus === 'partial' ? 'warning' : 'neutral'}
+                      >
+                        Dues: {publicStatus}
+                      </Badge>
+                    </div>
+                  )}
                   {!isViewOnly && (
                     <div className="flex items-center justify-between gap-2 sm:justify-end">
                       <DuesStatusToggle

@@ -45,6 +45,7 @@ export default function AddPlayerDialog({
       <form className="space-y-4" onSubmit={handleSubmit}>
           <FormField htmlFor="new-manager-name" label="Manager name">
             <TextInput
+              disabled={busy}
               autoComplete="name"
               id="new-manager-name"
               maxLength={80}
@@ -57,6 +58,7 @@ export default function AddPlayerDialog({
           </FormField>
           <FormField htmlFor="new-team-name" label="Team name">
             <TextInput
+              disabled={busy}
               id="new-team-name"
               maxLength={80}
               onChange={(event) => setTeamName(event.target.value)}

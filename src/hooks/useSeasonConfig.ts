@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { LeagueSeason } from '@/lib/supabase'
 import {
   createUnsavedSeasonConfig,
@@ -18,8 +18,12 @@ export function useSeasonConfig(leagueId: string, season: string): UseSeasonConf
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const requestVersion = useRef(0)
   const fetchSeasonConfig = useCallback(async () => {
+    const version = ++requestVersion.current
     if (!leagueId || !season) {
+      setSeasonConfig(null)
+      setError(null)
       setLoading(false)
       return
     }
@@ -33,6 +37,7 @@ export function useSeasonConfig(leagueId: string, season: string): UseSeasonConf
         season,
       )
 
+      if (version !== requestVersion.current) return
       if (fetchError) {
         if (fetchError.code === 'PGRST116') {
           setSeasonConfig(createUnsavedSeasonConfig(leagueId, season))
@@ -49,17 +54,19 @@ export function useSeasonConfig(leagueId: string, season: string): UseSeasonConf
         setError(`No saved configuration exists for the ${season} season.`)
       }
     } catch (err) {
+      if (version !== requestVersion.current) return
       console.error('Error fetching season config:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch season configuration')
       
       setSeasonConfig(createUnsavedSeasonConfig(leagueId, season))
     } finally {
-      setLoading(false)
+      if (version === requestVersion.current) setLoading(false)
     }
   }, [leagueId, season])
 
   useEffect(() => {
     fetchSeasonConfig()
+    return () => { requestVersion.current += 1 }
   }, [fetchSeasonConfig])
 
   return {

@@ -4,7 +4,6 @@ import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import {
   isValidShareSeason,
   isValidShareToken,
-  PLAYER_SHARE_COOKIE,
 } from '@/lib/shareAccess'
 import type { AppSupabaseClient } from '@/lib/supabaseServer'
 
@@ -61,9 +60,9 @@ export async function authorizeLeagueRead(
     return { access: { kind: 'commissioner' }, error: null, status: 200 }
   }
 
-  const token =
-    request.nextUrl.searchParams.get('share') ||
-    request.cookies.get(PLAYER_SHARE_COOKIE)?.value
+  // Normal league URLs are public. Ambient legacy cookies must not restrict them.
+  // Explicit legacy URLs still validate the grant and its season.
+  const token = request.nextUrl.searchParams.get('share')
   if (!token) {
     return { access: { kind: 'public' }, error: null, status: 200 }
   }

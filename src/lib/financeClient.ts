@@ -16,10 +16,11 @@ export function invalidateFinanceCache(leagueId?: string, season?: string) {
     ? `/api/leagues/${encodeURIComponent(leagueId)}/finance?`
     : null
   const seasonFragment = season ? `season=${encodeURIComponent(season)}` : null
-  for (const key of financeCache.keys()) {
+  for (const key of new Set([...financeCache.keys(), ...financeRequests.keys()])) {
     if (leagueFragment && !key.startsWith(leagueFragment)) continue
     if (seasonFragment && !key.includes(seasonFragment)) continue
     financeCache.delete(key)
+    financeRequests.delete(key)
   }
 }
 
@@ -44,6 +45,11 @@ export interface FinancePayment {
   status: 'paid' | 'partial' | 'pending'
 }
 
+// Shared dues omit payment notes, methods, timestamps, and internal payment IDs.
+export type FinanceDues = Pick<FinancePayment,
+  'league_member_id' | 'status' | 'expected_amount_cents' | 'paid_amount_cents'
+>
+
 export interface FinancePayout {
   amount_cents: number
   award_id: string
@@ -64,6 +70,7 @@ export interface FinanceSnapshot {
   awards: FinanceAward[]
   is_commissioner: boolean
   payments?: FinancePayment[]
+  dues?: FinanceDues[]
   player_payout_tracking_ready?: boolean
   player_payouts?: FinancePlayerPayoutStatus[]
   payouts: FinancePayout[]
@@ -93,25 +100,27 @@ export async function loadFinanceSnapshot(
   const pending = financeRequests.get(path)
   if (pending) return pending
 
-  const request = (async () => {
-    const response = await fetch(path)
+  const request: Promise<FinanceSnapshot> = Promise.resolve().then(async () => {
+    const response = await fetch(path, { cache: 'no-store' })
     const { message, payload } = await responseMessage(
       response,
       'Finance details could not be loaded.',
     )
     if (!response.ok) throw new Error(message)
     const snapshot = payload as FinanceSnapshot
-    financeCache.set(path, {
-      expiresAt: Date.now() + FINANCE_CACHE_TTL_MS,
-      value: snapshot,
-    })
+    if (financeRequests.get(path) === request) {
+      financeCache.set(path, {
+        expiresAt: Date.now() + FINANCE_CACHE_TTL_MS,
+        value: snapshot,
+      })
+    }
     return snapshot
-  })()
+  })
   financeRequests.set(path, request)
   try {
     return await request
   } finally {
-    financeRequests.delete(path)
+    if (financeRequests.get(path) === request) financeRequests.delete(path)
   }
 }
 

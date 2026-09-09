@@ -30,7 +30,7 @@ export function PlatformImportActions({
   totalWeeks,
 }: PlatformImportActionsProps) {
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:px-5 sm:py-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Button
           disabled={isBusy}
@@ -53,26 +53,14 @@ export function PlatformImportActions({
         </Button>
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface-subtle p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-        <div>
-          <p className="text-sm font-semibold text-app-text">ESPN team assignments</p>
-          <p className="mt-1 text-xs leading-5 text-app-text-muted">
-            Review these when someone changes team names, rejoins, or is new this season.
-          </p>
-        </div>
-        <Button disabled={isBusy} onClick={onLoadMapping} size="sm" variant="secondary">
+      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1">
+        <button disabled={isBusy} onClick={onLoadMapping} className="min-h-10 text-left text-xs font-semibold text-app-text-muted hover:text-app-brand disabled:opacity-50" type="button">
           {operation === 'mapping-load' ? 'Loading assignments…' : 'Review assignments'}
-        </Button>
+        </button>
+        <button aria-expanded={showManualFallback} className="min-h-10 text-left text-xs font-semibold text-app-text-muted hover:text-app-brand" onClick={onToggleManual} type="button">
+          {showManualFallback ? 'Hide selected-week fallback' : 'Need a different week?'}
+        </button>
       </div>
-
-      <button
-        aria-expanded={showManualFallback}
-        className="mt-4 min-h-11 w-full text-left text-sm font-semibold text-app-text-muted hover:text-app-text"
-        onClick={onToggleManual}
-        type="button"
-      >
-        {showManualFallback ? 'Hide selected-week fallback' : 'Need a different week?'}
-      </button>
 
       {showManualFallback && (
         <div className="rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface-subtle p-3 sm:p-4">

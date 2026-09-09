@@ -35,6 +35,11 @@ export async function GET(request: NextRequest) {
   try {
     const database = createServerSupabaseClient()
     const source: PortfolioDataSource = {
+      async loadPayments(leagueIds, seasons) {
+        return database.from('season_payments')
+          .select('league_id, season, league_member_id, expected_amount_cents, paid_amount_cents, status')
+          .in('league_id', leagueIds).in('season', seasons)
+      },
       async loadLegacyLeagues() {
         return (await database
           .from('leagues')
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
       async loadMembers(leagueIds, seasons) {
         return (await database
           .from('league_members')
-          .select('league_id, season, payment_status, is_active')
+          .select('id, league_id, season, payment_status, is_active')
           .in('league_id', leagueIds)
           .in('season', seasons)) as never
       },

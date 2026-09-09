@@ -1,6 +1,7 @@
 'use client'
 
-import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
 import AddPlayerDialog from '@/components/players/AddPlayerDialog'
@@ -13,6 +14,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Notice } from '@/components/ui/Notice'
 import { PageSkeleton, PageState } from '@/components/ui/PageState'
 import { Toast } from '@/components/ui/Toast'
+import { useReadOnlyRefresh } from '@/hooks/useReadOnlyRefresh'
 import { useSeasonConfig } from '@/hooks/useSeasonConfig'
 import type { DuesStatus } from '@/lib/finance'
 import {
@@ -48,6 +50,7 @@ function PlayersSkeleton() {
 
 export default function PlayersPage({ params }: PlayersPageProps) {
   const { id } = use(params)
+  const router = useRouter()
   const {
     isLeagueLoading,
     isViewOnly,
@@ -112,18 +115,25 @@ export default function PlayersPage({ params }: PlayersPageProps) {
     )
   }, [])
 
-  const fetchPlayers = useCallback(async () => {
+  const requestVersion = useRef(0)
+  const fetchPlayers = useCallback(async (background = false) => {
     if (!selectedSeason) return
 
-    setIsDataLoading(true)
-    setDataError(null)
-    setFinanceError(null)
+    const version = ++requestVersion.current
+    if (!background) {
+      setIsDataLoading(true)
+      setDataError(null)
+    }
+    if (!background) setFinanceError(null)
     try {
       const snapshot = await loadPlayerRoster(id, selectedSeason)
+      if (version !== requestVersion.current) return
+      setDataError(null)
       setMemberships(snapshot.memberships)
       setFinance(snapshot.finance)
       setFinanceError(snapshot.financeError)
     } catch (error) {
+      if (version !== requestVersion.current) return
       console.error('Failed to load players:', error)
       setDataError(
         error && typeof error === 'object' && 'message' in error
@@ -133,14 +143,24 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       setMemberships([])
       setFinance(null)
     } finally {
-      setIsDataLoading(false)
+      if (version === requestVersion.current) setIsDataLoading(false)
     }
   }, [id, selectedSeason])
 
   useEffect(() => {
     const loadTimer = window.setTimeout(() => fetchPlayers(), 0)
-    return () => window.clearTimeout(loadTimer)
+    return () => {
+      window.clearTimeout(loadTimer)
+      requestVersion.current += 1
+    }
   }, [fetchPlayers])
+
+  useReadOnlyRefresh({
+    enabled: isViewOnly,
+    leagueId: id,
+    season: selectedSeason,
+    onRefresh: () => fetchPlayers(true),
+  })
 
   const roster = useMemo(
     () =>
@@ -355,7 +375,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
   if (dataError && memberships.length === 0) {
     return (
       <PageState
-        action={<Button onClick={fetchPlayers}>Try again</Button>}
+        action={<Button onClick={() => void fetchPlayers()}>Try again</Button>}
         description="The roster could not be loaded. Existing players and payment statuses have not been changed."
         eyebrow={`${selectedSeason} season`}
         title="Players couldn’t be loaded"
@@ -369,9 +389,9 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       {dataError && (
         <Notice className="mb-5" tone="danger">{dataError}</Notice>
       )}
-      {financeError && !isViewOnly && (
+      {financeError && (
         <Notice className="mb-5" role="alert" tone="warning">
-          {financeError} Basic paid and unpaid controls remain available.
+          {isViewOnly ? 'Current dues status is temporarily unavailable. It will refresh automatically.' : `${financeError} Basic paid and unpaid controls remain available.`}
         </Notice>
       )}
       <Toast message={notice} onDismiss={() => setNotice(null)} />
@@ -403,6 +423,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
           setAddError(null)
           setIsAddDialogOpen(true)
         }}
+        onImportSeason={() => router.push(`/league/${id}/season-import?season=${selectedSeason}`)}
         onDuesFilterChange={setDuesFilter}
         onSearchChange={setSearch}
         paidPlayers={paidPlayers}
@@ -415,6 +436,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       />
 
       <PlayerRosterSections
+        duesUnavailable={Boolean(financeError)}
         busyMemberId={busyMemberId}
         currentPlayerCount={currentPlayers.length}
         currentPlayers={filteredCurrentPlayers}

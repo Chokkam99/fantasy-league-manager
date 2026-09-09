@@ -94,28 +94,13 @@ describe('server league-read authorization', () => {
     expect(database.from).not.toHaveBeenCalled()
   })
 
-  it('accepts a short league grant from the protected share cookie', async () => {
-    const database = databaseResult({ id: 'link-id', season: '2026' })
-    const shortToken = 'a'.repeat(12)
-
-    await expect(
-      authorizeLeagueRead(
-        request(
-          'http://localhost/league/friends?season=2026',
-          `flm-player-share=${shortToken}`,
-        ),
-        database.database,
-        'friends',
-        '2026',
-      ),
-    ).resolves.toMatchObject({
-      access: { kind: 'share', season: '2026' },
-      status: 200,
-    })
-    expect(database.query.eq).toHaveBeenCalledWith(
-      'token_digest',
-      digestShareToken(shortToken),
-    )
+  it.each(['short', 'a'.repeat(12), 'a'.repeat(43)])('ignores ambient legacy cookies on normal public URLs (%s)', async (cookie) => {
+    const database = databaseResult(null)
+    await expect(authorizeLeagueRead(
+      request('http://localhost/league/another-league?season=2025', `flm-player-share=${cookie}`),
+      database.database, 'another-league', '2025',
+    )).resolves.toMatchObject({ access: { kind: 'public' }, status: 200 })
+    expect(database.from).not.toHaveBeenCalled()
   })
 
   it('authorizes a legacy link only for its exact league and season', async () => {

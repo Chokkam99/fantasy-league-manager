@@ -68,6 +68,17 @@ const finance: FinanceSnapshot = {
 }
 
 describe('league overview view model', () => {
+  it('includes partial payments from shared dues in totals', () => {
+    const model = buildOverviewViewModel({
+      finance: { ...finance, is_commissioner: false, payments: undefined,
+        dues: finance.payments!.map(({ league_member_id, expected_amount_cents, paid_amount_cents, status }) =>
+          ({ league_member_id, expected_amount_cents, paid_amount_cents, status })) },
+      matchups: [], members, scores: [], settings,
+    })
+    expect(model).toMatchObject({ collected: 140, expected: 300, outstanding: 160,
+      paidMembers: 1, partialMembers: 1, pendingMembers: 1 })
+  })
+
   it('uses complete weeks, canonical active-player dues, and a standings preview', () => {
     const model = buildOverviewViewModel({
       finance,

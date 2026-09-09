@@ -7,11 +7,11 @@ ESPN remains the source of truth for rosters, lineups, waivers, trades, and live
 ## Current capabilities
 
 - Multi-league and multi-season dashboards.
-- Complete new-league onboarding for a readable league URL, first-season format, roster, money plan, and optional current-season ESPN prefill.
+- ESPN-first onboarding fills the requested season’s roster and format, with a readable league URL and app-owned money plan.
 - Season-specific players, team names, groups/divisions, schedules, playoff settings, fees, draft costs, and prize rules.
 - New-season setup with last season selected by default, earlier league players available to return, editable team names, new-player entry, and even-team validation.
 - Mobile standings with division-aware seeding, published tiebreakers, and a playoff cut line.
-- Weekly score rankings, matchup cards, manual correction, and current-season ESPN preview/import.
+- Weekly score rankings, matchup cards, manual correction, and ESPN imports for new, existing, and available historical seasons.
 - Dues collection and a reconciled money-in/money-out prize plan.
 - Weekly and final award history.
 - One predictable league-wide share URL for public-safe standings, scores, rules, prize context, and history across seasons.
@@ -72,19 +72,25 @@ This starts a disposable Supabase PostgreSQL 17 container without publishing a h
 
 Follow [the rollout guide](docs/schema/authorization-foundation-rollout.md), [finance/identity design](docs/schema/finance-identity-foundation.md), and [safe archival design](docs/schema/safe-archival.md) before applying any future remote migration.
 
-For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`017`. Existing Production remains current through migration `016`. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
+For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`018`. Existing Production remains current through migration `016`. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
 
 ## Player access
 
-Commissioners use the compact share action to copy the normal `/league/<league-slug>` URL. Anyone with it can view the league's public-safe pages and switch among saved seasons, but cannot open Settings, see individual dues/payment details, or submit commissioner changes.
+Commissioners use the compact share action to copy the normal `/league/<league-slug>` URL. Anyone with it can view the league's public-safe pages and switch among saved seasons, including each player’s paid, partial, or unpaid dues status. Payment notes, methods, and payment timestamps remain commissioner-only; shared viewers cannot open Settings or submit changes. Shared roster, overview, and money pages reload current records every 30 seconds while visible and when viewers return to the tab (with a short debounce). The shared URL is a live view, not a frozen copy.
 
 Previously issued `/s/...` links remain supported for compatibility. Those links store only a SHA-256 digest, establish a protected browser access cookie, and redirect to the normal league URL. The current share action does not create or rotate a database record, and the old cosmetic `readonly=true` convention is not an access mechanism.
+
+## Season planning
+
+Before any completed games are recorded, commissioner navigation promotes Players & dues to the second position and a primary phone tab. Once results arrive, standings and scores take priority; unpaid/partial dues remain visible through a count badge. The final configured week promotes Prizes for season wrap-up. Shared navigation remains stable.
+
+Start next season opens an ESPN import preview using the saved connection. Confirmed roster, divisions, format, and completed results are filled automatically; user input is limited to unresolved identities or missing fields. Players & dues and Scores expose the same flow for existing and available historical seasons. Dues/payment records and app-owned prize budgets stay intact. Manual setup remains a fallback. See the [ESPN-first import review](docs/espn-first-season-import-2026-09-08.md).
 
 ## ESPN score imports
 
 Commissioners configure and test ESPN access from the Scores page. Stored private-league cookies are write-only and used only on the server.
 
-During new-league onboarding, paste a full ESPN league URL or enter its numeric league ID. ESPN can prefill only the selected current season's owners and teams. The server checks the current ESPN team IDs again immediately before atomic creation. Historical seasons, former members, prior team names, and old scores remain manual imports and are never inferred from the current ESPN response.
+During new-league onboarding, paste the ESPN league URL or ID and choose the first tracked season. ESPN supplies confirmed league, roster, division, and format values. Creation continues to the full-season results import. Every ESPN view must identify the requested league and year; unavailable historical data is never replaced with the current roster. Migration `018` adds atomic reconciliation for existing and new seasons and was applied to production on September 8, 2026.
 
 - Automatic import is opt-in.
 - The scheduled route runs Wednesday at 2:00 AM Phoenix (`0 9 * * 3`).
@@ -161,6 +167,6 @@ The GitHub Actions workflow in `.github/workflows/quality.yml` runs the frozen d
 
 ## Deployment state
 
-Production has all 16 forward migrations applied. The accompanying application release adds historical returning-player selection, editable new-season names, even-team enforcement, and compact expandable playoff history to the existing signed-session, public-sharing, score, standings, finance, payout, and archival workflows. The final linked dry run is up to date, and automatic ESPN sync remains intentionally disabled pending a deliberate on-demand validation.
+Production has all 18 forward migrations applied. This release adds ESPN-first season imports, phase-aware navigation, improved season setup, and shared dues freshness/privacy to the redesigned league interface. Migration 018 was applied after a verified backup restore; existing production row fingerprints are unchanged and the linked dry run is up to date. Automatic ESPN sync remains disabled. See the [September 8 release checkpoint](docs/deployment/production-release-2026-09-08.md).
 
 Supabase preview branching is unavailable on the current free plan, so future schema and write behavior should continue to be verified in disposable local PostgreSQL without creating paid resources or pointing a writable preview deployment at Production. See the [completed Production migration checkpoint](docs/deployment/production-migration-2026-08-27.md). The [preview rollout](docs/deployment/preview-rollout.md) and [pre-execution Production rollout](docs/deployment/production-rollout-2026-08-26.md) are retained as historical planning evidence.

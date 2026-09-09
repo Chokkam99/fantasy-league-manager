@@ -1,141 +1,101 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SeasonSetupForm from '../SeasonRolloverDialog'
+import { seasonSetupPreview } from '../../../../test/fixtures/seasonSetup'
+import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
+import { invalidateFinanceCache } from '@/lib/financeClient'
 
+jest.mock('@/lib/leagueReadClient', () => ({ invalidateLeagueReadCache: jest.fn() }))
+jest.mock('@/lib/financeClient', () => ({ invalidateFinanceCache: jest.fn() }))
 const originalFetch = global.fetch
+const response = (payload: unknown, ok = true) => ({ json: async () => payload, ok })
+function setup(onStarted = jest.fn(), preview = seasonSetupPreview) {
+  const fetchMock = jest.fn().mockResolvedValue(response({ preview }))
+  global.fetch = fetchMock
+  const view = render(<SeasonSetupForm leagueId="fixture-league" onCancel={jest.fn()} onStarted={onStarted} />)
+  return { ...view, fetchMock, onStarted, user: userEvent.setup() }
+}
+async function review(user: ReturnType<typeof userEvent.setup>) {
+  for (const step of ['format', 'money', 'review']) await user.click(screen.getByRole('button', { name: `Continue to ${step}` }))
+}
+afterEach(() => { global.fetch = originalFetch; sessionStorage.clear(); jest.clearAllMocks() })
 
-describe('SeasonSetupForm stable returning players', () => {
-  afterEach(() => {
-    global.fetch = originalFetch
-  })
+it('keeps historical identity through renaming, departures, comebacks, and new players', async () => {
+  const { user, fetchMock, onStarted } = setup()
+  await user.click(await screen.findByRole('button', { name: 'Edit Christopher Jones' }))
+  await user.clear(screen.getByLabelText('Manager name')); await user.type(screen.getByLabelText('Manager name'), 'Chris Jones')
+  await user.clear(screen.getByLabelText('Team name')); await user.type(screen.getByLabelText('Team name'), 'New Team')
+  await user.click(screen.getByRole('button', { name: 'Save player' }))
+  await user.click(screen.getByRole('button', { name: 'Remove Jordan Lee from roster' }))
+  expect(screen.getByRole('button', { name: 'Continue to format' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Add Jordan Lee to roster' }))
+  await user.click(screen.getByRole('button', { name: 'Add Past Player to roster' }))
+  expect(screen.getByRole('button', { name: 'Continue to format' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Add new player' }))
+  await user.type(screen.getByLabelText('Manager name'), 'New Manager')
+  await user.type(screen.getByLabelText('Team name'), 'Expansion Team')
+  await user.click(screen.getByRole('button', { name: 'Add to roster' }))
+  await review(user)
+  expect(screen.getByText(/ESPN league 123456 and its securely stored connection carry forward/)).toBeInTheDocument()
+  expect(screen.getByText(/Automatic weekly sync remains on/)).toBeInTheDocument()
+  fetchMock.mockResolvedValueOnce(response({ target_season: '2026' }))
+  await user.click(screen.getByRole('button', { name: 'Create 2026 season' }))
+  await waitFor(() => expect(onStarted).toHaveBeenCalledWith('2026'))
+  const body = JSON.parse(fetchMock.mock.calls.find(call => call[1]?.method === 'POST')![1].body)
+  expect(body.members.map((member: { source_member_id: string | null }) => member.source_member_id)).toEqual([...seasonSetupPreview.members.map(member => member.id), null])
+  expect(body.members[0]).toMatchObject({ manager_name: 'Chris Jones', team_name: 'New Team' })
+  expect(invalidateLeagueReadCache).toHaveBeenCalledWith('fixture-league')
+  expect(invalidateFinanceCache).toHaveBeenCalledWith('fixture-league')
+  expect(sessionStorage.getItem('flm-season-draft:fixture-league:2026')).toBeNull()
+})
 
-  it('submits a renamed returning manager as the same source player', async () => {
-    const user = userEvent.setup()
-    const onStarted = jest.fn()
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        json: async () => ({
-          preview: {
-            can_start: true,
-            espn_connection: {
-              auto_sync_enabled: true,
-              is_configured: true,
-              league_id: '123456',
-            },
-            members: [
-              {
-                id: '123e4567-e89b-42d3-a456-426614174000',
-                last_season: '2025',
-                manager_id: '223e4567-e89b-42d3-a456-426614174000',
-                manager_name: 'Christopher Jones',
-                selected_by_default: true,
-                team_name: 'Old Team',
-              },
-              {
-                id: '123e4567-e89b-42d3-a456-426614174001',
-                last_season: '2025',
-                manager_id: '223e4567-e89b-42d3-a456-426614174001',
-                manager_name: 'Jordan Lee',
-                selected_by_default: true,
-                team_name: 'Second Team',
-              },
-              {
-                id: '123e4567-e89b-42d3-a456-426614174002',
-                last_season: '2023',
-                manager_id: '223e4567-e89b-42d3-a456-426614174002',
-                manager_name: 'Past Player',
-                selected_by_default: false,
-                team_name: 'Past Team',
-              },
-            ],
-            source_configuration: {
-              divisions: null,
-              draft_food_cost: 0,
-              fee_amount: 0,
-              playoff_spots: 2,
-              playoff_start_week: 15,
-              prize_structure: {},
-              total_weeks: 17,
-              weekly_prize_amount: 0,
-            },
-            source_season: '2025',
-            target_exists: false,
-            target_season: '2026',
-          },
-        }),
-        ok: true,
-      })
-      .mockResolvedValueOnce({
-        json: async () => ({ target_season: '2026' }),
-        ok: true,
-      })
-    global.fetch = fetchMock as unknown as typeof fetch
+it('finds historical players when adding a newcomer and restores a saved draft', async () => {
+  const { user, unmount } = setup()
+  await user.click(await screen.findByRole('button', { name: 'Add new player' }))
+  await user.type(screen.getByLabelText('Manager name'), 'past player')
+  expect(screen.getByRole('button', { name: 'Add to roster' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Bring back Past Player' }))
+  await user.click(screen.getByRole('button', { name: 'Remove Jordan Lee from roster' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to format' }))
+  unmount()
+  setup()
+  expect(await screen.findByText(/Draft restored/)).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Shape the season' })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: '1. Players' }))
+  expect(screen.getByRole('button', { name: 'Remove Past Player from roster' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Add Jordan Lee to roster' })).toBeInTheDocument()
+})
 
-    render(
-      <SeasonSetupForm
-        leagueId="fixture-league"
-        onCancel={jest.fn()}
-        onStarted={onStarted}
-      />,
-    )
+it('preserves a failed creation for retry and never resubmits after a navigation failure', async () => {
+  const onStarted = jest.fn().mockRejectedValueOnce(new Error('Navigation failed')).mockResolvedValue(undefined)
+  const { user, fetchMock } = setup(onStarted)
+  await screen.findByRole('heading', { name: /Who’s playing/ })
+  await review(user)
+  fetchMock.mockResolvedValueOnce(response({ error: 'Temporary failure' }, false)).mockResolvedValueOnce(response({ target_season: '2026' }))
+  await user.click(screen.getByRole('button', { name: 'Create 2026 season' }))
+  expect(await screen.findByText('Temporary failure')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Create 2026 season' }))
+  expect(await screen.findByText(/The season was created, but could not be opened/)).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Open players & dues' }))
+  expect(onStarted).toHaveBeenCalledTimes(2)
+  expect(fetchMock.mock.calls.filter(call => call[1]?.method === 'POST')).toHaveLength(2)
+})
 
-    const managerInput = (await screen.findAllByLabelText('Manager name'))[0]
-    expect(
-      screen.getByText(/ESPN league 123456 and its securely stored connection carry forward/i),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/automatic weekly sync remains on/i)).toBeInTheDocument()
-    await user.clear(managerInput)
-    await user.type(managerInput, 'Chris Jones')
-    await user.clear(screen.getAllByLabelText('Team name')[0])
-    await user.type(screen.getAllByLabelText('Team name')[0], 'New Team')
-    const pastPlayer = screen.getByRole('checkbox', { name: /Past Player/ })
-    expect(pastPlayer).not.toBeChecked()
-    expect(screen.getByText('Last played 2023')).toBeInTheDocument()
-    await user.click(pastPlayer)
-    expect(
-      screen.getByRole('button', { name: 'Review and start 2026' }),
-    ).toBeDisabled()
-    expect(screen.getByText(/require an even number of teams/)).toBeInTheDocument()
+it('allows roster work before fixing copied playoff settings and exposes existing seasons safely', async () => {
+  const { user, unmount } = setup(jest.fn(), { ...seasonSetupPreview, source_configuration: { ...seasonSetupPreview.source_configuration, playoff_spots: 6 } })
+  await user.click(await screen.findByRole('button', { name: 'Continue to format' }))
+  expect(screen.getByRole('button', { name: 'Continue to money' })).toBeDisabled()
+  unmount()
+  setup(jest.fn(), { ...seasonSetupPreview, can_start: false, target_exists: true })
+  expect(await screen.findByRole('heading', { name: '2026 already exists' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Create 2026 season' })).not.toBeInTheDocument()
+})
 
-    await user.click(screen.getByRole('button', { name: 'Add new player' }))
-    const managerInputs = screen.getAllByLabelText('Manager name')
-    const teamInputs = screen.getAllByLabelText('Team name')
-    await user.type(managerInputs[managerInputs.length - 1], 'New Manager')
-    await user.type(teamInputs[teamInputs.length - 1], 'Expansion Team')
-    await user.click(
-      screen.getByRole('button', { name: 'Review and start 2026' }),
-    )
-    await user.click(screen.getByRole('button', { name: 'Start 2026' }))
-
-    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('2026'))
-    const postOptions = fetchMock.mock.calls[1][1] as RequestInit
-    const body = JSON.parse(String(postOptions.body))
-    expect(body.members).toEqual([
-      {
-        division: null,
-        manager_name: 'Chris Jones',
-        source_member_id: '123e4567-e89b-42d3-a456-426614174000',
-        team_name: 'New Team',
-      },
-      {
-        division: null,
-        manager_name: 'Jordan Lee',
-        source_member_id: '123e4567-e89b-42d3-a456-426614174001',
-        team_name: 'Second Team',
-      },
-      {
-        division: null,
-        manager_name: 'Past Player',
-        source_member_id: '123e4567-e89b-42d3-a456-426614174002',
-        team_name: 'Past Team',
-      },
-      {
-        division: null,
-        manager_name: 'New Manager',
-        source_member_id: null,
-        team_name: 'Expansion Team',
-      },
-    ])
-  })
+it('keeps inactive last-season players in the correct directory group', async () => {
+  const { user } = setup(jest.fn(), { ...seasonSetupPreview, members: seasonSetupPreview.members.map(member => ({ ...member, last_season: '2025' })) })
+  await screen.findByRole('heading', { name: /Who’s playing/ })
+  await user.selectOptions(screen.getByLabelText('Returning player group'), 'last')
+  expect(screen.getByRole('button', { name: 'Add Past Player to roster' })).toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Returning player group'), 'earlier')
+  expect(screen.queryByRole('button', { name: 'Add Past Player to roster' })).not.toBeInTheDocument()
 })

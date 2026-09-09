@@ -105,14 +105,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .eq('league_id', leagueId)
         .eq('season', season),
       isCommissioner
-        ? database
-            .from('season_payments')
-            .select(
-              'id, league_member_id, expected_amount_cents, paid_amount_cents, status, payment_method, notes, paid_at',
-            )
-            .eq('league_id', leagueId)
-            .eq('season', season)
-        : Promise.resolve({ data: null, error: null }),
+        ? database.from('season_payments')
+            .select('id, league_member_id, expected_amount_cents, paid_amount_cents, status, payment_method, notes, paid_at')
+            .eq('league_id', leagueId).eq('season', season)
+        : database.from('season_payments')
+            .select('league_member_id, expected_amount_cents, paid_amount_cents, status')
+            .eq('league_id', leagueId).eq('season', season),
     ])
 
     const financeError =
@@ -134,11 +132,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
       throw playerPayoutResult.error
     }
 
-    const payments = isCommissioner ? paymentResult.data || [] : undefined
+    const paymentRecords = paymentResult.data || []
+    const payments = isCommissioner ? paymentRecords : undefined
     return NextResponse.json({
       awards: awardResult.data || [],
       is_commissioner: isCommissioner,
       payments,
+      // Explicitly project shared fields even if a data source returns extras.
+      dues: paymentRecords.map((payment) => ({
+        league_member_id: payment.league_member_id,
+        expected_amount_cents: payment.expected_amount_cents,
+        paid_amount_cents: payment.paid_amount_cents,
+        status: payment.status,
+      })),
       player_payout_tracking_ready: playerPayoutTrackingReady,
       player_payouts: playerPayoutTrackingReady
         ? playerPayoutResult.data || []
@@ -146,12 +152,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       payouts: payoutResult.data || [],
       schema_ready: true,
       success: true,
-      summary: isCommissioner
-        ? summarizeFinance({
-            payments: payments || [],
-            payouts: payoutResult.data || [],
-          })
-        : null,
+      summary: summarizeFinance({
+        payments: paymentRecords,
+        payouts: payoutResult.data || [],
+      }),
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {

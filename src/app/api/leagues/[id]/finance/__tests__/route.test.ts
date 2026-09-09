@@ -185,4 +185,41 @@ describe('finance route authorization', () => {
       success: false,
     })
   })
+
+  it.each([false, true])('returns canonical dues with private details restricted (commissioner: %s)', async (commissioner) => {
+    const payment = {
+      id: 'private-payment-id', league_member_id: memberId,
+      expected_amount_cents: 10000, paid_amount_cents: 4000, status: 'partial',
+      notes: 'Private payment note', payment_method: 'Private method', paid_at: null,
+    }
+    // Return extras even for the public select to verify the response projection.
+    const paymentsQuery = resultQuery([payment])
+    const database = {
+      from: jest.fn((table: string) => table === 'league_seasons'
+        ? resultQuery({ season: '2026' })
+        : table === 'season_payments' ? paymentsQuery : resultQuery([])),
+    }
+    mockedCreateServerClient.mockReturnValue(database as never)
+
+    const response = await GET(getRequest(commissioner), context)
+    expect(response.status).toBe(200)
+    const payload = await response.json()
+    expect(payload.dues).toEqual([{
+      league_member_id: memberId, expected_amount_cents: 10000,
+      paid_amount_cents: 4000, status: 'partial',
+    }])
+    expect(payload.summary).toMatchObject({
+      collected_cents: 4000, expected_cents: 10000, outstanding_cents: 6000,
+    })
+    if (commissioner) {
+      expect(payload.payments).toEqual([payment])
+    } else {
+      expect(payload).not.toHaveProperty('payments')
+      expect(JSON.stringify(payload)).not.toContain('Private')
+      expect(JSON.stringify(payload)).not.toContain('private-payment-id')
+      expect(paymentsQuery.select).toHaveBeenCalledWith(
+        'league_member_id, expected_amount_cents, paid_amount_cents, status',
+      )
+    }
+  })
 })

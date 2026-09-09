@@ -27,6 +27,18 @@ const settings = {
 }
 
 describe('prize page view model', () => {
+  it('counts shared paid and partial dues using canonical records', () => {
+    const model = buildPrizeViewModel({ members, scores: [], settings,
+      finance: { awards: [], payouts: [], success: true, schema_ready: true,
+        is_commissioner: false, dues: [
+          { league_member_id: 'member-one', status: 'paid', expected_amount_cents: 10000, paid_amount_cents: 10000 },
+          { league_member_id: 'member-two', status: 'partial', expected_amount_cents: 10000, paid_amount_cents: 4000 },
+        ], summary: { collected_cents: 14000, expected_cents: 20000, outstanding_cents: 6000,
+          paid_payouts_cents: 0, pending_payouts_cents: 0, planned_payouts_cents: 0, projected_balance_cents: 14000 } },
+    })
+    expect(model).toMatchObject({ collectedFees: 140, outstandingFees: 60, paidPlayers: 1, partialPlayers: 1 })
+  })
+
   it('falls back to configured dues and saved winners before finance migration', () => {
     const model = buildPrizeViewModel({
       finance: {

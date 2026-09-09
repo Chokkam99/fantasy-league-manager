@@ -65,7 +65,7 @@ export default function PaymentDetailsDialog({
       busy={busy}
       className="max-w-lg"
       closeLabel="Close payment details"
-      description={<>{playerName} owes ${expected} for this season. Use this only for a partial payment or an optional note.</>}
+      description={<>{playerName}’s season dues are ${expected}. Use this only for a partial payment or an optional note.</>}
       initialFocusRef={statusRef}
       onClose={onClose}
       open={open}
@@ -75,6 +75,7 @@ export default function PaymentDetailsDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField htmlFor="payment-status" label="Status">
               <Select
+                disabled={busy}
                 id="payment-status"
                 onChange={(event) => {
                   const nextStatus = event.target.value as DuesStatus
@@ -95,7 +96,7 @@ export default function PaymentDetailsDialog({
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted">$</span>
                 <TextInput
                   className="pl-7"
-                  disabled={status === 'pending'}
+                  disabled={busy || status === 'pending'}
                   id="payment-amount"
                   inputMode="decimal"
                   min="0"
@@ -110,6 +111,7 @@ export default function PaymentDetailsDialog({
           </div>
           <FormField htmlFor="payment-method" label="Method" optional>
             <TextInput
+              disabled={busy}
               id="payment-method"
               maxLength={40}
               onChange={(event) => setMethod(event.target.value)}
@@ -119,6 +121,7 @@ export default function PaymentDetailsDialog({
           </FormField>
           <FormField htmlFor="payment-notes" label="Note" optional>
             <Textarea
+              disabled={busy}
               id="payment-notes"
               maxLength={500}
               onChange={(event) => setNotes(event.target.value)}

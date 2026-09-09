@@ -1,9 +1,11 @@
+import { isMissingFinanceSchema } from '@/lib/finance'
 import { isMissingLifecycleSchema } from '@/lib/lifecycle'
 import { hasConfiguredLeagueSeason } from '@/lib/leagueSeason'
 import {
   buildPortfolioLeagues,
   type PortfolioLeague,
   type PortfolioMemberRow,
+  type PortfolioPaymentRow,
   type PortfolioScoreRow,
 } from '@/lib/portfolio'
 import {
@@ -28,6 +30,7 @@ interface PortfolioQueryResult<T> {
 }
 
 export interface PortfolioDataSource {
+  loadPayments?(leagueIds: string[], seasons: string[]): Promise<PortfolioQueryResult<PortfolioPaymentRow>>
   loadLegacyLeagues(): Promise<PortfolioQueryResult<League>>
   loadLifecycleLeagues(): Promise<PortfolioQueryResult<League>>
   loadMembers(
@@ -45,6 +48,11 @@ export interface PortfolioDataSource {
 }
 
 export const supabasePortfolioDataSource: PortfolioDataSource = {
+  async loadPayments(leagueIds, seasons) {
+    return supabase.from('season_payments')
+      .select('league_id, season, league_member_id, expected_amount_cents, paid_amount_cents, status')
+      .in('league_id', leagueIds).in('season', seasons)
+  },
   async loadLegacyLeagues() {
     const result = await supabase
       .from('leagues')
@@ -62,7 +70,7 @@ export const supabasePortfolioDataSource: PortfolioDataSource = {
   async loadMembers(leagueIds, seasons) {
     return supabase
       .from('league_members')
-      .select('league_id, season, payment_status, is_active')
+      .select('id, league_id, season, payment_status, is_active')
       .in('league_id', leagueIds)
       .in('season', seasons)
   },
@@ -100,17 +108,20 @@ export async function loadPortfolioLeagues(
 
   const leagueIds = leagues.map((league) => league.id)
   const currentSeasons = [...new Set(leagues.map((league) => league.current_season))]
-  const [seasonsResult, membersResult, scoresResult] = await Promise.all([
+  const [seasonsResult, membersResult, scoresResult, paymentsResult] = await Promise.all([
     source.loadSeasons(leagueIds, currentSeasons),
     source.loadMembers(leagueIds, currentSeasons),
     source.loadScores(leagueIds, currentSeasons),
+    source.loadPayments?.(leagueIds, currentSeasons) ?? Promise.resolve({ data: [], error: null }),
   ])
   const queryError =
     seasonsResult.error || membersResult.error || scoresResult.error
   if (queryError) throw queryError
+  if (paymentsResult.error && !isMissingFinanceSchema(paymentsResult.error)) throw paymentsResult.error
 
   return buildPortfolioLeagues({
     leagues,
+    payments: paymentsResult.data || [],
     members: membersResult.data || [],
     scores: scoresResult.data || [],
     seasons: (seasonsResult.data || []).map(normalizeSeasonConfig),

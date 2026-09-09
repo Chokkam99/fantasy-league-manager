@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import NewLeagueSetup from '@/components/NewLeagueSetup'
+import { espnSeasonData } from '../../../test/fixtures/espnSeason'
+import { parseESPNSeasonSnapshot } from '@/lib/espn/seasonSnapshot'
 
 const mockPush = jest.fn()
 
@@ -52,11 +54,37 @@ describe('NewLeagueSetup', () => {
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/league/sunday-legends?season=')))
   })
 
-  it('explains that ESPN only prefills the current season', () => {
+  it('makes ESPN the default source for the requested season', () => {
     render(<NewLeagueSetup />)
     expect(screen.getByText(/first tracked season together/i)).toBeInTheDocument()
     expect(screen.getByText(/begin with a past season and add the next season separately/i)).toHaveClass('sr-only')
-    expect(screen.getByText(/does not provide this app with reliable prior-season rosters or scores/i)).toBeInTheDocument()
+    expect(screen.getByText(/Confirmed owners, teams, divisions, and format are filled automatically/i)).toBeInTheDocument()
+  })
+
+  it('fills confirmed ESPN data and requires confirmation only for an uncertain owner', async () => {
+    const user = userEvent.setup()
+    const imported = parseESPNSeasonSnapshot(espnSeasonData, '2026', [], {}, '123456')
+    imported.teams[0].status = 'unconfirmed'
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        season_snapshot: imported,
+        snapshot: { league_name: imported.league_name, teams: imported.teams },
+      }),
+    })
+    render(<NewLeagueSetup />)
+    await user.type(screen.getByLabelText('ESPN league URL or ID'), '123456')
+    await user.click(screen.getByRole('button', { name: 'Import ESPN season' }))
+    await waitFor(() => expect(screen.getByLabelText('League name')).toHaveValue('ESPN Friends'))
+    expect(screen.getByLabelText('Playoff teams')).toHaveValue(2)
+    expect(screen.getByLabelText('Playoff teams')).toHaveAttribute('readonly')
+    expect(screen.getAllByLabelText('Manager name')[1]).toHaveAttribute('readonly')
+    expect(screen.getByRole('button', { name: 'Add player' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Create league' })).toBeDisabled()
+    expect(screen.getAllByLabelText('I confirmed this player’s identity')).toHaveLength(1)
+    await user.click(screen.getByLabelText('I confirmed this player’s identity'))
+    await user.click(screen.getByRole('button', { name: 'Create league' }))
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/league/sunday-legends/season-import?season=')))
   })
 
   it('accepts a full ESPN team URL and previews only its league ID', async () => {
@@ -81,7 +109,7 @@ describe('NewLeagueSetup', () => {
       'https://fantasy.espn.com/football/team?leagueId=9876543210&teamId=1',
     )
     expect(screen.getByText('League ID 9876543210 detected')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Pull current teams' }))
+    await user.click(screen.getByRole('button', { name: 'Import ESPN season' }))
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
       '/api/leagues/espn-preview',

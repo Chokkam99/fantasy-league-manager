@@ -7,6 +7,8 @@ import ShareButton from '@/components/ShareButton'
 import { Button } from '@/components/ui/Button'
 
 interface LeagueActionsMenuProps {
+  duesRemaining?: number
+  seasonImportUrl?: string
   isAdmin: boolean
   onAuthChange: (isAdmin: boolean) => void
   playersUrl: string
@@ -18,6 +20,8 @@ interface LeagueActionsMenuProps {
 
 export default function LeagueActionsMenu({
   isAdmin,
+  duesRemaining = 0,
+  seasonImportUrl,
   onAuthChange,
   playersUrl,
   rulesUrl,
@@ -33,12 +37,13 @@ export default function LeagueActionsMenu({
     if (!isOpen) return
 
     const closeOnOutsideClick = (event: MouseEvent) => {
+      if (document.querySelector('[role="dialog"]')) return
       if (!menuRef.current?.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !document.querySelector('[role="dialog"]')) {
         setIsOpen(false)
         triggerRef.current?.focus()
       }
@@ -58,7 +63,7 @@ export default function LeagueActionsMenu({
       <Button
         aria-controls="mobile-league-actions"
         aria-expanded={isOpen}
-        aria-haspopup="true"
+        aria-describedby={duesRemaining > 0 ? 'season-dues-summary' : undefined}
         aria-label="Open league actions"
         onClick={() => setIsOpen((open) => !open)}
         ref={triggerRef}
@@ -75,16 +80,17 @@ export default function LeagueActionsMenu({
           <circle cx="12" cy="12" r="1.75" />
           <circle cx="19" cy="12" r="1.75" />
         </svg>
+        {isAdmin && duesRemaining > 0 && <span aria-hidden="true" className="absolute right-0 top-0 rounded-full bg-app-warning-soft px-1.5 text-[10px] font-bold text-app-warning md:hidden">{duesRemaining}</span>}
       </Button>
 
       {isOpen && (
         <div
           aria-label="League actions"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 rounded-[var(--app-radius-md)] border border-app-border bg-app-surface p-2 shadow-[var(--app-shadow-md)]"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[calc(100dvh-6rem)] w-60 overflow-y-auto rounded-[var(--app-radius-md)] border border-app-border bg-app-surface p-2 shadow-[var(--app-shadow-md)]"
           id="mobile-league-actions"
         >
           <Link
-            className="flex min-h-11 items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle sm:hidden"
+            className="flex min-h-11 items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle md:hidden"
             href="/"
             onClick={() => setIsOpen(false)}
           >
@@ -94,7 +100,7 @@ export default function LeagueActionsMenu({
             All leagues
           </Link>
           <Link
-            className="flex min-h-11 items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle sm:hidden"
+            className="flex min-h-11 items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle md:hidden"
             href={playersUrl}
             onClick={() => setIsOpen(false)}
           >
@@ -103,9 +109,10 @@ export default function LeagueActionsMenu({
               <path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.5M17 14a5 5 0 0 1 3.5 4.8" />
             </svg>
             {isAdmin ? 'Players and dues' : 'League roster'}
+            {isAdmin && duesRemaining > 0 && <span className="ml-auto rounded-full bg-app-warning-soft px-2 text-xs text-app-warning" aria-hidden="true">{duesRemaining}</span>}
           </Link>
           <Link
-            className="flex min-h-11 items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle sm:hidden"
+            className="flex min-h-11 items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle md:hidden"
             href={rulesUrl}
             onClick={() => setIsOpen(false)}
           >
@@ -116,6 +123,7 @@ export default function LeagueActionsMenu({
           </Link>
           {isAdmin && (
             <div className="mt-1 border-t border-app-border pt-1">
+              {seasonImportUrl && <Link className="flex min-h-11 items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-sm font-semibold text-app-text hover:bg-app-surface-subtle" href={seasonImportUrl} onClick={() => setIsOpen(false)}><svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" /></svg>Import season from ESPN</Link>}
               <Link
                 className="flex min-h-11 w-full items-center gap-3 rounded-[var(--app-radius-sm)] px-3 text-left text-sm font-semibold text-app-text hover:bg-app-surface-subtle"
                 href={seasonSetupUrl}
@@ -141,7 +149,8 @@ export default function LeagueActionsMenu({
           )}
           {isAdmin && (
             <ShareButton
-              className="border-0 shadow-none sm:hidden"
+              display="menu"
+              className="sm:hidden"
               leagueId={leagueId}
             />
           )}

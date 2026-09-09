@@ -7,6 +7,7 @@ import { useLeagueShell } from '@/components/league/LeagueShellContext'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Notice } from '@/components/ui/Notice'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
@@ -141,14 +142,7 @@ export default function LeagueSettingsPage({ params }: SettingsPageProps) {
 
   return (
     <main className="mx-auto min-w-0 max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-app-brand">Commissioner</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text sm:text-3xl">League settings</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-app-text-muted">Archive old seasons or the entire league without deleting scores, standings, players, dues, or payouts.</p>
-        </div>
-        <Button onClick={() => router.push(overviewUrl)} variant="secondary">Back to league</Button>
-      </div>
+      <PageHeader eyebrow="Commissioner / League management" title="League settings" description="Keep your league organized. Archive past seasons while preserving every result." action={<Button onClick={() => router.push(overviewUrl)} variant="secondary">Back to league</Button>} />
 
       {error && <Notice className="mt-5" tone="danger">{error}</Notice>}
       <Toast message={notice} onDismiss={() => setNotice(null)} />

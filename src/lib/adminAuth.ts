@@ -1,3 +1,14 @@
+import { invalidateFinanceCache } from '@/lib/financeClient'
+import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
+
+export const AUTH_CHANGE_STORAGE_KEY = 'flm-auth-change'
+
+function clearAuthData() {
+  invalidateFinanceCache()
+  invalidateLeagueReadCache()
+  try { localStorage.setItem(AUTH_CHANGE_STORAGE_KEY, String(Date.now())) } catch { /* Storage is optional. */ }
+}
+
 /**
  * Admin Authentication - Server-side validation
  * Password never exposed to client
@@ -23,7 +34,10 @@ export async function authenticateAdmin(
     });
 
     const data = await response.json()
-    if (data.success && data.isAdmin) return { success: true }
+    if (response.ok && data.success && data.isAdmin) {
+      clearAuthData()
+      return { success: true }
+    }
 
     return {
       error: typeof data.error === 'string' ? data.error : 'Unable to sign in.',
@@ -39,15 +53,16 @@ export async function authenticateAdmin(
 }
 
 export async function logoutAdmin(): Promise<void> {
-  try {
-    await fetch('/api/admin/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'logout' }),
-    });
-  } catch (error) {
-    console.error('Logout failed:', error);
+  const response = await fetch('/api/admin/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'logout' }),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data?.success) {
+    throw new Error(data?.error || 'Could not log out. Please try again.')
   }
+  clearAuthData()
 }
 
 export async function checkAdminStatus(): Promise<boolean> {
@@ -59,7 +74,7 @@ export async function checkAdminStatus(): Promise<boolean> {
     });
 
     const data = await response.json();
-    return data.success && data.isAdmin;
+    return Boolean(response.ok && data.success && data.isAdmin);
   } catch (error) {
     console.error('Status check failed:', error);
     return false;

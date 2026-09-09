@@ -41,6 +41,19 @@ function season(overrides: Partial<LeagueSeason> = {}): LeagueSeason {
 }
 
 describe('portfolio view model', () => {
+  it('includes canonical partial dues and ignores inactive and other-season payments', () => {
+    const [result] = buildPortfolioLeagues({ leagues: [league()], seasons: [season()], scores: [],
+      members: [{ id: 'active', is_active: true, league_id: 'league-one', season: '2026', payment_status: 'pending' },
+        { id: 'inactive', is_active: false, league_id: 'league-one', season: '2026', payment_status: 'paid' }],
+      payments: [
+        { league_id: 'league-one', season: '2026', league_member_id: 'active', expected_amount_cents: 10000, paid_amount_cents: 4000, status: 'partial' },
+        { league_id: 'league-one', season: '2025', league_member_id: 'active', expected_amount_cents: 10000, paid_amount_cents: 10000, status: 'paid' },
+        { league_id: 'league-one', season: '2026', league_member_id: 'inactive', expected_amount_cents: 10000, paid_amount_cents: 10000, status: 'paid' },
+      ],
+    })
+    expect(result).toMatchObject({ collectedAmount: 40, expectedAmount: 100, paidMembers: 0, pendingMembers: 1 })
+  })
+
   it('indexes current-season dues, scores, and allocation without mixing history', () => {
     const result = buildPortfolioLeagues({
       leagues: [league()],

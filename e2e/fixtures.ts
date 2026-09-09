@@ -254,6 +254,7 @@ function financeSnapshot(isCommissioner: boolean) {
     awards,
     is_commissioner: isCommissioner,
     payments: isCommissioner ? payments : undefined,
+    dues: payments.map(({ league_member_id, status, expected_amount_cents, paid_amount_cents }) => ({ league_member_id, status, expected_amount_cents, paid_amount_cents })),
     player_payout_tracking_ready: true,
     player_payouts: [],
     payouts: [
@@ -298,6 +299,11 @@ export async function installLeagueFixtures(
   page: Page,
   { commissioner }: { commissioner: boolean },
 ) {
+  const roster = members.map((member) => ({ ...member }))
+  const finance = financeSnapshot(commissioner)
+  // Legacy membership status cannot represent partial payments.
+  roster[3].payment_status = 'pending'
+
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -342,11 +348,15 @@ export async function installLeagueFixtures(
     const url = new URL(route.request().url())
     const resource = url.searchParams.get('resource')
     const selectedWeek = Number(url.searchParams.get('week'))
-    const activeMembers = members.slice(0, 4)
+    const requestedSeason = url.searchParams.get('season') || league.current_season
+    const activeMembers = roster.filter(member => member.is_active && member.season === requestedSeason)
+    const seasonScores = scores.filter(score => score.season === requestedSeason)
+    const seasonMatchups = matchups.filter(matchup => matchup.season === requestedSeason)
     const payloadByResource: Record<string, unknown> = {
+      navigation: { success: true, season: requestedSeason, phase: 'in-season', duesRemaining: 1, playerCount: activeMembers.length },
       history: {
         matchups,
-        members,
+        members: roster,
         scores,
         seasons: [
           season,
@@ -362,22 +372,22 @@ export async function installLeagueFixtures(
         success: true,
       },
       memberships: {
-        data: commissioner ? members : activeMembers,
+        data: roster,
         success: true,
       },
       overview: {
-        matchups,
+        matchups: seasonMatchups,
         members: activeMembers,
-        scores,
+        scores: seasonScores,
         success: true,
       },
-      prizes: { members: activeMembers, scores, success: true },
+      prizes: { members: activeMembers, scores: seasonScores, success: true },
       scores: {
         latest: [{ week_number: 2 }],
         members: activeMembers,
         success: true,
       },
-      season: { data: season, success: true },
+      season: { data: { ...season, season: requestedSeason }, success: true },
       shell: {
         league,
         seasons: [
@@ -387,22 +397,27 @@ export async function installLeagueFixtures(
         success: true,
       },
       standings: {
-        matchups,
+        matchups: seasonMatchups,
         members: activeMembers,
-        scores,
+        scores: seasonScores,
         success: true,
       },
       week: {
-        matchups: matchups.filter((matchup) => matchup.week_number === selectedWeek),
-        scores: scores.filter((score) => score.week_number === selectedWeek),
+        matchups: seasonMatchups.filter((matchup) => matchup.week_number === selectedWeek),
+        scores: seasonScores.filter((score) => score.week_number === selectedWeek),
         success: true,
       },
     }
     await fulfillJson(route, payloadByResource[resource || ''] || { error: 'Unknown view.' }, resource && payloadByResource[resource] ? 200 : 400)
   })
 
+  await page.route(`**/api/leagues/${league.id}/seasons/espn**`, async route => {
+    const selected = new URL(route.request().url()).searchParams.get('season') || '2027'
+    await fulfillJson(route, { success: true, season: selected, current_season: '2026', exists: selected !== '2027', connection: { is_configured: false, league_id: '', private_league: false, has_credentials: false } })
+  })
+
   await page.route(`**/api/leagues/${league.id}/finance**`, async (route) => {
-    await fulfillJson(route, financeSnapshot(commissioner))
+    await fulfillJson(route, finance)
   })
 
   await page.route(`**/api/leagues/${league.id}/sharing**`, async (route) => {
@@ -490,7 +505,7 @@ export async function installLeagueFixtures(
     }
     if (table === 'league_members') {
       const exactSeason = url.searchParams.get('season')?.startsWith('eq.')
-      await fulfillJson(route, exactSeason ? members.slice(0, 4) : members)
+      await fulfillJson(route, exactSeason ? roster.slice(0, 4) : roster)
       return
     }
     if (table === 'weekly_scores') {
@@ -525,4 +540,5 @@ export async function installLeagueFixtures(
 
     await fulfillJson(route, [])
   })
+  return { finance, roster, league: { ...league } }
 }

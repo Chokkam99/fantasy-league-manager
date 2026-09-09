@@ -168,7 +168,7 @@ export function buildPrizeViewModel({
     finalRules,
     outstandingFees,
     paidPlayers: usesCanonicalAwards
-      ? finance?.payments?.filter((payment) => payment.status === 'paid').length || 0
+      ? (finance?.payments || finance?.dues)?.filter((payment) => payment.status === 'paid').length || 0
       : prizePlan.paidPlayers,
     paidPayoutAmount:
       (finance?.payouts || [])
@@ -177,7 +177,7 @@ export function buildPrizeViewModel({
     playerPayoutTrackingReady:
       finance?.player_payout_tracking_ready === true,
     partialPlayers: usesCanonicalAwards
-      ? finance?.payments?.filter((payment) => payment.status === 'partial').length || 0
+      ? (finance?.payments || finance?.dues)?.filter((payment) => payment.status === 'partial').length || 0
       : members.filter((member) => member.payment_status === 'partial').length,
     playerWinnings,
     prizePlan,

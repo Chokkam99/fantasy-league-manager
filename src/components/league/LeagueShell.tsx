@@ -2,26 +2,23 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useSeasonNavigation } from '@/hooks/useSeasonNavigation'
+import { navigationOrder, mobileNavigation } from '@/lib/seasonNavigation'
 import SeasonSelector from '@/components/SeasonSelector'
 import ShareButton from '@/components/ShareButton'
 import {
   hasConfiguredLeagueSeason,
   type League,
 } from '@/lib/supabase'
-import { checkAdminAuth } from '@/lib/adminAuth'
+import { useAdminAccess } from '@/hooks/useAdminAccess'
 import { cn } from '@/lib/cn'
-import {
-  invalidateFinanceCache,
-  loadFinanceSnapshot,
-} from '@/lib/financeClient'
-import {
-  invalidateLeagueReadCache,
-  prefetchLeagueViews,
-} from '@/lib/leagueReadClient'
+import { invalidateFinanceCache } from '@/lib/financeClient'
+import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
 import { loadLeagueShellData } from '@/lib/leagueShellClient'
 import { LeagueShellContext } from './LeagueShellContext'
 import LeagueActionsMenu from './LeagueActionsMenu'
+import { BrandMark } from '@/components/ui/BrandMark'
 
 interface LeagueShellProps {
   children: ReactNode
@@ -50,8 +47,13 @@ const navigation: Array<{
   { key: 'rules', label: 'Rules', mobile: false, segment: 'rules' },
 ]
 
-function NavigationIcon({ item }: { item: NavigationKey }) {
-  const paths: Record<NavigationKey, ReactNode> = {
+type IconKey = NavigationKey | 'settings' | 'new-season' | 'back'
+
+function NavigationIcon({ item }: { item: IconKey }) {
+  const paths: Record<IconKey, ReactNode> = {
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" /></>,
+    'new-season': <path d="M12 3v18M3 12h18" />,
+    back: <path d="m10 5-7 7 7 7M3 12h18" />,
     overview: (
       <>
         <path d="M3 11.5 12 4l9 7.5" />
@@ -116,10 +118,12 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
   const [league, setLeague] = useState<League | null>(null)
   const [availableSeasons, setAvailableSeasons] = useState<string[]>([])
   const [archivedSeasons, setArchivedSeasons] = useState<string[]>([])
-  const [isAdmin, setIsAdmin] = useState(false)
+  const { authChecked, isAdmin, setAuthenticated: setIsAdmin } = useAdminAccess()
+  const requestVersion = useRef(0)
   const [isLeagueLoading, setIsLeagueLoading] = useState(true)
   const [leagueLoadError, setLeagueLoadError] = useState<string | null>(null)
 
+  const isSeasonSetup = pathname.endsWith('/season-setup') || pathname.endsWith('/season-import')
   const requestedSeason = searchParams.get('season') || ''
   const shareToken = searchParams.get('share') || ''
   const selectedSeason = requestedSeason || league?.current_season || ''
@@ -130,7 +134,14 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
     Boolean(league?.archived_at) ||
     isSelectedSeasonArchived
 
+  const seasonNavigation = useSeasonNavigation(leagueId, selectedSeason, isAdmin && !isViewOnly)
+  const orderedKeys = navigationOrder(seasonNavigation?.phase, isAdmin && !isViewOnly)
+  const orderedNavigation = orderedKeys.map(key => navigation.find(item => item.key === key)!)
+  const mobileKeys = mobileNavigation(orderedKeys, isAdmin && !isViewOnly, seasonNavigation?.phase)
+  const duesRemaining = seasonNavigation?.duesRemaining || 0
+
   const loadLeagueContext = useCallback(async () => {
+      const version = ++requestVersion.current
       setIsLeagueLoading(true)
       setLeagueLoadError(null)
 
@@ -139,6 +150,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
         undefined,
         { season: requestedSeason || undefined, shareToken: shareToken || undefined },
       )
+      if (version !== requestVersion.current) return
       const { data: leagueData, error: leagueError } = leagueResult
       const { data: seasonsData, error: seasonsError } = seasonsResult
 
@@ -193,14 +205,8 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
       void loadLeagueContext()
     }, 0)
 
-    return () => window.clearTimeout(loadTimer)
+    return () => { window.clearTimeout(loadTimer); requestVersion.current += 1 }
   }, [loadLeagueContext])
-
-  useEffect(() => {
-    checkAdminAuth().then((authenticated) => {
-      setIsAdmin(authenticated)
-    })
-  }, [leagueId, shareToken])
 
   useEffect(() => {
     if (!league || requestedSeason) return
@@ -210,26 +216,15 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
     router.replace(`${pathname}?${nextParams.toString()}`)
   }, [league, pathname, requestedSeason, router, searchParams])
 
-  useEffect(() => {
-    if (!league || !selectedSeason) return
-    const prefetchTimer = window.setTimeout(() => {
-      void Promise.allSettled([
-        prefetchLeagueViews(leagueId, selectedSeason),
-        loadFinanceSnapshot(leagueId, selectedSeason),
-      ])
-    }, 250)
-    return () => window.clearTimeout(prefetchTimer)
-  }, [league, leagueId, selectedSeason])
-
   const activeItem = useMemo<NavigationKey | null>(() => {
-    if (pathname.endsWith('/season-setup') || pathname.endsWith('/settings')) return null
+    if (isSeasonSetup || pathname.endsWith('/settings')) return null
     if (pathname.endsWith('/standings')) return 'standings'
     if (pathname.endsWith('/scores')) return 'scores'
     if (pathname.endsWith('/prizes')) return 'prizes'
     if (pathname.endsWith('/players')) return 'players'
     if (pathname.endsWith('/rules')) return 'rules'
     return 'overview'
-  }, [pathname])
+  }, [pathname, isSeasonSetup])
 
   const buildHref = (segment?: string, preserveShare = true) => {
     const params = new URLSearchParams()
@@ -262,7 +257,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
     () => ({
       availableSeasons,
       isAdmin,
-      isLeagueLoading,
+      isLeagueLoading: isLeagueLoading || !authChecked,
       isViewOnly,
       league,
       leagueLoadError,
@@ -273,6 +268,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
     }),
     [
       availableSeasons,
+      authChecked,
       isAdmin,
       isLeagueLoading,
       isViewOnly,
@@ -287,15 +283,51 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
 
   return (
     <LeagueShellContext.Provider value={shellContext}>
-      <div className="min-h-screen bg-app-canvas pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0" data-league-shell>
-      <header className="sticky top-0 z-40 border-b border-app-border bg-app-surface/95 backdrop-blur">
-        <div className="mx-auto flex min-h-[4.5rem] max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
+      <div className="min-h-screen bg-app-canvas pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0 xl:pl-[236px]" data-league-shell>
+      <span className="sr-only" id="season-dues-summary">{duesRemaining} {duesRemaining === 1 ? 'player has' : 'players have'} dues remaining.</span>
+      <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-app-surface focus:p-4" href="#league-content">Skip to content</a>
+      <aside className="league-rail fixed inset-y-0 left-0 z-50 hidden w-[236px] flex-col overflow-y-auto px-5 py-7 xl:flex" aria-label="League workspace">
+        <Link href="/" className="flex items-center gap-3 px-1" aria-label="All leagues">
+          <BrandMark light />
+          <span className="text-sm font-bold leading-tight tracking-tight">LEAGUE<span className="block font-normal tracking-[0.22em] text-white/60">OFFICE</span></span>
+        </Link>
+        <div className="mt-10 border-t border-white/10 pt-6">
+          <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Your season</p>
+          <nav aria-label="League" className="mt-3 space-y-1">
+            {orderedNavigation.map((item) => (
+              <Link aria-current={item.key === activeItem ? 'page' : undefined} className="flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors hover:bg-white/10" aria-describedby={item.key === 'players' && duesRemaining > 0 ? 'season-dues-summary' : undefined}
+                  href={buildHref(item.segment)} key={item.key}>
+                <NavigationIcon item={item.key} />
+                {item.key === 'players' && isAdmin ? 'Players & dues' : item.label}
+                {item.key === 'players' && duesRemaining > 0 && <span className="rounded-full bg-app-warning-soft px-1.5 text-[10px] font-bold text-app-warning" aria-hidden="true" title={`${duesRemaining} ${duesRemaining === 1 ? 'player has' : 'players have'} dues remaining`}>{duesRemaining}</span>}
+                {item.key === activeItem && <span aria-hidden="true" className="ml-auto h-1.5 w-1.5 rounded-full bg-current" />}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        {isAdmin && (
+          <div className="mt-7 border-t border-white/10 pt-5">
+            <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Commissioner</p>
+            <Link aria-current={pathname.endsWith('/settings') ? 'page' : undefined} className="mt-3 flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm hover:bg-white/10" href={buildHref('settings', false)}><NavigationIcon item="settings" /> Settings</Link>
+            <Link aria-current={pathname.endsWith('/season-setup') ? 'page' : undefined} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm hover:bg-white/10" href={buildHref('season-setup', false)}><NavigationIcon item="new-season" /> New season</Link>
+          </div>
+        )}
+        <div className="mt-auto pt-10">
+          <div className="rounded-xl border border-white/10 p-4">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-app-lime">The long game</span>
+            <p className="mt-2 text-sm leading-6 text-white/75">One league. Every season.<br />All the bragging rights.</p>
+          </div>
+          <Link href="/" className="mt-4 flex min-h-11 items-center gap-2 px-3 text-xs text-white/60 hover:text-white"><NavigationIcon item="back" /> Back to all leagues</Link>
+        </div>
+      </aside>
+      <header className="sticky top-0 z-40 border-b border-app-border bg-app-canvas/95 backdrop-blur">
+        <div className="mx-auto flex min-h-[4.5rem] max-w-[1440px] items-center gap-3 px-4 py-3 sm:px-6 xl:px-10">
           <Link
             aria-label="All leagues"
-            className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-[var(--app-radius-sm)] bg-app-brand text-sm font-black tracking-tight text-white sm:flex"
+            className="hidden shrink-0 sm:flex xl:hidden"
             href="/"
           >
-            FL
+            <BrandMark />
           </Link>
 
           <div className="min-w-0 flex-1">
@@ -305,18 +337,20 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
             >
               {league?.name || 'League office'}
             </Link>
-            <p className="mt-0.5 hidden text-xs font-medium text-app-text-muted sm:block">
-              Scores, standings, dues, and prizes
+            <p className="mt-0.5 hidden text-[11px] font-medium text-app-text-muted sm:block">
+              {isSeasonSetup ? 'ESPN season import' : isViewOnly ? 'League clubhouse' : seasonNavigation?.phase === 'preseason' ? 'Preseason · Build your roster and collect dues' : seasonNavigation?.phase === 'wrap-up' ? 'Season wrap-up · Settle prizes' : 'Commissioner workspace'} <span aria-hidden="true" className="mx-1.5">/</span> {(isSeasonSetup ? league?.current_season : selectedSeason) || 'Season'}
             </p>
           </div>
 
-          <SeasonSelector
+          {!isSeasonSetup && <SeasonSelector
             availableSeasons={availableSeasons}
             className="shrink-0"
             currentSeason={selectedSeason}
+            disabled={isLeagueLoading || !selectedSeason}
             onSeasonChange={handleSeasonChange}
             showLabel={false}
-          />
+          />}
+          {isSeasonSetup && <span className="shrink-0 rounded-full bg-app-brand-soft px-3 py-1.5 text-xs font-semibold text-app-brand">{pathname.endsWith('/season-import') ? 'Import season' : 'New season'}</span>}
 
           {isAdmin && selectedSeason && (
             <ShareButton
@@ -326,18 +360,20 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
           )}
           <LeagueActionsMenu
             isAdmin={isAdmin}
+            duesRemaining={duesRemaining}
             leagueId={leagueId}
             onAuthChange={handleAdminAuthChange}
             playersUrl={buildHref('players')}
             rulesUrl={buildHref('rules')}
+            seasonImportUrl={buildHref('season-import', false)}
             seasonSetupUrl={buildHref('season-setup', false)}
             settingsUrl={buildHref('settings', false)}
           />
         </div>
 
-        <nav aria-label="League" className="mx-auto hidden max-w-6xl px-6 md:block">
+        <nav aria-label="League" className="mx-auto hidden max-w-6xl px-6 md:block xl:hidden">
           <div className="flex gap-1">
-            {navigation.map((item) => {
+            {orderedNavigation.map((item) => {
               const isActive = item.key === activeItem
               return (
                 <Link
@@ -348,11 +384,13 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
                       ? 'border-app-brand text-app-brand'
                       : 'border-transparent text-app-text-muted hover:border-app-border hover:text-app-text',
                   )}
+                  aria-describedby={item.key === 'players' && duesRemaining > 0 ? 'season-dues-summary' : undefined}
                   href={buildHref(item.segment)}
                   key={item.key}
                 >
                   <NavigationIcon item={item.key} />
-                  {item.label}
+                  {item.key === 'players' && isAdmin ? 'Players & dues' : item.label}
+                {item.key === 'players' && duesRemaining > 0 && <span className="rounded-full bg-app-warning-soft px-1.5 text-[10px] font-bold text-app-warning" aria-hidden="true" title={`${duesRemaining} ${duesRemaining === 1 ? 'player has' : 'players have'} dues remaining`}>{duesRemaining}</span>}
                 </Link>
               )
             })}
@@ -391,7 +429,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
         </div>
       )}
 
-      {!league?.archived_at && isSelectedSeasonArchived && (
+      {!isSeasonSetup && !league?.archived_at && isSelectedSeasonArchived && (
         <div className="border-b border-app-border bg-app-surface-subtle px-4 py-3 text-sm text-app-text" role="status">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p><span className="font-bold">Archived {selectedSeason} season.</span> Its historical pages remain readable.</p>
@@ -404,14 +442,14 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
         </div>
       )}
 
-      {children}
+      <div id="league-content" tabIndex={-1} className="outline-none" key={`${leagueId}:${selectedSeason}:${isAdmin}:${shareToken}`}>{children}</div>
 
       <nav
         aria-label="League"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-app-border bg-app-surface/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgb(24_33_29_/_0.08)] backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-app-border bg-app-surface/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgb(24_33_29_/_0.04)] backdrop-blur md:hidden"
       >
         <div className="mx-auto grid max-w-lg grid-cols-4">
-          {navigation.filter((item) => item.mobile).map((item) => {
+          {orderedNavigation.filter((item) => mobileKeys.includes(item.key)).map((item) => {
             const isActive = item.key === activeItem
             return (
               <Link
@@ -422,11 +460,14 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
                     ? 'bg-app-brand-soft text-app-brand-strong'
                     : 'text-app-text-muted hover:bg-app-surface-subtle hover:text-app-text',
                 )}
-                href={buildHref(item.segment)}
+                aria-describedby={item.key === 'players' && duesRemaining > 0 ? 'season-dues-summary' : undefined}
+                  href={buildHref(item.segment)}
                 key={item.key}
               >
-                <NavigationIcon item={item.key} />
-                {item.label}
+                <span className="relative"><NavigationIcon item={item.key} />
+                  {item.key === 'players' && duesRemaining > 0 && <span className="absolute -right-4 -top-1 rounded-full bg-app-warning-soft px-1.5 text-[10px] font-bold text-app-warning" aria-hidden="true">{duesRemaining}</span>}
+                </span>
+                {item.key === 'players' && isAdmin ? 'Players & dues' : item.label}
               </Link>
             )
           })}

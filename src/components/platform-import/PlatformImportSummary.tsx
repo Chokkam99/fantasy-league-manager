@@ -31,7 +31,7 @@ export function PlatformImportSummary({
   })
 
   return (
-    <div className="border-b border-app-border p-4 sm:p-6">
+    <div className="border-b border-app-border p-4 sm:px-5 sm:py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -58,20 +58,12 @@ export function PlatformImportSummary({
       </div>
 
       {isConfigured && settings && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <SummaryItem
-            label="Schedule"
-            value={
-              settings.auto_sync_enabled
-                ? 'Wednesday, 2:00 AM Phoenix'
-                : 'Automatic sync is off'
-            }
-          />
-          <SummaryItem
-            label="Season"
-            value={`${settings.season} · ${settings.total_weeks} weeks`}
-          />
-        </div>
+        <p className="mt-3 text-xs leading-5 text-app-text-muted">
+          {settings.auto_sync_enabled && 'Automatic sync: '}
+          <span>{settings.auto_sync_enabled ? 'Wednesday, 2:00 AM Phoenix' : 'Automatic sync is off'}</span>
+          <span aria-hidden="true" className="mx-2">·</span>
+          <span>{settings.season} · {settings.total_weeks} weeks</span>
+        </p>
       )}
 
       {settings?.last_sync_error && (
@@ -89,15 +81,6 @@ export function PlatformImportSummary({
           run={settings.latest_import_run}
         />
       )}
-    </div>
-  )
-}
-
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[var(--app-radius-sm)] bg-app-surface-subtle p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">{label}</p>
-      <p className="mt-1 text-sm font-medium text-app-text">{value}</p>
     </div>
   )
 }
