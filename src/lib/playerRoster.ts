@@ -6,7 +6,7 @@ import {
   type PlayerMembership,
 } from '@/lib/players'
 
-export type DuesFilter = 'all' | 'paid' | 'partial' | 'pending'
+export type DuesFilter = 'all' | 'paid' | 'pending'
 export type PlayerDuesStatus = 'paid' | 'partial' | 'pending'
 
 export interface PlayerRosterEntry extends PlayerDirectoryEntry {
@@ -73,9 +73,9 @@ export function buildPlayerRosterViewModel({
         : undefined
       return {
         ...player,
-        duesStatus: payment?.status ||
+        duesStatus: (payment?.status ||
           (player.currentMemberId ? duesByMemberId.get(player.currentMemberId)?.status : undefined) ||
-          player.paymentStatus || 'pending',
+          player.paymentStatus) === 'paid' ? 'paid' : 'pending',
         payment,
       }
     })

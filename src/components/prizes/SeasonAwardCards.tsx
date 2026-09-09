@@ -47,7 +47,7 @@ export function SeasonAwardCards({
 
       {awards.length > 0 ? (
         <div>
-          <div className="hidden grid-cols-[minmax(10rem,1fr)_minmax(14rem,20rem)_6rem] gap-3 bg-app-surface-subtle px-5 py-2.5 text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted sm:grid">
+          <div className="hidden grid-cols-[minmax(10rem,1fr)_minmax(14rem,20rem)_6rem] gap-3 bg-app-surface-subtle px-5 py-2.5 text-[0.75rem] font-semibold uppercase tracking-wide text-app-text-muted sm:grid">
             <span>Prize</span>
             <span>Recipient</span>
             <span className="text-right">Amount</span>

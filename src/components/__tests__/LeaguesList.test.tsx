@@ -59,7 +59,7 @@ describe('LeaguesList', () => {
     expect(screen.queryByText('2 players have dues pending')).not.toBeInTheDocument()
     await user.click(summary)
     expect(screen.getByText('Alex Smith')).toBeVisible()
-    expect(screen.getByText('Partially paid')).toBeVisible()
+    expect(screen.getAllByText('Unpaid')).toHaveLength(2)
     expect(screen.getByText('$25.25')).toBeVisible()
     expect(screen.getByRole('link', { name: 'Manage dues' })).toHaveAttribute('href', '/league/league-one/players?season=2026')
     await user.click(summary)

@@ -70,7 +70,7 @@ function PlayoffField({ row }: { row: LeagueHistoryRow }) {
               <span className="block max-w-48 truncate text-xs font-semibold text-app-text">
                 {member.team_name}
               </span>
-              <span className="block max-w-48 truncate text-[0.68rem] text-app-text-muted">
+              <span className="block max-w-48 truncate text-[0.75rem] text-app-text-muted">
                 {member.manager_name}
               </span>
             </li>
@@ -133,12 +133,12 @@ function ResultMark({
 
 function HistoryLegend() {
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-2 text-[0.68rem] text-app-text-muted">
+    <div className="flex flex-wrap gap-x-3 gap-y-2 text-[0.75rem] text-app-text-muted">
       {Object.entries(resultDetails).map(([result, detail]) => (
         <span className="inline-flex items-center gap-1.5" key={result}>
           <span
             aria-hidden="true"
-            className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[0.62rem] font-bold ${detail.style}`}
+            className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[0.6875rem] font-bold ${detail.style}`}
           >
             {detail.marker}
           </span>
@@ -222,7 +222,7 @@ export function LeagueHistoryTable({
         <>
           <div className="overflow-x-auto">
             <table aria-label="Season results" className="w-full table-fixed">
-              <thead className="bg-app-surface-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
+              <thead className="bg-app-surface-subtle text-[0.75rem] font-semibold uppercase tracking-wide text-app-text-muted">
                 <tr>
                   <th className="w-20 bg-app-surface-subtle px-4 py-2.5 text-left sm:w-24 sm:px-6" scope="col">
                     Season
@@ -285,7 +285,7 @@ export function LeagueHistoryTable({
               tabIndex={0}
             >
               <table aria-label="Player results by season" className="w-full min-w-max border-t border-app-border">
-                <thead className="bg-app-surface-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
+                <thead className="bg-app-surface-subtle text-[0.75rem] font-semibold uppercase tracking-wide text-app-text-muted">
                   <tr>
                     <th className="sticky left-0 z-10 w-36 min-w-36 bg-app-surface-subtle px-4 py-2.5 text-left sm:w-44 sm:min-w-44 sm:px-6" scope="col">
                       Manager

@@ -49,7 +49,7 @@ export function PayoutSummaryTable({
 
       {summaries.length > 0 ? (
         <table aria-label="Payout tally" className="w-full table-fixed">
-          <thead className="bg-app-surface-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
+          <thead className="bg-app-surface-subtle text-[0.75rem] font-semibold uppercase tracking-wide text-app-text-muted">
             <tr>
               <th className="px-4 py-2.5 text-left sm:px-6" scope="col">Player</th>
               <th className="hidden px-3 py-2.5 text-right sm:table-cell sm:w-28" scope="col">Weekly</th>
@@ -117,7 +117,7 @@ export function PayoutSummaryTable({
                       <span className="text-xs text-app-text-muted">None</span>
                     ) : (
                       <Badge
-                        className="min-h-5 px-1.5 py-0 text-[0.65rem] sm:min-h-6 sm:px-2.5 sm:py-0.5 sm:text-xs"
+                        className="min-h-5 px-1.5 py-0 text-[0.75rem] sm:min-h-6 sm:px-2.5 sm:py-0.5 sm:text-xs"
                         variant={isPaid ? 'success' : 'warning'}
                       >
                         {isPaid ? 'Paid' : 'Pending'}

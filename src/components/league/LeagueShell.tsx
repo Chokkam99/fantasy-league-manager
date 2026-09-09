@@ -98,7 +98,7 @@ function NavigationIcon({ item }: { item: IconKey }) {
   return (
     <svg
       aria-hidden="true"
-      className="h-5 w-5"
+      className="h-5 w-5 shrink-0"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
@@ -283,39 +283,41 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
 
   return (
     <LeagueShellContext.Provider value={shellContext}>
-      <div className="min-h-screen bg-app-canvas pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0 xl:pl-[236px]" data-league-shell>
+      <div className="min-h-screen bg-app-canvas pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0 xl:pl-64" data-league-shell>
       <span className="sr-only" id="season-dues-summary">{duesRemaining} {duesRemaining === 1 ? 'player has' : 'players have'} dues remaining.</span>
       <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-app-surface focus:p-4" href="#league-content">Skip to content</a>
-      <aside className="league-rail fixed inset-y-0 left-0 z-50 hidden w-[236px] flex-col overflow-y-auto px-5 py-7 xl:flex" aria-label="League workspace">
+      <aside className="league-rail fixed inset-y-0 left-0 z-50 hidden w-64 flex-col overflow-y-auto px-4 py-7 xl:flex" aria-label="League workspace">
         <Link href="/" className="flex items-center gap-3 px-1" aria-label="All leagues">
           <BrandMark light />
           <span className="text-sm font-bold leading-tight tracking-tight">LEAGUE<span className="block font-normal tracking-[0.22em] text-white/60">OFFICE</span></span>
         </Link>
         <div className="mt-10 border-t border-white/10 pt-6">
-          <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Your season</p>
+          <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Your season</p>
           <nav aria-label="League" className="mt-3 space-y-1">
             {orderedNavigation.map((item) => (
-              <Link aria-current={item.key === activeItem ? 'page' : undefined} className="flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors hover:bg-white/10" aria-describedby={item.key === 'players' && duesRemaining > 0 ? 'season-dues-summary' : undefined}
+              <Link aria-current={item.key === activeItem ? 'page' : undefined} className="flex min-h-12 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors hover:bg-white/10" aria-describedby={item.key === 'players' && duesRemaining > 0 ? 'season-dues-summary' : undefined}
                   href={buildHref(item.segment)} key={item.key}>
                 <NavigationIcon item={item.key} />
-                {item.key === 'players' && isAdmin ? 'Players & dues' : item.label}
-                {item.key === 'players' && duesRemaining > 0 && <span className="rounded-full bg-app-warning-soft px-1.5 text-[10px] font-bold text-app-warning" aria-hidden="true" title={`${duesRemaining} ${duesRemaining === 1 ? 'player has' : 'players have'} dues remaining`}>{duesRemaining}</span>}
-                {item.key === activeItem && <span aria-hidden="true" className="ml-auto h-1.5 w-1.5 rounded-full bg-current" />}
+                <span className="whitespace-nowrap">{item.key === 'players' && isAdmin ? 'Players & dues' : item.label}</span>
+                <span className="ml-auto flex shrink-0 items-center gap-2" aria-hidden="true">
+                  {item.key === 'players' && duesRemaining > 0 && <span className="rounded-full bg-app-warning-soft px-1.5 text-[11px] font-bold text-app-warning" title={`${duesRemaining} ${duesRemaining === 1 ? 'player has' : 'players have'} dues remaining`}>{duesRemaining}</span>}
+                  {item.key === activeItem && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />}
+                </span>
               </Link>
             ))}
           </nav>
         </div>
         {isAdmin && (
           <div className="mt-7 border-t border-white/10 pt-5">
-            <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Commissioner</p>
+            <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Commissioner</p>
             <Link aria-current={pathname.endsWith('/settings') ? 'page' : undefined} className="mt-3 flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm hover:bg-white/10" href={buildHref('settings', false)}><NavigationIcon item="settings" /> Settings</Link>
             <Link aria-current={pathname.endsWith('/season-setup') ? 'page' : undefined} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm hover:bg-white/10" href={buildHref('season-setup', false)}><NavigationIcon item="new-season" /> New season</Link>
           </div>
         )}
         <div className="mt-auto pt-10">
           <div className="rounded-xl border border-white/10 p-4">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-app-lime">The long game</span>
-            <p className="mt-2 text-sm leading-6 text-white/75">One league. Every season.<br />All the bragging rights.</p>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-lime">The long game</span>
+            <p className="mt-2 text-sm leading-6 text-white/75"><span className="block">One league.</span><span className="block whitespace-nowrap">Every season.</span><span className="block">All the bragging rights.</span></p>
           </div>
           <Link href="/" className="mt-4 flex min-h-11 items-center gap-2 px-3 text-xs text-white/60 hover:text-white"><NavigationIcon item="back" /> Back to all leagues</Link>
         </div>
@@ -390,7 +392,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
                 >
                   <NavigationIcon item={item.key} />
                   {item.key === 'players' && isAdmin ? 'Players & dues' : item.label}
-                {item.key === 'players' && duesRemaining > 0 && <span className="rounded-full bg-app-warning-soft px-1.5 text-[10px] font-bold text-app-warning" aria-hidden="true" title={`${duesRemaining} ${duesRemaining === 1 ? 'player has' : 'players have'} dues remaining`}>{duesRemaining}</span>}
+                {item.key === 'players' && duesRemaining > 0 && <span className="rounded-full bg-app-warning-soft px-1.5 text-[11px] font-bold text-app-warning" aria-hidden="true" title={`${duesRemaining} ${duesRemaining === 1 ? 'player has' : 'players have'} dues remaining`}>{duesRemaining}</span>}
                 </Link>
               )
             })}
@@ -455,7 +457,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
               <Link
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[0.6875rem] font-semibold transition-colors',
+                  'flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[0.75rem] font-semibold transition-colors',
                   isActive
                     ? 'bg-app-brand-soft text-app-brand-strong'
                     : 'text-app-text-muted hover:bg-app-surface-subtle hover:text-app-text',
@@ -465,7 +467,7 @@ export default function LeagueShell({ children, leagueId }: LeagueShellProps) {
                 key={item.key}
               >
                 <span className="relative"><NavigationIcon item={item.key} />
-                  {item.key === 'players' && duesRemaining > 0 && <span className="absolute -right-4 -top-1 rounded-full bg-app-warning-soft px-1.5 text-[10px] font-bold text-app-warning" aria-hidden="true">{duesRemaining}</span>}
+                  {item.key === 'players' && duesRemaining > 0 && <span className="absolute -right-4 -top-1 rounded-full bg-app-warning-soft px-1.5 text-[11px] font-bold text-app-warning" aria-hidden="true">{duesRemaining}</span>}
                 </span>
                 {item.key === 'players' && isAdmin ? 'Players & dues' : item.label}
               </Link>

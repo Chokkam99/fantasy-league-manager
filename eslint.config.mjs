@@ -18,6 +18,10 @@ export default defineConfig([
     'build/**',
     'next-env.d.ts',
     'scripts/**',
+    'data/**',
+    'temp/**',
+    'test-results/**',
+    'playwright-report/**',
     '*.sql',
   ]),
 ])

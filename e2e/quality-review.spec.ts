@@ -77,7 +77,7 @@ test('failed logout preserves access; successful logout and login reload the ros
   await menu.getByRole('button', { name: 'Log out' }).click()
   await expect(page.getByRole('heading', { name: 'League roster' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Payment details for Alex Smith' })).toHaveCount(0)
-  await expect(page.getByLabel('Dues for Taylor Reed: Partial')).toBeVisible()
+  await expect(page.getByLabel('Dues for Taylor Reed: Unpaid')).toBeVisible()
   menu = await openActions(page)
   await menu.getByRole('button', { name: 'Commissioner login' }).click()
   await page.getByLabel('Commissioner password').fill('fixture-only-password')

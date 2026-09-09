@@ -32,6 +32,7 @@ interface PlayersOverviewProps {
   isViewOnly: boolean
   onAddPlayer: () => void
   onImportSeason?: () => void
+  onEditMoney?: () => void
   onDuesFilterChange: (filter: DuesFilter) => void
   onSearchChange: (search: string) => void
   paidPlayers: number
@@ -52,10 +53,10 @@ export function PlayersOverview({
   isViewOnly,
   onAddPlayer,
   onImportSeason,
+  onEditMoney,
   onDuesFilterChange,
   onSearchChange,
   paidPlayers,
-  partialPlayers,
   pendingPlayers,
   representedSeasons,
   returningPlayers,
@@ -80,11 +81,7 @@ export function PlayersOverview({
               <RosterMetric label="Paid in full" value={String(paidPlayers)} />
               <RosterMetric
                 label="Needs attention"
-                value={
-                  partialPlayers > 0
-                    ? `${pendingPlayers} unpaid · ${partialPlayers} partial`
-                    : `${pendingPlayers} unpaid`
-                }
+                value={`${pendingPlayers} unpaid`}
               />
               <RosterMetric
                 label="Collected"
@@ -94,6 +91,8 @@ export function PlayersOverview({
           )}
         </dl>
       </section>
+
+      {!isViewOnly && onEditMoney && <Button className="mt-4" onClick={onEditMoney} variant="secondary">Edit entry fee &amp; prizes</Button>}
 
       <Card className="mt-6 border-0 bg-transparent shadow-none">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -120,10 +119,10 @@ export function PlayersOverview({
           {!isViewOnly && (
             <div
               aria-label="Filter roster by dues status"
-              className="grid grid-cols-4 gap-0.5 rounded-[var(--app-radius-sm)] bg-app-surface-subtle p-1"
+              className="grid grid-cols-3 gap-0.5 rounded-[var(--app-radius-sm)] bg-app-surface-subtle p-1"
               role="group"
             >
-              {(['all', 'pending', 'partial', 'paid'] as DuesFilter[]).map(
+              {(['all', 'pending', 'paid'] as DuesFilter[]).map(
                 (filter) => (
                   <button
                     aria-pressed={duesFilter === filter}

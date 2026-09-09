@@ -72,19 +72,29 @@ This starts a disposable Supabase PostgreSQL 17 container without publishing a h
 
 Follow [the rollout guide](docs/schema/authorization-foundation-rollout.md), [finance/identity design](docs/schema/finance-identity-foundation.md), and [safe archival design](docs/schema/safe-archival.md) before applying any future remote migration.
 
-For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`018`. Existing Production remains current through migration `016`. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
+For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`019`. See the release checkpoints below for production migration status. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
 
 ## Player access
 
-Commissioners use the compact share action to copy the normal `/league/<league-slug>` URL. Anyone with it can view the league's public-safe pages and switch among saved seasons, including each player’s paid, partial, or unpaid dues status. Payment notes, methods, and payment timestamps remain commissioner-only; shared viewers cannot open Settings or submit changes. Shared roster, overview, and money pages reload current records every 30 seconds while visible and when viewers return to the tab (with a short debounce). The shared URL is a live view, not a frozen copy.
+Commissioners use the compact share action to copy the normal `/league/<league-slug>` URL. Anyone with it can view the league's public-safe pages and switch among saved seasons, including each player’s Paid or Unpaid dues status. Payment notes, methods, and payment timestamps remain commissioner-only; shared viewers cannot open Settings or submit changes. Shared roster, overview, and money pages reload current records every 30 seconds while visible and when viewers return to the tab (with a short debounce). The shared URL is a live view, not a frozen copy.
 
 Previously issued `/s/...` links remain supported for compatibility. Those links store only a SHA-256 digest, establish a protected browser access cookie, and redirect to the normal league URL. The current share action does not create or rotate a database record, and the old cosmetic `readonly=true` convention is not an access mechanism.
 
 ## Season planning
 
-Before any completed games are recorded, commissioner navigation promotes Players & dues to the second position and a primary phone tab. Once results arrive, standings and scores take priority; unpaid/partial dues remain visible through a count badge. The final configured week promotes Prizes for season wrap-up. Shared navigation remains stable.
+Before any completed games are recorded, commissioner navigation promotes Players & dues to the second position and a primary phone tab. Once results arrive, standings and scores take priority; outstanding dues remain visible through a count badge. The final configured week promotes Prizes for season wrap-up. Shared navigation remains stable.
 
 Start next season opens an ESPN import preview using the saved connection. Confirmed roster, divisions, format, and completed results are filled automatically; user input is limited to unresolved identities or missing fields. Players & dues and Scores expose the same flow for existing and available historical seasons. Dues/payment records and app-owned prize budgets stay intact. Manual setup remains a fallback. See the [ESPN-first import review](docs/espn-first-season-import-2026-09-08.md).
+
+## Entry fees and prize budgets
+
+Open **Players & dues → Edit entry fee & prizes**, or choose **Settings** from the league menu. The same editing link appears on League money and Rules. Select the season, update its entry fee, draft costs, weekly prize, or final/special prizes, then save. ESPN supplies roster and season format; these money settings belong to this app.
+
+The editor shows the expected pool and allocation balance as you type. An over-budget plan is a warning, so an inherited fee can be corrected without getting stuck. Fee changes update active players' expected dues while preserving received amounts and private payment notes. Other seasons and inactive players retain their dues. Prize changes are blocked if the season has assigned prizes or completed payouts; fee-only and draft-cost edits remain available.
+
+Dues have two visible states: Paid and Unpaid. Historical received amounts remain recorded even when someone still owes a balance; editing a note alone does not alter those receipts. An explicit Paid/Unpaid change records the full expected fee or zero respectively.
+
+Migration `019` provides the restricted, atomic money save with stale-edit detection. It adds no new tables and changes no existing records when installed.
 
 ## ESPN score imports
 
@@ -167,6 +177,6 @@ The GitHub Actions workflow in `.github/workflows/quality.yml` runs the frozen d
 
 ## Deployment state
 
-Production has all 18 forward migrations applied. This release adds ESPN-first season imports, phase-aware navigation, improved season setup, and shared dues freshness/privacy to the redesigned league interface. Migration 018 was applied after a verified backup restore; existing production row fingerprints are unchanged and the linked dry run is up to date. Automatic ESPN sync remains disabled. See the [September 8 release checkpoint](docs/deployment/production-release-2026-09-08.md).
+Production has all 19 forward migrations applied. Money settings, binary dues labels, readable text, and corrected allocation colors are documented in the [money-settings release checkpoint](docs/deployment/money-settings-release-2026-09-09.md). This release adds ESPN-first season imports, phase-aware navigation, improved season setup, and shared dues freshness/privacy to the redesigned league interface. Migration 018 was applied after a verified backup restore; existing production row fingerprints are unchanged and the linked dry run is up to date. Automatic ESPN sync remains disabled. See the [September 8 release checkpoint](docs/deployment/production-release-2026-09-08.md).
 
 Supabase preview branching is unavailable on the current free plan, so future schema and write behavior should continue to be verified in disposable local PostgreSQL without creating paid resources or pointing a writable preview deployment at Production. See the [completed Production migration checkpoint](docs/deployment/production-migration-2026-08-27.md). The [preview rollout](docs/deployment/preview-rollout.md) and [pre-execution Production rollout](docs/deployment/production-rollout-2026-08-26.md) are retained as historical planning evidence.

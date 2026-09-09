@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { SeasonMoneySettings } from '@/components/league/SeasonMoneySettings'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Notice } from '@/components/ui/Notice'
 import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton'
@@ -39,6 +40,7 @@ export default function LeagueSettingsPage({ params }: SettingsPageProps) {
   const {
     isLeagueLoading,
     isAdmin,
+    selectedSeason,
     league,
     leagueLoadError,
     reloadLeague,
@@ -142,7 +144,9 @@ export default function LeagueSettingsPage({ params }: SettingsPageProps) {
 
   return (
     <main className="mx-auto min-w-0 max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-      <PageHeader eyebrow="Commissioner / League management" title="League settings" description="Keep your league organized. Archive past seasons while preserving every result." action={<Button onClick={() => router.push(overviewUrl)} variant="secondary">Back to league</Button>} />
+      <PageHeader eyebrow="Commissioner / League management" title="League settings" description="Set this season’s entry fee and prize budget, or manage league history." action={<Button onClick={() => router.push(overviewUrl)} variant="secondary">Back to league</Button>} />
+
+      <SeasonMoneySettings key={selectedSeason} leagueId={id} season={selectedSeason} />
 
       {error && <Notice className="mt-5" tone="danger">{error}</Notice>}
       <Toast message={notice} onDismiss={() => setNotice(null)} />

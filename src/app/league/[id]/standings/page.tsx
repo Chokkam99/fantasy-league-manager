@@ -252,7 +252,7 @@ export default function StandingsPage({ params }: StandingsPageProps) {
               ]
           ).map((item) => (
             <div className="min-w-0 bg-app-surface px-3 py-2.5 sm:px-4 sm:py-3" key={item.label}>
-              <p className="truncate text-[0.65rem] font-semibold uppercase tracking-wide text-app-text-muted">{item.label}</p>
+              <p className="truncate text-[0.75rem] font-semibold uppercase tracking-wide text-app-text-muted">{item.label}</p>
               <p className="mt-0.5 truncate text-sm font-bold text-app-text sm:text-base">{item.value}</p>
             </div>
           ))}

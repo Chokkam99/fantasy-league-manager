@@ -130,7 +130,7 @@ export function LeagueCard({ league }: { league: PortfolioLeague }) {
                     <li className="flex items-start justify-between gap-3 py-3 text-sm" key={player.memberId}>
                       <div className="min-w-0">
                         <p className="break-words font-medium text-app-text">{player.managerName}</p>
-                        <p className="mt-0.5 text-xs text-app-text-muted">{player.isPartial ? 'Partially paid' : 'Unpaid'}</p>
+                        <p className="mt-0.5 text-xs text-app-text-muted">Unpaid</p>
                       </div>
                       <span className="shrink-0 font-semibold tabular-nums text-app-text">{duesCurrency.format(player.remainingCents / 100)}</span>
                     </li>

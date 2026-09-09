@@ -68,6 +68,7 @@ export default function RulesPage({ params }: RulesPageProps) {
   const { id } = use(params)
   const {
     isLeagueLoading,
+    isViewOnly,
     league,
     leagueLoadError,
     reloadLeague,
@@ -128,6 +129,7 @@ export default function RulesPage({ params }: RulesPageProps) {
 
       <section>
         <PageHeader eyebrow={`${selectedSeason} season / The playbook`} title="League rules" description="The format, the stakes, and the fine print. Everyone plays by the same rules." />
+        {!isViewOnly && <Link className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-app-border bg-app-surface px-4 text-sm font-semibold text-app-text" href={`${buildPageHref('settings')}#season-money`}>Edit entry fee &amp; prizes</Link>}
 
         <dl className="mt-6 grid grid-cols-2 overflow-hidden rounded-xl border border-app-border bg-app-surface lg:grid-cols-4 [&>div+div]:border-l [&>div+div]:border-app-border">
           <RuleMetric

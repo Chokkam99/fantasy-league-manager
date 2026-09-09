@@ -416,6 +416,12 @@ export async function installLeagueFixtures(
     await fulfillJson(route, { success: true, season: selected, current_season: '2026', exists: selected !== '2027', connection: { is_configured: false, league_id: '', private_league: false, has_credentials: false } })
   })
 
+  await page.route(`**/api/leagues/${league.id}/seasons/money**`, async route => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    await fulfillJson(route, { success: true, revision: 'fixture-money', total_weeks: season.total_weeks, player_count: 4, archived: false,
+      settings: { fee_amount: season.fee_amount, draft_food_cost: season.draft_food_cost, weekly_prize_amount: season.weekly_prize_amount, prize_structure: season.prize_structure } })
+  })
+
   await page.route(`**/api/leagues/${league.id}/finance**`, async (route) => {
     await fulfillJson(route, finance)
   })

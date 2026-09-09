@@ -78,7 +78,7 @@ function amount(value: unknown) {
 
 function ruleLabel(key: string) {
   return (
-    RULE_LABELS[key] ||
+    (Object.hasOwn(RULE_LABELS, key) ? RULE_LABELS[key] : '') ||
     key
       .replaceAll('_', ' ')
       .replace(/\b\w/g, (character) => character.toUpperCase())

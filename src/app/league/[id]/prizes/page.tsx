@@ -237,6 +237,7 @@ export default function PrizesPage({ params }: PrizesPageProps) {
       )}
 
       <PrizeMoneyOverview
+        moneySettingsHref={!isViewOnly ? `/league/${id}/settings?season=${selectedSeason}#season-money` : undefined}
         collectedFees={viewModel.collectedFees}
         expectedFees={viewModel.expectedFees}
         finalRules={viewModel.finalRules}

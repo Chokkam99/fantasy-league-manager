@@ -36,8 +36,8 @@ export default function PaymentDetailsDialog({
   payment,
   playerName,
 }: PaymentDetailsDialogProps) {
-  const [status, setStatus] = useState<DuesStatus>(payment.status)
-  const [amount, setAmount] = useState(dollars(payment.paid_amount_cents))
+  const [status, setStatus] = useState<'paid' | 'pending'>(payment.status === 'paid' ? 'paid' : 'pending')
+  const [statusChanged, setStatusChanged] = useState(false)
   const [method, setMethod] = useState(payment.payment_method || '')
   const [notes, setNotes] = useState(payment.notes || '')
   const statusRef = useRef<HTMLSelectElement>(null)
@@ -45,18 +45,12 @@ export default function PaymentDetailsDialog({
   const expected = dollars(payment.expected_amount_cents)
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
-    const parsedDollars = Number(amount)
-    const paidAmountCents =
-      status === 'pending'
-        ? 0
-        : Number.isFinite(parsedDollars)
-          ? Math.round(parsedDollars * 100)
-          : null
+    const paidAmountCents = statusChanged ? (status === 'paid' ? payment.expected_amount_cents : 0) : payment.paid_amount_cents
     onSubmit({
       notes: notes.trim() || null,
       paid_amount_cents: paidAmountCents,
       payment_method: method.trim() || null,
-      status,
+      status: statusChanged ? status : payment.status,
     })
   }
 
@@ -65,7 +59,7 @@ export default function PaymentDetailsDialog({
       busy={busy}
       className="max-w-lg"
       closeLabel="Close payment details"
-      description={<>{playerName}’s season dues are ${expected}. Use this only for a partial payment or an optional note.</>}
+      description={<>{playerName}’s season dues are ${expected}. Mark dues Paid or Unpaid and add optional payment details.</>}
       initialFocusRef={statusRef}
       onClose={onClose}
       open={open}
@@ -78,36 +72,18 @@ export default function PaymentDetailsDialog({
                 disabled={busy}
                 id="payment-status"
                 onChange={(event) => {
-                  const nextStatus = event.target.value as DuesStatus
+                  const nextStatus = event.target.value as 'paid' | 'pending'
                   setStatus(nextStatus)
-                  if (nextStatus === 'pending') setAmount('0.00')
-                  if (nextStatus === 'paid') setAmount(expected)
+                  setStatusChanged(true)
                 }}
                 ref={statusRef}
                 value={status}
               >
                 <option value="pending">Unpaid</option>
-                <option value="partial">Partial</option>
                 <option value="paid">Paid</option>
               </Select>
             </FormField>
-            <FormField htmlFor="payment-amount" label="Amount received">
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted">$</span>
-                <TextInput
-                  className="pl-7"
-                  disabled={busy || status === 'pending'}
-                  id="payment-amount"
-                  inputMode="decimal"
-                  min="0"
-                  onChange={(event) => setAmount(event.target.value)}
-                  required={status !== 'pending'}
-                  step="0.01"
-                  type="number"
-                  value={amount}
-                />
-              </div>
-            </FormField>
+            <div className="text-sm text-app-text-muted"><p className="font-semibold">Amount received</p><p className="mt-2 text-base font-bold text-app-text">${dollars(payment.paid_amount_cents)}</p></div>
           </div>
           <FormField htmlFor="payment-method" label="Method" optional>
             <TextInput
@@ -125,7 +101,7 @@ export default function PaymentDetailsDialog({
               id="payment-notes"
               maxLength={500}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="First half received"
+              placeholder="Optional payment note"
               value={notes}
             />
           </FormField>

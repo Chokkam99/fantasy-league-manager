@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import LeagueSettingsPage from '../page'
 
 const mockReloadLeague = jest.fn().mockResolvedValue(undefined)
+jest.mock('@/components/league/SeasonMoneySettings', () => ({ SeasonMoneySettings: () => null }))
 
 jest.mock('@/components/league/LeagueShellContext', () => ({
   useLeagueShell: () => ({

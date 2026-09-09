@@ -16,7 +16,7 @@ export function OverviewHeader({ overview, scoresHref, selectedSeason, totalWeek
     <section className="season-banner relative overflow-hidden rounded-[var(--app-radius-lg)] px-5 py-7 sm:px-8 sm:py-8">
       <FieldArtwork className="pointer-events-none absolute -right-20 -top-8 hidden h-80 w-[520px] rotate-[-18deg] text-app-lime/20 md:block" />
       <div className="relative max-w-lg">
-        <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-app-lime">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-app-lime">
           <span className="h-1.5 w-1.5 rounded-full bg-app-lime" aria-hidden="true" />
           {selectedSeason} season <span className="mx-1 text-white/30">/</span> The league at a glance
         </p>
@@ -38,7 +38,7 @@ export function OverviewHeader({ overview, scoresHref, selectedSeason, totalWeek
 export function OverviewMetrics({ overview, isViewOnly }: { overview: OverviewViewModel; isViewOnly: boolean }) {
   const attention = overview.pendingMembers + overview.partialMembers
   const metrics = [
-    { label: isViewOnly ? 'Season entry pool' : 'Dues collected', value: currency.format(isViewOnly ? overview.expected : overview.collected), detail: isViewOnly ? `${overview.totalMembers} teams in the running` : `${overview.paidMembers} of ${overview.totalMembers} paid${overview.partialMembers ? ` · ${overview.partialMembers} partial` : ''}`, accent: false },
+    { label: isViewOnly ? 'Season entry pool' : 'Dues collected', value: currency.format(isViewOnly ? overview.expected : overview.collected), detail: isViewOnly ? `${overview.totalMembers} teams in the running` : `${overview.paidMembers} of ${overview.totalMembers} paid`, accent: false },
     { label: isViewOnly ? 'Entry fee' : 'Still to collect', value: currency.format(isViewOnly ? overview.feeAmount : overview.outstanding), detail: isViewOnly ? 'Per player, per season' : attention ? `${attention} ${attention === 1 ? 'player needs' : 'players need'} attention` : 'Everyone is paid up', accent: !isViewOnly && overview.outstanding > 0 },
     { label: 'Latest weekly leader', value: overview.latestWeeklyWinners.length > 1 ? `${overview.latestWeeklyWinners.length}-way tie` : overview.latestWeeklyWinners[0] || 'Waiting for kickoff', detail: overview.latestWeeklyScore === null ? 'No completed scores yet' : `${overview.latestWeeklyScore.toFixed(2)} points · Week ${overview.latestWeek}`, accent: false },
   ]
@@ -46,7 +46,7 @@ export function OverviewMetrics({ overview, isViewOnly }: { overview: OverviewVi
     <section aria-label="League summary" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
       {metrics.map((metric, index) => (
         <div key={metric.label} className={`min-w-0 rounded-xl border border-app-border bg-app-surface p-4 sm:p-5 ${index === 2 ? 'col-span-2 sm:col-span-1' : ''}`}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">{metric.label}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">{metric.label}</p>
           <p className={`mt-3 break-words font-bold tracking-tight ${index === 2 ? 'text-lg sm:text-xl' : 'text-2xl sm:text-3xl'} ${metric.accent ? 'text-app-brand' : 'text-app-text'}`}>{metric.value}</p>
           <p className="mt-2 text-xs leading-5 text-app-text-muted">{metric.detail}</p>
         </div>

@@ -89,10 +89,12 @@ run_sql_file supabase/migrations/202608270015_player_payout_statuses.sql >/dev/n
 run_sql_file supabase/migrations/202609010016_historical_returning_members.sql >/dev/null
 run_sql_file supabase/migrations/202609030017_atomic_new_league_setup.sql >/dev/null
 run_sql_file supabase/migrations/202609080018_espn_season_import.sql >/dev/null
+run_sql_file supabase/migrations/202609090019_season_money_settings.sql >/dev/null
+run_sql_file test/integration/season-money.assertions.sql >/dev/null
 run_sql_file test/integration/espn-season-import.assertions.sql >/dev/null
 run_sql_file test/integration/fresh-schema.assertions.sql >/dev/null
 run_sql_file test/integration/scoped-sharing.assertions.sql >/dev/null
 run_sql_file test/integration/player-payout-statuses.assertions.sql >/dev/null
 run_sql_file test/integration/atomic-new-league.assertions.sql >/dev/null
 
-echo 'Fresh fantasy-only schema passed the deployed-v0 plus migrations 001-018 PostgreSQL 17 checks, including atomic new-league setup and ESPN season import.'
+echo 'Fresh fantasy-only schema passed the deployed-v0 plus migrations 001-019 PostgreSQL 17 checks, including atomic season money editing.'

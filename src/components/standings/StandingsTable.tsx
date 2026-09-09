@@ -31,7 +31,7 @@ export function StandingsTable({
   return (
     <div className="overflow-hidden">
       <table aria-label={ariaLabel} className="w-full table-fixed">
-        <thead className="border-b border-app-border bg-app-surface-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-app-text-muted">
+        <thead className="border-b border-app-border bg-app-surface-subtle text-[0.75rem] font-semibold uppercase tracking-wide text-app-text-muted">
           <tr>
             <th className="w-12 py-2.5 pl-4 pr-2 text-center sm:pl-6" scope="col">Pos</th>
             <th className="px-2 py-2.5 text-left" scope="col">Team</th>
@@ -72,7 +72,7 @@ export function StandingsTable({
                 {showCutLine && (
                   <tr className="border-y border-app-warning/30 bg-app-warning-soft">
                     <td
-                      className="px-3 py-1.5 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-app-warning"
+                      className="px-3 py-1.5 text-center text-[0.75rem] font-semibold uppercase tracking-wide text-app-warning"
                       colSpan={6}
                     >
                       Playoff cut line
@@ -91,7 +91,7 @@ export function StandingsTable({
                     <p className="truncate text-sm font-semibold leading-5 text-app-text">
                       {row.member.team_name}
                     </p>
-                    <p className="truncate text-[0.7rem] leading-4 text-app-text-muted">
+                    <p className="truncate text-[0.75rem] leading-4 text-app-text-muted">
                       {row.member.manager_name}
                       {seed ? ` · Seed ${seed.seed}` : ''}
                     </p>

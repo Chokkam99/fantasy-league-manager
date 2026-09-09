@@ -21,7 +21,7 @@ test('preseason dues expand on demand without crowding the dashboard', async ({ 
   await summary.focus()
   await page.keyboard.press('Enter')
   await expect(page.getByText('Alex Smith', { exact: true })).toBeVisible()
-  await expect(page.getByText('Partially paid', { exact: true })).toBeVisible()
+  await expect(page.getByText('Unpaid', { exact: true })).toHaveCount(2)
   await expect(page.getByText('$25.25', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.locator('details').filter({ has: summary }).screenshot({ path: testInfo.outputPath('preseason-dues.png') })

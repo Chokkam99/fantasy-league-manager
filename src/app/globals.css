@@ -29,6 +29,9 @@
 }
 
 @theme inline {
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
   --color-app-canvas: var(--app-canvas);
   --color-app-surface: var(--app-surface);
   --color-app-surface-subtle: var(--app-surface-subtle);
@@ -71,7 +74,7 @@ body {
 
 .section-kicker {
   color: var(--app-brand);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;

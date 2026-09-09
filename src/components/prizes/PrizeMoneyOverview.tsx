@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/Badge'
+import Link from 'next/link'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import type { FinalPrizeRule, PrizePlan } from '@/lib/prizes'
@@ -11,6 +12,7 @@ const currency = new Intl.NumberFormat('en-US', {
 })
 
 interface PrizeMoneyOverviewProps {
+  moneySettingsHref?: string
   collectedFees: number
   expectedFees: number
   finalRules: FinalPrizeRule[]
@@ -24,12 +26,12 @@ interface PrizeMoneyOverviewProps {
 }
 
 export function PrizeMoneyOverview({
+  moneySettingsHref,
   collectedFees,
   expectedFees,
   finalRules,
   outstandingFees,
   paidPlayers,
-  partialPlayers,
   prizePlan,
   selectedSeason,
   totalWeeks,
@@ -55,17 +57,17 @@ export function PrizeMoneyOverview({
   const allocationSegments = [
     {
       amount: prizePlan.draftCost,
-      color: 'bg-app-accent',
+      color: 'bg-app-info',
       label: 'Draft food and costs',
     },
     {
       amount: prizePlan.weeklyAllocation,
-      color: 'bg-app-info',
+      color: 'bg-app-success',
       label: 'Weekly prizes',
     },
     {
       amount: prizePlan.finalAllocation,
-      color: 'bg-app-brand',
+      color: 'bg-app-ink',
       label: 'Final and special prizes',
     },
     {
@@ -78,6 +80,8 @@ export function PrizeMoneyOverview({
   return (
     <>
       <PageHeader eyebrow={`${selectedSeason} season / The money`} title="League money" description="A clear picture of every entry fee, every prize, and who gets paid." action={<Badge variant={balanceBadge.variant}>{balanceBadge.label}</Badge>} />
+
+      {moneySettingsHref && <Link className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-app-border bg-app-surface px-4 text-sm font-semibold text-app-text" href={moneySettingsHref}>Edit entry fee &amp; prizes</Link>}
 
       <Card className="mt-6 min-w-0 overflow-hidden">
         <section aria-labelledby="money-in-heading" className="bg-app-success-soft/70 p-4 sm:p-6">
@@ -100,7 +104,7 @@ export function PrizeMoneyOverview({
                 { label: 'Outstanding', value: outstandingFees },
               ].map((item) => (
                 <div className="min-w-0 bg-app-surface/90 p-3 text-center sm:p-4" key={item.label}>
-                  <dt className="text-[0.6875rem] font-semibold uppercase tracking-wide text-app-text-muted">
+                  <dt className="text-[0.75rem] font-semibold uppercase tracking-wide text-app-text-muted">
                     {item.label}
                   </dt>
                   <dd className="mt-1 break-words text-lg font-bold text-app-text sm:text-2xl">
@@ -112,7 +116,6 @@ export function PrizeMoneyOverview({
           </div>
           <p className="mt-3 text-xs font-medium text-app-success">
             {paidPlayers} of {prizePlan.activePlayers} players paid
-            {partialPlayers > 0 ? ` · ${partialPlayers} partial` : ''}
           </p>
         </section>
 
@@ -130,6 +133,8 @@ export function PrizeMoneyOverview({
               {currency.format(prizePlan.totalOutflow)} planned
             </p>
           </div>
+
+          <p className="mt-2 text-sm text-app-text-muted">This shows the prize budget. Payment completion is tracked in player payouts below.</p>
 
           {allocationSegments.length > 0 && (
             <div className="mt-5">
@@ -208,7 +213,7 @@ export function PrizeMoneyOverview({
               </p>
               {outstandingFees > 0 && (
                 <p className="mt-1 text-sm text-app-warning">
-                  The plan balances expected fees, but {currency.format(outstandingFees)} still needs to be collected.
+                  This plan uses expected fees; {currency.format(outstandingFees)} still needs to be collected.
                 </p>
               )}
             </div>

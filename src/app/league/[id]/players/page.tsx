@@ -424,6 +424,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
           setIsAddDialogOpen(true)
         }}
         onImportSeason={() => router.push(`/league/${id}/season-import?season=${selectedSeason}`)}
+        onEditMoney={() => router.push(`/league/${id}/settings?season=${selectedSeason}#season-money`)}
         onDuesFilterChange={setDuesFilter}
         onSearchChange={setSearch}
         paidPlayers={paidPlayers}

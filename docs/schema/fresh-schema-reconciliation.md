@@ -105,3 +105,7 @@ After migration, verify direct anonymous-read denial, public-safe league reads, 
 ## September 8 production extension
 
 Migration `202609080018_espn_season_import.sql` adds the restricted atomic ESPN season import and was applied with explicit approval on September 8. The preflight audit found migration `017` already applied. Production now has all 18 migration versions and no pending migration; pre/post row fingerprints match for all 15 inspected public tables. A fresh public-schema/data backup was restored successfully in disposable PostgreSQL 17 before applying 018. The fresh-schema script exercises migrations 001–018 and synthetic season import assertions. See [the release checkpoint](../deployment/production-release-2026-09-08.md) and [ESPN-first workflow](../espn-first-season-import-2026-09-08.md).
+
+## Money settings follow-up (September 9 UTC)
+
+Migration `019` adds the restricted atomic season-money editor and has been applied to production after a fresh verified backup restore. All 19 versions are present, the dry run is up to date, and row fingerprints remain unchanged across the 15 inspected public tables. The fresh-schema test now includes 001–019 and fee/payout preservation assertions. See [the money-settings release checkpoint](../deployment/money-settings-release-2026-09-09.md).

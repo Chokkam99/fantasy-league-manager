@@ -52,9 +52,9 @@ export function OverviewMoneyCard({
       </div>
       <dl className="mt-1 divide-y divide-app-border text-sm">
         {[
-          { label: 'Draft food and costs', value: overview.draftCost, color: 'bg-app-accent' },
-          { label: 'Weekly prizes', value: overview.weeklyPrizeTotal, color: 'bg-app-info' },
-          { label: 'Final and special prizes', value: overview.finalPrizeTotal, color: 'bg-app-brand' },
+          { label: 'Draft food and costs', value: overview.draftCost, color: 'bg-app-info' },
+          { label: 'Weekly prizes', value: overview.weeklyPrizeTotal, color: 'bg-app-success' },
+          { label: 'Final and special prizes', value: overview.finalPrizeTotal, color: 'bg-app-ink' },
         ].map((item) => (
           <div className="flex items-center justify-between gap-3 py-3" key={item.label}>
             <dt className="flex items-center gap-2.5 text-app-text-muted"><span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-sm ${item.color}`} />{item.label}</dt>
@@ -64,7 +64,7 @@ export function OverviewMoneyCard({
       </dl>
       <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-app-surface-subtle px-3 py-3 text-xs">
         <span className="text-app-text-muted">{currency.format(overview.plannedOutflow)} allocated</span>
-        <span className={`font-semibold ${balances ? 'text-app-success' : 'text-app-warning'}`}>{currency.format(overview.unallocatedPrizes)} remaining</span>
+        <span className={`font-semibold ${balances ? 'text-app-success' : overview.unallocatedPrizes > 0 ? 'text-app-warning' : 'text-app-danger'}`}>{currency.format(overview.unallocatedPrizes)} remaining</span>
       </div>
 
       <Link

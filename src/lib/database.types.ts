@@ -927,6 +927,10 @@ export type Database = {
       }
     }
     Functions: {
+      update_season_money_atomically: {
+        Args: { p_league_id: string; p_season: string; p_settings: Json; p_expected: Json }
+        Returns: Json
+      }
       import_espn_season_atomically: {
         Args: {
           p_league_id: string; p_season: string; p_current_season: string

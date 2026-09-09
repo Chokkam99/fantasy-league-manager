@@ -73,9 +73,9 @@ describe('player roster view model', () => {
         dues: [{ league_member_id: 'alex-2026', expected_amount_cents: 10000,
           paid_amount_cents: 5000, status: 'partial' }] },
     })
-    expect(model.currentPlayers[0].duesStatus).toBe('partial')
+    expect(model.currentPlayers[0].duesStatus).toBe('pending')
     expect(model.currentPlayers[0].payment).toBeUndefined()
-    expect(model.partialPlayers).toBe(1)
+    expect(model.partialPlayers).toBe(0)
   })
 
   it('uses canonical finance status, stable alphabetical order, and season metrics', () => {
@@ -93,14 +93,14 @@ describe('player roster view model', () => {
       'Blair',
     ])
     expect(model.currentPlayers[0]).toMatchObject({
-      duesStatus: 'partial',
+      duesStatus: 'pending',
       payment: { paid_amount_cents: 5000 },
       seasons: ['2026', '2025'],
     })
     expect(model).toMatchObject({
       paidPlayers: 0,
-      partialPlayers: 1,
-      pendingPlayers: 1,
+      partialPlayers: 0,
+      pendingPlayers: 2,
       representedSeasons: 2,
       returningPlayers: 1,
     })
@@ -108,7 +108,7 @@ describe('player roster view model', () => {
 
   it('filters dues only for commissioners and searches current plus history', () => {
     const commissioner = buildPlayerRosterViewModel({
-      duesFilter: 'partial',
+      duesFilter: 'pending',
       finance,
       isViewOnly: false,
       memberships,

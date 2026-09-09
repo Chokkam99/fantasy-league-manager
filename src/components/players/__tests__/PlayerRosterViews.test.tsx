@@ -73,10 +73,10 @@ describe('Players roster views', () => {
     expect(screen.getByText('$50.00 / $100.00')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Add player' }))
     await user.type(screen.getByRole('searchbox', { name: 'Search players' }), 'man')
-    await user.click(screen.getByRole('button', { name: /partial/i }))
+    await user.click(screen.getByRole('button', { name: /unpaid/i }))
     expect(onAddPlayer).toHaveBeenCalledTimes(1)
     expect(onSearchChange).toHaveBeenLastCalledWith('n')
-    expect(onDuesFilterChange).toHaveBeenCalledWith('partial')
+    expect(onDuesFilterChange).toHaveBeenCalledWith('pending')
   })
 
   it('exposes roster actions only to commissioners', async () => {
@@ -105,7 +105,7 @@ describe('Players roster views', () => {
 
     expect(
       screen.getByRole('button', { name: 'Mark Manager One paid' }),
-    ).toHaveTextContent('Partial')
+    ).toHaveTextContent('Unpaid')
     expect(screen.getByText('Previously: Old Team')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Mark Manager One paid' }))
     await user.click(screen.getByRole('button', { name: 'Payment details for Manager One' }))
@@ -138,6 +138,6 @@ describe('Players roster views', () => {
     )
     expect(screen.queryByRole('button', { name: /Manager One/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Dues for Manager One: Partial')).toHaveTextContent('Dues: Partial')
+    expect(screen.getByLabelText('Dues for Manager One: Unpaid')).toHaveTextContent('Dues: Unpaid')
   })
 })

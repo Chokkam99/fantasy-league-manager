@@ -14,7 +14,16 @@ const payment = {
 }
 
 describe('PaymentDetailsDialog', () => {
-  it('captures the rare partial-payment details in cents', async () => {
+  it('preserves an existing receipt when only editing notes while showing binary status', async () => {
+    const user = userEvent.setup(); const onSubmit = jest.fn()
+    render(<PaymentDetailsDialog busy={false} error={null} onClose={jest.fn()} onSubmit={onSubmit} open payment={{ ...payment, status: 'partial', paid_amount_cents: 2550 }} playerName="Alex Smith" />)
+    expect(screen.getByLabelText('Status')).toHaveValue('pending')
+    expect(screen.queryByRole('option', { name: 'Partial' })).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/Note/), 'Receipt retained')
+    await user.click(screen.getByRole('button', { name: 'Save payment' }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ notes: 'Receipt retained', paid_amount_cents: 2550, status: 'partial' }))
+  })
+  it('offers only paid/unpaid and records the full fee when paid', async () => {
     const user = userEvent.setup()
     const onSubmit = jest.fn()
     render(
@@ -29,18 +38,17 @@ describe('PaymentDetailsDialog', () => {
       />,
     )
 
-    await user.selectOptions(screen.getByLabelText('Status'), 'partial')
-    await user.clear(screen.getByLabelText('Amount received'))
-    await user.type(screen.getByLabelText('Amount received'), '25.50')
+    expect(screen.queryByRole('option', { name: 'Partial' })).not.toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Status'), 'paid')
     await user.type(screen.getByLabelText(/Method/), 'Zelle')
     await user.type(screen.getByLabelText(/Note/), 'First half')
     await user.click(screen.getByRole('button', { name: 'Save payment' }))
 
     expect(onSubmit).toHaveBeenCalledWith({
       notes: 'First half',
-      paid_amount_cents: 2550,
+      paid_amount_cents: 6000,
       payment_method: 'Zelle',
-      status: 'partial',
+      status: 'paid',
     })
   })
 
@@ -60,7 +68,7 @@ describe('PaymentDetailsDialog', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Amount received')).toBeDisabled()
+    expect(screen.queryByLabelText('Amount received')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Save payment' }))
     expect(onSubmit).toHaveBeenCalledWith({
       notes: 'Old note',

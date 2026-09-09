@@ -24,10 +24,10 @@ async function expectTypographyScale(page: Page) {
           H1: mobile ? 24 : 36,
           H2: mobile ? 20 : 24,
           H3: mobile ? 18 : 20,
-          BUTTON: 16,
-          INPUT: 16,
-          SELECT: 16,
-          TEXTAREA: 16,
+          BUTTON: 17,
+          INPUT: 17,
+          SELECT: 17,
+          TEXTAREA: 17,
         }
 
         return [...document.querySelectorAll('h1, h2, h3, button, input, select, textarea')]
@@ -253,8 +253,8 @@ test.describe('responsive league journeys', () => {
     expect(itemTopPositions[1]).toBeGreaterThan(itemTopPositions[0])
     expect(itemTopPositions[2]).toBeGreaterThan(itemTopPositions[1])
     if (!isMobile(testInfo)) {
-      await expect(orderingSummary).toHaveCSS('font-size', '16px')
-      await expect(orderingItems.first()).toHaveCSS('font-size', '14px')
+      await expect(orderingSummary).toHaveCSS('font-size', '17px')
+      await expect(orderingItems.first()).toHaveCSS('font-size', '15px')
     }
     if (isMobile(testInfo)) {
       const visibleStandingsHeaders = fullSeasonStandings.locator(
@@ -319,12 +319,12 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'Players & dues')
     await expect(page.getByRole('button', { name: 'Add player' })).toBeVisible()
     const duesFilter = page.getByRole('group', { name: 'Filter roster by dues status' })
-    await expect(duesFilter.getByRole('button')).toHaveCount(4)
+    await expect(duesFilter.getByRole('button')).toHaveCount(3)
     // Browser layout can report a fraction of a pixel above the 48px control height.
     expect((await duesFilter.boundingBox())!.height).toBeLessThanOrEqual(48.1)
     await expect(page.getByText('Manage player')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Mark Alex Smith unpaid' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Mark Taylor Reed paid' })).toHaveText('Partial')
+    await expect(page.getByRole('button', { name: 'Mark Taylor Reed paid' })).toHaveText('Unpaid')
     await expect(page.getByRole('button', { name: 'Payment details for Alex Smith' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Remove Alex Smith from 2026' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Add Casey Patel to 2026' })).toBeVisible()
@@ -418,7 +418,7 @@ test.describe('responsive league journeys', () => {
     await expectHeading(page, 'League roster')
     await expect(page.getByRole('button', { name: 'Add player' })).toHaveCount(0)
     await expect(page.getByText('Mark paid')).toHaveCount(0)
-    await expect(page.getByLabel('Dues for Taylor Reed: Partial')).toBeVisible()
+    await expect(page.getByLabel('Dues for Taylor Reed: Unpaid')).toBeVisible()
     await expect(page.getByLabel('Dues for Alex Smith: Paid')).toBeVisible()
 
     if (isMobile(testInfo)) {
@@ -454,7 +454,7 @@ test('shared roster refreshes player names and dues without reloading', async ({
   await page.clock.install()
   await page.goto(`${leaguePath}/players?season=2026`)
   await expectHeading(page, 'League roster')
-  await expect(page.getByLabel('Dues for Taylor Reed: Partial')).toBeVisible()
+  await expect(page.getByLabel('Dues for Taylor Reed: Unpaid')).toBeVisible()
 
   fixture.finance.dues[3].status = 'paid'
   fixture.finance.dues[3].paid_amount_cents = 5000

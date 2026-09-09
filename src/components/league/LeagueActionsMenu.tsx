@@ -80,7 +80,7 @@ export default function LeagueActionsMenu({
           <circle cx="12" cy="12" r="1.75" />
           <circle cx="19" cy="12" r="1.75" />
         </svg>
-        {isAdmin && duesRemaining > 0 && <span aria-hidden="true" className="absolute right-0 top-0 rounded-full bg-app-warning-soft px-1.5 text-[10px] font-bold text-app-warning md:hidden">{duesRemaining}</span>}
+        {isAdmin && duesRemaining > 0 && <span aria-hidden="true" className="absolute right-0 top-0 rounded-full bg-app-warning-soft px-1.5 text-[11px] font-bold text-app-warning md:hidden">{duesRemaining}</span>}
       </Button>
 
       {isOpen && (

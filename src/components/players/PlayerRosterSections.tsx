@@ -29,11 +29,7 @@ function DuesStatusToggle({
   player: PlayerRosterEntry
 }) {
   const isPaid = player.duesStatus === 'paid'
-  const visibleStatus = isPaid
-    ? 'Paid'
-    : player.duesStatus === 'partial'
-      ? 'Partial'
-      : 'Unpaid'
+  const visibleStatus = isPaid ? 'Paid' : 'Unpaid'
   const action = isPaid
     ? `Mark ${player.managerName} unpaid`
     : `Mark ${player.managerName} paid`
@@ -45,9 +41,7 @@ function DuesStatusToggle({
       className={`inline-flex min-h-10 w-[5.5rem] items-center justify-center gap-2 rounded-full border px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
         isPaid
           ? 'border-app-success/25 bg-app-success-soft text-app-success'
-          : player.duesStatus === 'partial'
-            ? 'border-app-warning/30 bg-app-warning-soft text-app-warning'
-            : 'border-app-border bg-app-surface text-app-text-muted hover:text-app-text'
+          : 'border-app-border bg-app-surface text-app-text-muted hover:text-app-text'
       }`}
       disabled={disabled}
       onClick={onClick}
@@ -141,7 +135,7 @@ export function PlayerRosterSections({
                 (teamName) => teamName !== player.currentTeamName,
               )
               const isBusy = busyMemberId === player.currentMemberId
-              const publicStatus = duesUnavailable ? 'Unavailable' : player.duesStatus === 'paid' ? 'Paid' : player.duesStatus === 'partial' ? 'Partial' : 'Unpaid'
+              const publicStatus = duesUnavailable ? 'Unavailable' : player.duesStatus === 'paid' ? 'Paid' : 'Unpaid'
 
               return (
                 <article
@@ -176,7 +170,7 @@ export function PlayerRosterSections({
                     <div className="sm:justify-self-end">
                       <Badge
                         aria-label={`Dues for ${player.managerName}: ${publicStatus}`}
-                        variant={duesUnavailable ? 'neutral' : player.duesStatus === 'paid' ? 'success' : player.duesStatus === 'partial' ? 'warning' : 'neutral'}
+                        variant={duesUnavailable ? 'neutral' : player.duesStatus === 'paid' ? 'success' : 'neutral'}
                       >
                         Dues: {publicStatus}
                       </Badge>
