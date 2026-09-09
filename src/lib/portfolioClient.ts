@@ -70,7 +70,7 @@ export const supabasePortfolioDataSource: PortfolioDataSource = {
   async loadMembers(leagueIds, seasons) {
     return supabase
       .from('league_members')
-      .select('id, league_id, season, payment_status, is_active')
+      .select('id, manager_name, league_id, season, payment_status, is_active')
       .in('league_id', leagueIds)
       .in('season', seasons)
   },

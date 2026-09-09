@@ -511,7 +511,7 @@ export default function WeeklyScores({
                   <div className="flex items-center justify-between border-b border-app-border px-3 py-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-app-text-muted">Matchup {index + 1}</p>
                     <Badge variant={!isFinal ? 'warning' : matchup.is_tie ? 'info' : 'success'}>
-                      {!isComplete ? 'Pending' : !isFinal ? 'In progress' : matchup.is_tie ? 'Tie' : 'Final'}
+                      {!isComplete ? 'Pending' : !isFinal ? 'Not finalized' : matchup.is_tie ? 'Tie' : 'Final'}
                     </Badge>
                   </div>
                   {[

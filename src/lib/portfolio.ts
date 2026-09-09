@@ -3,6 +3,7 @@ import { normalizePlatformSyncHealth } from '@/lib/platformImport'
 
 export interface PortfolioMemberRow {
   id?: string
+  manager_name?: string | null
   is_active: boolean | null
   league_id: string | null
   payment_status: string | null
@@ -26,8 +27,16 @@ export interface PortfolioLeague extends League {
   latestWeek: number
   paidMembers: number
   pendingMembers: number
+  outstandingDues: PortfolioOutstandingDues[]
   totalMembers: number
   totalWeeks: number
+}
+
+export interface PortfolioOutstandingDues {
+  memberId: string
+  managerName: string
+  remainingCents: number
+  isPartial: boolean
 }
 
 export interface PortfolioSummary {
@@ -96,6 +105,7 @@ export function buildPortfolioLeagues({
     { paidMembers: number; totalMembers: number; collectedAmount: number; expectedAmount: number }
   >()
   const latestWeekByScope = new Map<string, number>()
+  const outstandingByScope = new Map<string, PortfolioOutstandingDues[]>()
 
   for (const member of members) {
     if (!member.league_id || !member.season || !member.is_active) continue
@@ -107,6 +117,14 @@ export function buildPortfolioLeagues({
     if ((payment?.status || member.payment_status) === 'paid') counts.paidMembers += 1
     counts.expectedAmount += payment ? payment.expected_amount_cents / 100 : fee
     counts.collectedAmount += payment ? payment.paid_amount_cents / 100 : member.payment_status === 'paid' ? fee : 0
+    const expectedCents = payment?.expected_amount_cents ?? Math.round(fee * 100)
+    const paidCents = payment?.paid_amount_cents ?? (member.payment_status === 'paid' ? expectedCents : 0)
+    const remainingCents = Math.max(0, expectedCents - paidCents)
+    if (member.id && remainingCents > 0) {
+      const outstanding = outstandingByScope.get(key) || []
+      outstanding.push({ memberId: member.id, managerName: member.manager_name?.trim() || 'Player name unavailable', remainingCents, isPartial: paidCents > 0 })
+      outstandingByScope.set(key, outstanding)
+    }
     memberCounts.set(key, counts)
   }
 
@@ -167,6 +185,7 @@ export function buildPortfolioLeagues({
       latestWeek: latestWeekByScope.get(key) || 0,
       paidMembers: counts.paidMembers,
       pendingMembers,
+      outstandingDues: (outstandingByScope.get(key) || []).sort((a, b) => a.managerName.localeCompare(b.managerName) || a.memberId.localeCompare(b.memberId)),
       totalMembers: counts.totalMembers,
       totalWeeks: season?.total_weeks ?? 0,
     }

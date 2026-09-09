@@ -28,6 +28,7 @@ function portfolioLeague(
     name: 'League One',
     paidMembers: 1,
     pendingMembers: 1,
+    outstandingDues: [],
     platform_league_id: null,
     platform_type: 'manual',
     sync_status: 'active',
@@ -41,6 +42,41 @@ function portfolioLeague(
 describe('LeaguesList', () => {
   beforeEach(() => {
     mockLoadPortfolioLeagues.mockReset()
+  })
+
+  it('keeps preseason dues collapsed until opened and links to the correct season', async () => {
+    const user = userEvent.setup()
+    mockLoadPortfolioLeagues.mockResolvedValue([portfolioLeague({
+      latestWeek: 0, pendingMembers: 2, attentionReasons: ['2 players have dues pending'],
+      outstandingDues: [
+        { memberId: 'alex', managerName: 'Alex Smith', remainingCents: 10000, isPartial: false },
+        { memberId: 'zoe', managerName: 'Zoe Jones', remainingCents: 2525, isPartial: true },
+      ],
+    })])
+    render(<LeaguesList onCreateLeague={jest.fn()} />)
+    const summary = await screen.findByText('2 players · $125.25 remaining')
+    expect(screen.getByText('Alex Smith')).not.toBeVisible()
+    expect(screen.queryByText('2 players have dues pending')).not.toBeInTheDocument()
+    await user.click(summary)
+    expect(screen.getByText('Alex Smith')).toBeVisible()
+    expect(screen.getByText('Partially paid')).toBeVisible()
+    expect(screen.getByText('$25.25')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Manage dues' })).toHaveAttribute('href', '/league/league-one/players?season=2026')
+    await user.click(summary)
+    expect(screen.getByText('Zoe Jones')).not.toBeVisible()
+  })
+
+  it.each(['started', 'settled', 'archived'])('hides the preseason disclosure when the league is %s', async state => {
+    mockLoadPortfolioLeagues.mockResolvedValue([portfolioLeague({
+      latestWeek: state === 'started' ? 1 : 0,
+      archived_at: state === 'archived' ? '2026-01-01' : null,
+      outstandingDues: state === 'settled' ? [] : [{ memberId: 'alex', managerName: 'Alex Smith', remainingCents: 10000, isPartial: false }],
+    })])
+    const user = userEvent.setup()
+    render(<LeaguesList onCreateLeague={jest.fn()} />)
+    if(state === 'archived') await user.click(await screen.findByRole('button', { name: 'Show 1' }))
+    await screen.findByRole('link', { name: 'Open League One' })
+    expect(screen.queryByText(/players? · .* remaining/)).not.toBeInTheDocument()
   })
 
   it('renders the batched portfolio model and keeps archived history collapsed', async () => {

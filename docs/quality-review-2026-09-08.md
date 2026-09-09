@@ -59,4 +59,13 @@ follow-ups; this UI/functional pass does not claim to resolve them.
 | --- | --- | --- |
 | O01 — Credential hygiene from the earlier local review | Operational follow-up | Confirm whether the previously noted local credential is active, remove it from instruction text, and rotate through the owning service if needed. No credential values are included here. |
 | O02 — Login throttling | Deployment follow-up | Confirm the deployment’s trusted client-IP source and persistent/shared rate-limit storage before implementing a limiter that works across server instances. |
-| O03 — Release validation | Not deployed | Deploy the reviewed changes and smoke-test the actual environment separately. |
+| O03 — Release validation | Complete for release `ae51a60` | Production deployment, GitHub quality checks, and live read-only checks passed. See the September 8 production release checkpoint. |
+
+## Post-release feedback
+
+| ID | Finding / idea | Status |
+| --- | --- | --- |
+| Q19 | Completed season and dues progress bars used the red-orange brand accent, which could look like an error. Use success green at 100% and informational blue while progressing. Dues completion is independent of season completion. | Fixed in the follow-up release; existing overview tests and scoped lint passed. |
+| UX01 | Show preseason outstanding dues on the all-leagues homepage without overwhelming each card. Added a collapsed player-count/balance summary per league, expandable to names, remaining amounts, unpaid/partial labels, and a season-specific Manage dues link. Excludes inactive players, other seasons/leagues, settled/zero balances, and archived leagues; hides once scoring starts. Sums individual balances in cents so overpayments do not conceal another player’s debt, and replaces the duplicate dues warning. | Fixed in the follow-up release. All 468 unit/component/API tests and four responsive disclosure cases passed; production build, lint, and application typecheck passed. No migration or live data changes. |
+| Q20 | Matchups with both scores present but no final confirmation were labeled “In progress,” implying live competition. Use “Not finalized” to describe the stored state accurately. | Fixed in the follow-up release; provisional-score regression test retained. |
+| D01 | A read-only production audit found 1,534 historical score records marked `is_final_score=false`, `week_status=pending`: 170 in 2021, 180 in 2022, 442 in 2023, 372 in 2024, and 370 in 2025. Another 24 records in 2022 are final/completed. The label is based on these flags, not a live-game check. | Historical reconciliation needed. No rows changed. Verify completed results and payout-reset trigger effects before proposing any data repair; do not finalize records solely from their age. |

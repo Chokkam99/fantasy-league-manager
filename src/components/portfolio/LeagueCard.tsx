@@ -8,6 +8,9 @@ const currency = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
   style: 'currency',
 })
+const duesCurrency = new Intl.NumberFormat('en-US', {
+  currency: 'USD', style: 'currency', minimumFractionDigits: 0, maximumFractionDigits: 2,
+})
 
 function formatSyncDate(value?: string | null) {
   if (!value) return 'No sync recorded'
@@ -20,6 +23,11 @@ function formatSyncDate(value?: string | null) {
 }
 
 export function LeagueCard({ league }: { league: PortfolioLeague }) {
+  const outstandingDues = league.outstandingDues || []
+  const showOutstandingDues = !league.archived_at && league.latestWeek === 0 && outstandingDues.length > 0
+  const remainingCents = outstandingDues.reduce((total, player) => total + player.remainingCents, 0)
+  const duesAttention = `${league.pendingMembers} ${league.pendingMembers === 1 ? 'player has' : 'players have'} dues pending`
+  const attentionReasons = league.attentionReasons.filter(reason => !showOutstandingDues || reason !== duesAttention)
   const collectionProgress = league.expectedAmount
     ? Math.min((league.collectedAmount / league.expectedAmount) * 100, 100)
     : 0
@@ -87,7 +95,7 @@ export function LeagueCard({ league }: { league: PortfolioLeague }) {
           role="progressbar"
         >
           <div
-            className="h-full rounded-full bg-app-brand"
+            className={`h-full rounded-full ${collectionProgress >= 100 ? 'bg-app-success' : 'bg-app-info'}`}
             style={{ width: `${collectionProgress}%` }}
           />
         </div>
@@ -110,11 +118,36 @@ export function LeagueCard({ league }: { league: PortfolioLeague }) {
             </div>
           </div>
 
-          {!league.archived_at && league.attentionReasons.length > 0 && (
+          {showOutstandingDues && (
+            <details className="mt-3 rounded-[var(--app-radius-sm)] border border-app-border bg-app-surface-subtle">
+              <summary className="min-h-11 cursor-pointer rounded-[var(--app-radius-sm)] px-3 py-3 text-sm font-semibold text-app-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-brand">
+                {outstandingDues.length} {outstandingDues.length === 1 ? 'player' : 'players'} · {duesCurrency.format(remainingCents / 100)} remaining
+              </summary>
+              <div className="border-t border-app-border px-3 pb-2">
+                <p className="pt-3 text-xs font-semibold text-app-text-muted">Dues to collect</p>
+                <ul className="mt-1 divide-y divide-app-border">
+                  {outstandingDues.map(player => (
+                    <li className="flex items-start justify-between gap-3 py-3 text-sm" key={player.memberId}>
+                      <div className="min-w-0">
+                        <p className="break-words font-medium text-app-text">{player.managerName}</p>
+                        <p className="mt-0.5 text-xs text-app-text-muted">{player.isPartial ? 'Partially paid' : 'Unpaid'}</p>
+                      </div>
+                      <span className="shrink-0 font-semibold tabular-nums text-app-text">{duesCurrency.format(player.remainingCents / 100)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-app-brand hover:text-app-brand-strong" href={`/league/${league.id}/players?season=${league.current_season}`}>
+                  Manage dues <span aria-hidden="true" className="ml-2">→</span>
+                </Link>
+              </div>
+            </details>
+          )}
+
+          {!league.archived_at && attentionReasons.length > 0 && (
             <p className="mt-3 rounded-[var(--app-radius-sm)] bg-app-warning-soft px-3 py-2 text-sm text-app-warning">
-              {league.attentionReasons[0]}
-              {league.attentionReasons.length > 1 &&
-                ` + ${league.attentionReasons.length - 1} more`}
+              {attentionReasons[0]}
+              {attentionReasons.length > 1 &&
+                ` + ${attentionReasons.length - 1} more`}
             </p>
           )}
         </div>

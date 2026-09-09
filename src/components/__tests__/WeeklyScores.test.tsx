@@ -106,7 +106,7 @@ describe('WeeklyScores', () => {
   it('does not label provisional scores as final or announce a winner', async () => {
     mockScoresResult = { data: scores.map(score => ({ ...score, is_final_score: false, week_status: 'pending' })), error: null }
     renderScores()
-    await screen.findByText('In progress')
+    await screen.findByText('Not finalized')
     expect(screen.queryByText('Final', { exact: true })).not.toBeInTheDocument()
     expect(screen.queryByText('Winner', { exact: true })).not.toBeInTheDocument()
   })

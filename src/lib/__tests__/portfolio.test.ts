@@ -41,6 +41,32 @@ function season(overrides: Partial<LeagueSeason> = {}): LeagueSeason {
 }
 
 describe('portfolio view model', () => {
+  it('lists only active current-season balances, including partial cents, without offsetting another player’s overpayment', () => {
+    const people = [
+      { id: 'partial', manager_name: 'Zoe', payment_status: 'pending' },
+      { id: 'unpaid', manager_name: 'Alex', payment_status: 'pending' },
+      { id: 'overpaid', manager_name: 'Blake', payment_status: 'paid' },
+      { id: 'waived', manager_name: 'Casey', payment_status: 'pending' },
+      { id: 'inactive', manager_name: 'Drew', payment_status: 'pending', is_active: false },
+    ]
+    const [result] = buildPortfolioLeagues({ leagues: [league()], seasons: [season()], scores: [],
+      members: [
+        ...people.map(person => ({ is_active: true, league_id: 'league-one', season: '2026', ...person })),
+        { id: 'history', manager_name: 'Past player', payment_status: 'pending', is_active: true, league_id: 'league-one', season: '2025' },
+        { id: 'other', manager_name: 'Other league', payment_status: 'pending', is_active: true, league_id: 'league-two', season: '2026' },
+      ],
+      payments: [
+        { league_member_id: 'partial', expected_amount_cents: 10000, paid_amount_cents: 7475, status: 'partial' },
+        { league_member_id: 'overpaid', expected_amount_cents: 10000, paid_amount_cents: 20000, status: 'paid' },
+        { league_member_id: 'waived', expected_amount_cents: 0, paid_amount_cents: 0, status: 'pending' },
+      ].map(payment => ({ league_id: 'league-one', season: '2026', ...payment })),
+    })
+    expect(result.outstandingDues).toEqual([
+      { memberId: 'unpaid', managerName: 'Alex', remainingCents: 10000, isPartial: false },
+      { memberId: 'partial', managerName: 'Zoe', remainingCents: 2525, isPartial: true },
+    ])
+  })
+
   it('includes canonical partial dues and ignores inactive and other-season payments', () => {
     const [result] = buildPortfolioLeagues({ leagues: [league()], seasons: [season()], scores: [],
       members: [{ id: 'active', is_active: true, league_id: 'league-one', season: '2026', payment_status: 'pending' },

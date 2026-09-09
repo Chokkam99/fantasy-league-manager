@@ -61,7 +61,7 @@ export function SeasonProgressCard({
         role="progressbar"
       >
         <div
-          className="h-full rounded-full bg-app-brand transition-[width]"
+          className={`h-full rounded-full transition-[width] ${overview.seasonProgress >= 100 ? 'bg-app-success' : 'bg-app-info'}`}
           style={{ width: `${overview.seasonProgress}%` }}
         />
       </div>
