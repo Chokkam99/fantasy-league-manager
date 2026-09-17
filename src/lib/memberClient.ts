@@ -1,3 +1,4 @@
+import { appFetch } from '@/lib/appErrors'
 import { invalidateFinanceCache } from '@/lib/financeClient'
 import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
 
@@ -5,7 +6,7 @@ export async function performMemberAction(
   leagueId: string,
   body: Record<string, unknown>,
 ) {
-  const response = await fetch(
+  const response = await appFetch(
     `/api/leagues/${encodeURIComponent(leagueId)}/members`,
     {
       body: JSON.stringify(body),

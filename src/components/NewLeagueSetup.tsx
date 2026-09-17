@@ -1,5 +1,7 @@
 'use client'
 
+import { appFetch, formatAppError } from '@/lib/appErrors'
+
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/Badge'
@@ -142,7 +144,7 @@ export default function NewLeagueSetup() {
     setEspnError('')
     setEspnNotice('')
     try {
-      const response = await fetch('/api/leagues/espn-preview', {
+      const response = await appFetch('/api/leagues/espn-preview', {
         body: JSON.stringify({
           espn_s2: privateLeague ? espnS2 : undefined,
           league_id: normalizedEspnLeagueId,
@@ -228,7 +230,7 @@ export default function NewLeagueSetup() {
 
     setIsSaving(true)
     try {
-      const response = await fetch('/api/leagues', {
+      const response = await appFetch('/api/leagues', {
         body: JSON.stringify({
           configuration: {
             divisions: groupNames,
@@ -269,7 +271,7 @@ export default function NewLeagueSetup() {
       }
       router.push(`/league/${encodeURIComponent(payload.league.id)}${espnSnapshot ? '/season-import' : ''}?season=${season}`)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'The league could not be created.')
+      setError(formatAppError(saveError, 'The league could not be created.'))
       setIsSaving(false)
     }
   }

@@ -1,3 +1,4 @@
+import { formatAppError } from '@/lib/appErrors'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { LeagueSeason } from '@/lib/supabase'
 import {
@@ -56,7 +57,7 @@ export function useSeasonConfig(leagueId: string, season: string): UseSeasonConf
     } catch (err) {
       if (version !== requestVersion.current) return
       console.error('Error fetching season config:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch season configuration')
+      setError(formatAppError(err, 'Failed to fetch season configuration'))
       
       setSeasonConfig(createUnsavedSeasonConfig(leagueId, season))
     } finally {

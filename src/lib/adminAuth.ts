@@ -1,3 +1,4 @@
+import { appFetch, formatAppError } from '@/lib/appErrors'
 import { invalidateFinanceCache } from '@/lib/financeClient'
 import { invalidateLeagueReadCache } from '@/lib/leagueReadClient'
 
@@ -27,7 +28,7 @@ export async function authenticateAdmin(
   password: string,
 ): Promise<AdminAuthenticationResult> {
   try {
-    const response = await fetch('/api/admin/auth', {
+    const response = await appFetch('/api/admin/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password, action: 'login' }),
@@ -40,7 +41,7 @@ export async function authenticateAdmin(
     }
 
     return {
-      error: typeof data.error === 'string' ? data.error : 'Unable to sign in.',
+      error: formatAppError(data.error, 'Sign-in could not be completed. Try again. If this continues, contact the app maintainer.'),
       success: false,
     }
   } catch (error) {
@@ -53,10 +54,12 @@ export async function authenticateAdmin(
 }
 
 export async function logoutAdmin(): Promise<void> {
-  const response = await fetch('/api/admin/auth', {
+  const response = await appFetch('/api/admin/auth', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'logout' }),
+  }).catch((error: unknown) => {
+    throw new Error('Sign-out could not be confirmed. Reload the page and check commissioner mode, then sign out again if needed.', { cause: error })
   })
   const data = await response.json().catch(() => null)
   if (!response.ok || !data?.success) {
@@ -67,7 +70,7 @@ export async function logoutAdmin(): Promise<void> {
 
 export async function checkAdminStatus(): Promise<boolean> {
   try {
-    const response = await fetch('/api/admin/auth', {
+    const response = await appFetch('/api/admin/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'check' }),

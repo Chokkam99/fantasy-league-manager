@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import {
@@ -20,7 +21,7 @@ function response(
   body: Record<string, boolean | string>,
   status = 200,
 ): NextResponse {
-  return NextResponse.json(body, {
+  return NextResponse.json(body.error ? { ...body, error: apiErrorMessage(body.error, status, 'Sign-in could not be completed. Try again. If this continues, contact the app maintainer.') } : body, {
     headers: { 'Cache-Control': 'no-store' },
     status,
   })

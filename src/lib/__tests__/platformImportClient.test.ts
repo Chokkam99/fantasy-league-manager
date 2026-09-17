@@ -109,6 +109,12 @@ describe('platform import client boundary', () => {
 
     await expect(
       requestESPNImport('league-one', '2026', 'preview', 4),
-    ).rejects.toThrow('The ESPN response was incomplete. No scores were changed.')
+    ).rejects.toThrow('The ESPN preview was incomplete. No scores were changed. Try loading the preview again.')
   })
+  it('does not claim a malformed sync acknowledgement means no changes were made', async () => {
+    mockFetch.mockResolvedValue(response(true, { success: true }))
+    await expect(requestESPNImport('league-one', '2026', 'sync', 4)).rejects.toThrow('check whether the import completed before trying again')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
 })

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import type { Json } from '@/lib/database.types'
@@ -27,8 +28,13 @@ interface MappingRequestBody {
 
 export const dynamic = 'force-dynamic'
 
-function errorResponse(message: string, status: number) {
-  return NextResponse.json({ error: message, success: false }, { status })
+function errorResponse(message: unknown, status: number) {
+  return NextResponse.json({
+    error: apiErrorMessage(message, status,
+      'The ESPN team assignment request could not be completed. Reload the latest data before trying again. If this continues, contact the app maintainer.',
+    ),
+    success: false,
+  }, { status })
 }
 
 function isAuthorized(request: NextRequest) {
@@ -116,13 +122,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ mapping, success: true })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
 
     const message =
       error instanceof Error ? error.message : 'Team mapping could not be loaded.'
     console.error(`ESPN team mapping load failed for ${leagueId}:`, message)
-    return errorResponse(message, 500)
+    return errorResponse(error, 500)
   }
 }
 
@@ -198,12 +204,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
 
     const message =
       error instanceof Error ? error.message : 'Team mapping could not be saved.'
     console.error(`ESPN team mapping save failed for ${leagueId}:`, message)
-    return errorResponse(message, 500)
+    return errorResponse(error, 500)
   }
 }

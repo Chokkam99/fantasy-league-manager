@@ -96,4 +96,16 @@ describe('shared UI foundations', () => {
     expect(onDismiss).toHaveBeenCalledTimes(2)
     jest.useRealTimers()
   })
+  it('keeps error notifications visible until dismissed', () => {
+    jest.useFakeTimers()
+    const onDismiss = jest.fn()
+    render(<Toast message="The dues update needs attention. Reload and check before retrying." tone="danger" onDismiss={onDismiss} />)
+    jest.advanceTimersByTime(60000)
+    expect(onDismiss).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('dues update needs attention')
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }))
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+    jest.useRealTimers()
+  })
+
 })

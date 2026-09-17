@@ -1,5 +1,7 @@
 'use client'
 
+import { formatAppError } from '@/lib/appErrors'
+
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -173,9 +175,7 @@ export function LeagueHistoryTable({
       setMatrix(buildLeagueHistoryMatrix(snapshot, historyRows))
     } catch (caught) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : 'League history could not be loaded.',
+        formatAppError(caught, 'League history could not be loaded.'),
       )
     } finally {
       setLoading(false)

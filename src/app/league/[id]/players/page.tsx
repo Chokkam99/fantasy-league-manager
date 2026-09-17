@@ -1,5 +1,7 @@
 'use client'
 
+import { formatAppError } from '@/lib/appErrors'
+
 import { useRouter } from 'next/navigation'
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
@@ -136,9 +138,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       if (version !== requestVersion.current) return
       console.error('Failed to load players:', error)
       setDataError(
-        error && typeof error === 'object' && 'message' in error
-          ? String(error.message)
-          : 'Players could not be loaded.',
+        formatAppError(error, 'Players could not be loaded. Reload the page to try again.'),
       )
       setMemberships([])
       setFinance(null)
@@ -221,7 +221,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       }
     } catch (error) {
       setDataError(
-        error instanceof Error ? error.message : 'Payment status could not be updated.',
+        formatAppError(error, 'Payment status could not be updated.'),
       )
     } finally {
       setBusyMemberId(null)
@@ -262,7 +262,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       setNotice(`${playerName}’s payment details were saved.`)
     } catch (error) {
       setPaymentDialogError(
-        error instanceof Error ? error.message : 'Payment could not be saved.',
+        formatAppError(error, 'Payment could not be saved.'),
       )
     } finally {
       setBusyMemberId(null)
@@ -283,7 +283,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       await fetchPlayers()
     } catch (error) {
       setDataError(
-        error instanceof Error ? error.message : 'Player could not be added.',
+        formatAppError(error, 'Player could not be added.'),
       )
     } finally {
       setBusyMemberId(null)
@@ -309,7 +309,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       await fetchPlayers()
     } catch (error) {
       setAddError(
-        error instanceof Error ? error.message : 'Player could not be added.',
+        formatAppError(error, 'Player could not be added.'),
       )
     } finally {
       setIsAdding(false)
@@ -335,7 +335,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
     } catch (error) {
       setPlayerToDeactivate(null)
       setDataError(
-        error instanceof Error ? error.message : 'Player could not be removed.',
+        formatAppError(error, 'Player could not be removed.'),
       )
     } finally {
       setBusyMemberId(null)
@@ -360,7 +360,7 @@ export default function PlayersPage({ params }: PlayersPageProps) {
       setPlayerToEdit(null)
       await fetchPlayers()
     } catch (error) {
-      setEditTeamError(error instanceof Error ? error.message : 'Team name could not be updated.')
+      setEditTeamError(formatAppError(error, 'Team name could not be updated.'))
     } finally {
       setBusyMemberId(null)
     }

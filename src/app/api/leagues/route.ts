@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { parseESPNOnboardingSnapshot } from '@/lib/espn/onboarding'
@@ -16,8 +17,13 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-function errorResponse(message: string, status: number) {
-  return NextResponse.json({ error: message, success: false }, { status })
+function errorResponse(message: unknown, status: number) {
+  return NextResponse.json({
+    error: apiErrorMessage(message, status,
+      'The league request could not be completed. Reload the latest data before trying again. If this continues, contact the app maintainer.',
+    ),
+    success: false,
+  }, { status })
 }
 
 function isCommissioner(request: NextRequest) {
@@ -80,10 +86,10 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
     return errorResponse(
-      error instanceof Error ? error.message : 'The league portfolio could not be loaded.',
+      error,
       500,
     )
   }
@@ -209,12 +215,12 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
 
     const message =
       error instanceof Error ? error.message : 'The league could not be created.'
     console.error('League creation failed:', message)
-    return errorResponse(message, 500)
+    return errorResponse(error, 500)
   }
 }

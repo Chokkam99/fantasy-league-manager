@@ -1,5 +1,7 @@
 'use client'
 
+import { appFetch, formatAppError } from '@/lib/appErrors'
+
 import Link from 'next/link'
 import { useState, useEffect, use, useCallback } from 'react'
 import WeeklyScores from '@/components/WeeklyScores'
@@ -74,7 +76,7 @@ export default function WeeklyScoresPage({ params }: WeeklyScoresPageProps) {
     setNotice(null)
 
     try {
-      const response = await fetch(
+      const response = await appFetch(
         `/api/leagues/${resolvedParams.id}/scores/manual`,
         {
           body: JSON.stringify({
@@ -106,9 +108,7 @@ export default function WeeklyScoresPage({ params }: WeeklyScoresPageProps) {
       setNotice({
         kind: 'error',
         message:
-          error instanceof Error
-            ? error.message
-            : 'Season scores could not be cleared.',
+          formatAppError(error, 'Season scores could not be cleared.'),
       })
     } finally {
       setIsClearing(false)

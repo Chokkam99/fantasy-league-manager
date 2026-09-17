@@ -1,5 +1,7 @@
 'use client'
 
+import { formatAppError } from '@/lib/appErrors'
+
 import { useState } from 'react'
 import { Toast } from '@/components/ui/Toast'
 
@@ -48,7 +50,7 @@ export default function ShareButton({ leagueId, display = 'icon', className = ''
       setMessage('League link copied.')
     } catch (caught) {
       setTone('danger')
-      setMessage(caught instanceof Error ? caught.message : 'The league link could not be copied.')
+      setMessage(formatAppError(caught, 'The league link could not be copied.'))
     } finally {
       setLoading(false)
     }

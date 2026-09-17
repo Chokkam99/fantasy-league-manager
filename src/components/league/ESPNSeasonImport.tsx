@@ -1,5 +1,7 @@
 'use client'
 
+import { appFetch, formatAppError } from '@/lib/appErrors'
+
 import { useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -40,11 +42,11 @@ export function ESPNSeasonImport({ leagueId, requestedSeason, onImported, onManu
     const request = ++version.current
     setBusy('preview'); setError(''); setPreview(null)
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'preview', season: selectedSeason, connection: selectedConnection }) })
+      const response = await appFetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'preview', season: selectedSeason, connection: selectedConnection }) })
       const data = await response.json()
       if (!response.ok || !data.preview) throw new Error(data.error || 'ESPN could not confirm this season.')
       if (request === version.current) { adoptPreview(data.preview); setShowConnection(false) }
-    } catch (reason) { if (request === version.current) { setError(reason instanceof Error ? reason.message : 'ESPN import could not be loaded.'); setShowConnection(true) } }
+    } catch (reason) { if (request === version.current) { setError(formatAppError(reason, 'ESPN import could not be loaded.')); setShowConnection(true) } }
     finally { if (request === version.current) setBusy(null) }
   }
   useEffect(() => {
@@ -52,7 +54,7 @@ export function ESPNSeasonImport({ leagueId, requestedSeason, onImported, onManu
     const load = async () => {
       setBusy('loading'); setError(''); setPreview(null); setApplied('')
       try {
-        const response = await fetch(`${endpoint}${requestedSeason ? `?season=${encodeURIComponent(requestedSeason)}` : ''}`, { cache: 'no-store' })
+        const response = await appFetch(`${endpoint}${requestedSeason ? `?season=${encodeURIComponent(requestedSeason)}` : ''}`, { cache: 'no-store' })
         const data = await response.json()
         if (!response.ok) throw new Error(data.error || 'Season import could not be loaded.')
         if (request !== version.current) return
@@ -61,7 +63,7 @@ export function ESPNSeasonImport({ leagueId, requestedSeason, onImported, onManu
         setMetadata(next); setSeason(next.season); setConnection(saved); setShowConnection(!next.connection.is_configured)
         if (next.connection.is_configured) await loadPreview(next.season, saved)
         else setBusy(null)
-      } catch (reason) { if (request === version.current) { setError(reason instanceof Error ? reason.message : 'Season import could not be loaded.'); setBusy(null) } }
+      } catch (reason) { if (request === version.current) { setError(formatAppError(reason, 'Season import could not be loaded.')); setBusy(null) } }
     }
     void load()
     // This numeric request generation deliberately invalidates the latest pending read.
@@ -81,13 +83,13 @@ export function ESPNSeasonImport({ leagueId, requestedSeason, onImported, onManu
     if (!preview || !resolved || resolved.errors.length || submitting.current || applied) return
     submitting.current = true; setBusy('apply'); setError('')
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'apply', season, connection, revision: preview.revision, confirmed: true, ...input }) })
+      const response = await appFetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'apply', season, connection, revision: preview.revision, confirmed: true, ...input }) })
       const data = await response.json()
       if (!response.ok || !data.success) { if (data.preview) adoptPreview(data.preview); throw new Error(data.error || 'The import was not completed. Your review is still here.') }
       setApplied(data.season)
       invalidateFinanceCache(leagueId); invalidateLeagueReadCache(leagueId)
       await openResult(data.season)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'The import could not be completed.') }
+    } catch (reason) { setError(formatAppError(reason, 'The import could not be completed.')) }
     finally { submitting.current = false; setBusy(null) }
   }
   const changeConnection = (next: Connection) => { setConnection(next); setPreview(null); setError('') }

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatAppError } from '@/lib/appErrors'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LeagueCard } from '@/components/portfolio/LeagueCard'
 import { PortfolioOverview } from '@/components/portfolio/PortfolioOverview'
@@ -39,7 +40,7 @@ export default function LeaguesList({
       setLeagues(await loadCommissionerPortfolio())
     } catch (err) {
       console.error('Error fetching leagues:', err)
-      setError('The league portfolio could not be loaded. Check your connection and try again.')
+      setError(formatAppError(err, 'The league portfolio could not be loaded. Reload the page to try again.'))
     } finally {
       setIsLoading(false)
     }

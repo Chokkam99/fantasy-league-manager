@@ -1,5 +1,7 @@
 'use client'
 
+import { appFetch, formatAppError } from '@/lib/appErrors'
+
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -37,7 +39,7 @@ export default function SeasonSetupForm({ leagueId, onCancel, onStarted }: {
     setPreview(null); setDraft(null); setError(''); setCreatedSeason(''); setRestored(false)
     const load = async () => {
       try {
-        const response = await fetch(`/api/leagues/${encodeURIComponent(leagueId)}/seasons/rollover`, { cache: 'no-store' })
+        const response = await appFetch(`/api/leagues/${encodeURIComponent(leagueId)}/seasons/rollover`, { cache: 'no-store' })
         const payload = await response.json() as { preview?: RolloverPreview; error?: string }
         if (!response.ok || !payload.preview) throw new Error(payload.error || 'Season setup could not be loaded.')
         if (cancelled) return
@@ -45,7 +47,7 @@ export default function SeasonSetupForm({ leagueId, onCancel, onStarted }: {
         let saved: SeasonSetupDraft | null = null
         try { saved = restoreSeasonSetupDraft(sessionStorage.getItem(draftKey(leagueId, next.target_season)), next) } catch { setStorageAvailable(false) }
         setPreview(next); setDraft(saved || createSeasonSetupDraft(next)); setRestored(Boolean(saved))
-      } catch (reason) { if (!cancelled) setError(reason instanceof Error ? reason.message : 'Season setup could not be loaded.') }
+      } catch (reason) { if (!cancelled) setError(formatAppError(reason, 'Season setup could not be loaded.')) }
     }
     void load()
     return () => { cancelled = true }
@@ -77,7 +79,7 @@ export default function SeasonSetupForm({ leagueId, onCancel, onStarted }: {
     if (issues.length) { setError(issues.join(' ')); return }
     submitting.current = true; setIsStarting(true); setError('')
     try {
-      const response = await fetch(`/api/leagues/${encodeURIComponent(leagueId)}/seasons/rollover`, {
+      const response = await appFetch(`/api/leagues/${encodeURIComponent(leagueId)}/seasons/rollover`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(draftRequest(preview, draft)),
       })
       const payload = await response.json() as { target_season?: string; error?: string }
@@ -87,7 +89,7 @@ export default function SeasonSetupForm({ leagueId, onCancel, onStarted }: {
       invalidateLeagueReadCache(leagueId)
       try { sessionStorage.removeItem(draftKey(leagueId, preview.target_season)) } catch { /* Creation succeeded even if local storage is unavailable. */ }
       await openCreated(payload.target_season)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'The season could not be created. Your draft is still here.') }
+    } catch (reason) { setError(formatAppError(reason, 'The season could not be created. Your draft is still here.')) }
     finally { submitting.current = false; setIsStarting(false) }
   }
 

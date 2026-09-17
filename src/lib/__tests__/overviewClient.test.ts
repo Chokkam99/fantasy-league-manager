@@ -65,7 +65,7 @@ describe('overview data loading', () => {
       finance: null,
       financeError: 'Finance unavailable',
       matchups: [],
-      standingsError: 'Standings unavailable',
+      standingsError: 'The app could not access the required data. If you are the commissioner, sign in again. If this continues, contact the app maintainer.',
     })
   })
 

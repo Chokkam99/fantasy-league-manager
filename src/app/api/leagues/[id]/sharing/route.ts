@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { buildSharePath, isValidShareSeason } from '@/lib/shareAccess'
@@ -17,8 +18,13 @@ interface RouteContext {
 
 export const dynamic = 'force-dynamic'
 
-function responseError(error: string, status: number) {
-  return NextResponse.json({ error, success: false }, { status })
+function responseError(error: unknown, status: number) {
+  return NextResponse.json({
+    error: apiErrorMessage(error, status,
+      'The share-link request could not be completed. Reload the page and try again.',
+    ),
+    success: false,
+  }, { status })
 }
 
 function isCommissioner(request: NextRequest) {
@@ -68,10 +74,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return responseError(error.message, 503)
+      return responseError(error, 503)
     }
     return responseError(
-      error instanceof Error ? error.message : 'Share-link status could not be loaded.',
+      error,
       500,
     )
   }
@@ -139,10 +145,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return responseError(error.message, 503)
+      return responseError(error, 503)
     }
     return responseError(
-      error instanceof Error ? error.message : 'The legacy player link could not be created.',
+      error,
       500,
     )
   }
@@ -170,10 +176,10 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ result: result.data, success: true })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return responseError(error.message, 503)
+      return responseError(error, 503)
     }
     return responseError(
-      error instanceof Error ? error.message : 'The legacy player link could not be revoked.',
+      error,
       500,
     )
   }

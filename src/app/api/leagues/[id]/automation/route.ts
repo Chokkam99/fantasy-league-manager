@@ -1,3 +1,5 @@
+import { formatPlatformSyncError } from '@/lib/platformImport'
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import {
@@ -47,8 +49,13 @@ interface ImportRunSummary {
 
 export const dynamic = 'force-dynamic'
 
-function errorResponse(message: string, status: number) {
-  return NextResponse.json({ error: message, success: false }, { status })
+function errorResponse(message: unknown, status: number) {
+  return NextResponse.json({
+    error: apiErrorMessage(message, status,
+      'The ESPN connection request could not be completed. Reload the latest data before trying again. If this continues, contact the app maintainer.',
+    ),
+    success: false,
+  }, { status })
 }
 
 function isAuthorized(request: NextRequest) {
@@ -96,7 +103,7 @@ function sanitizedSettings(
     last_sync_at: league.last_sync_at || null,
     last_sync_error: syncHealth.lastSyncError,
     latest_imported_week: latestImportedWeek,
-    latest_import_run: latestImportRun,
+    latest_import_run: latestImportRun ? { ...latestImportRun, error_message: latestImportRun.error_message ? formatPlatformSyncError(latestImportRun.error_message) : null } : null,
     league_id: leagueId,
     private_league: privateLeague,
     readiness,
@@ -218,7 +225,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
 
     const message =
@@ -226,7 +233,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         ? error.message
         : 'Automation settings could not be loaded.'
     console.error(`Automation settings load failed for ${leagueId}:`, message)
-    return errorResponse(message, 500)
+    return errorResponse(error, 500)
   }
 }
 
@@ -391,12 +398,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
 
     const message =
       error instanceof Error ? error.message : 'ESPN setup failed.'
     console.error(`Automation settings save failed for ${leagueId}:`, message)
-    return errorResponse(message, 500)
+    return errorResponse(error, 500)
   }
 }

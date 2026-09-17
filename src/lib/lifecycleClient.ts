@@ -1,3 +1,4 @@
+import { appFetch } from '@/lib/appErrors'
 import { invalidateFinanceCache } from './financeClient'
 import { invalidateLeagueReadCache } from './leagueReadClient'
 import type { ValidLifecycleAction } from './lifecycle'
@@ -22,12 +23,12 @@ async function payload(response: Response) {
 }
 
 export async function loadLifecycle(leagueId: string): Promise<LifecycleSnapshot> {
-  const response = await fetch(
+  const response = await appFetch(
     `/api/leagues/${encodeURIComponent(leagueId)}/lifecycle`,
     { cache: 'no-store' },
   )
   const body = await payload(response)
-  if (!response.ok) {
+  if (!response.ok || !body) {
     throw new Error(body?.error || 'Lifecycle settings could not be loaded.')
   }
   return body as LifecycleSnapshot
@@ -37,7 +38,7 @@ export async function performLifecycleAction(
   leagueId: string,
   action: ValidLifecycleAction,
 ) {
-  const response = await fetch(
+  const response = await appFetch(
     `/api/leagues/${encodeURIComponent(leagueId)}/lifecycle`,
     {
       body: JSON.stringify(action),
@@ -46,7 +47,7 @@ export async function performLifecycleAction(
     },
   )
   const body = await payload(response)
-  if (!response.ok) {
+  if (!response.ok || !body) {
     throw new Error(body?.error || 'Archive state could not be updated.')
   }
   invalidateLeagueReadCache(leagueId)

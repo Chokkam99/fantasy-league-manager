@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
@@ -10,7 +11,7 @@ import { createServerSupabaseClient, type AppSupabaseClient, isServerSupabaseCon
 import type { Json } from '@/lib/database.types'
 
 export const dynamic = 'force-dynamic'
-const fail = (error: string, status = 422) => NextResponse.json({ success: false, error }, { status })
+const fail = (error: unknown, status = 422) => NextResponse.json({ success: false, error: apiErrorMessage(error, status, 'The season import request could not be completed. Reload the latest data before trying again. If this continues, contact the app maintainer.') }, { status })
 const authorized = (request: NextRequest) => isValidAdminSession(request.cookies.get(ADMIN_SESSION_COOKIE)?.value, process.env.ADMIN_SESSION_SECRET)
 const memberColumns = 'id, manager_id, manager_name, team_name, season, is_active, division' as const
 const configColumns = 'season, total_weeks, playoff_start_week, playoff_spots, divisions, fee_amount, draft_food_cost, weekly_prize_amount, prize_structure, archived_at' as const
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest, route: { params: Promise<{ id: s
   } catch (error) { return failure(error) }
 }
 function failure(error: unknown) {
-  return fail(error instanceof Error ? error.message : 'Season import could not be completed.', isServerSupabaseConfigurationError(error) ? 503 : error instanceof ESPNRequestError ? error.status : 422)
+  return fail(error, isServerSupabaseConfigurationError(error) ? 503 : error instanceof ESPNRequestError ? error.status : 422)
 }
 export async function POST(request: NextRequest, route: { params: Promise<{ id: string }> }) {
   if (!authorized(request)) return fail('Commissioner sign-in is required.', 401)
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest, route: { params: Promise<{ id: 
     if (result.error) {
       if (result.error.code === 'PGRST202' || result.error.code === '42883') return fail('Season imports need the pending database update. No changes were made.', 503)
       if (['40001','55P03'].includes(result.error.code || '')) return fail('The league changed during import. Refresh the ESPN preview and try again.', 409)
-      throw new Error(result.error.message)
+      throw result.error
     }
     if (record(result.data).success !== true) throw new Error('The database did not confirm the season import.')
     return NextResponse.json({ success: true, season: context.season, imported_weeks: espn.weeks.length, players: resolved.teams.length, warnings: espn.warnings })

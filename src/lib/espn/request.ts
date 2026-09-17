@@ -1,10 +1,11 @@
+import { formatAppError } from '@/lib/appErrors'
 import type { ESPNAPIResponse, ESPNConfig } from './types'
 
 export class ESPNRequestError extends Error {
   status: number
 
   constructor(message: string, status: number) {
-    super(message)
+    super(formatAppError(message))
     this.name = 'ESPNRequestError'
     this.status = status
   }
@@ -55,16 +56,21 @@ async function parseESPNResponse(response: Response, usedCredentials: boolean) {
 }
 
 async function fetchESPNUrl(url: URL, cookie?: string) {
-  return fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'Fantasy-League-Manager/1.0',
-      ...(cookie ? { Cookie: cookie } : {}),
-    },
-    method: 'GET',
-    cache: 'no-store',
-    signal: AbortSignal.timeout(15_000),
-  })
+  try {
+    return await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Fantasy-League-Manager/1.0',
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
+      method: 'GET',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15_000),
+    })
+  } catch (error) {
+    console.error('ESPN connection failed:', error)
+    throw new ESPNRequestError('ESPN could not be reached. Retry when the connection is available.', 502)
+  }
 }
 
 export async function requestESPNData(

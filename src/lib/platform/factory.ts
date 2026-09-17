@@ -30,17 +30,17 @@ export class PlatformFactory {
       
       case 'yahoo':
         // TODO: Implement Yahoo import service
-        throw new Error('Yahoo integration not yet implemented')
+        throw new Error('Yahoo import is not available yet. Enter scores manually on the Scores page.')
       
       case 'sleeper':
         // TODO: Implement Sleeper import service  
-        throw new Error('Sleeper integration not yet implemented')
+        throw new Error('Sleeper import is not available yet. Enter scores manually on the Scores page.')
       
       case 'manual':
-        throw new Error('Manual leagues do not support automatic import')
+        throw new Error('Manual leagues do not support automatic import. Enter scores on the Scores page, or connect the league to ESPN in Settings.')
       
       default:
-        throw new Error(`Unsupported platform type: ${config.platform_type}`)
+        throw new Error('This league’s platform is not supported. Choose ESPN or manual entry in Settings.')
     }
   }
 

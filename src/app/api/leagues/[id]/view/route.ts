@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { isMissingFinanceSchema } from '@/lib/finance'
 import { seasonPhase } from '@/lib/seasonNavigation'
@@ -32,8 +33,13 @@ const resources = new Set([
 
 export const dynamic = 'force-dynamic'
 
-function errorResponse(error: string, status: number) {
-  return NextResponse.json({ error, success: false }, { status })
+function errorResponse(error: unknown, status: number) {
+  return NextResponse.json({
+    error: apiErrorMessage(error, status,
+      'League data could not be loaded. Reload the latest data before trying again. If this continues, contact the app maintainer.',
+    ),
+    success: false,
+  }, { status })
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -311,10 +317,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
     const message = error instanceof Error ? error.message : 'League data could not be loaded.'
     console.error(`League view failed for ${leagueId}:`, message)
-    return errorResponse(message, 500)
+    return errorResponse(error, 500)
   }
 }

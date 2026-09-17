@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { Notice } from '@/components/ui/Notice'
 
 export function Toast({
-  duration = 5000,
+  duration,
   message,
   onDismiss,
   tone = 'success',
@@ -15,6 +15,7 @@ export function Toast({
   onDismiss: () => void
   tone?: 'danger' | 'info' | 'success' | 'warning'
 }) {
+  const dismissAfter = duration ?? (tone === 'danger' ? 0 : 5000)
   const onDismissRef = useRef(onDismiss)
 
   useEffect(() => {
@@ -22,10 +23,10 @@ export function Toast({
   }, [onDismiss])
 
   useEffect(() => {
-    if (!message || duration <= 0) return
-    const timer = window.setTimeout(() => onDismissRef.current(), duration)
+    if (!message || dismissAfter <= 0) return
+    const timer = window.setTimeout(() => onDismissRef.current(), dismissAfter)
     return () => window.clearTimeout(timer)
-  }, [duration, message])
+  }, [dismissAfter, message])
 
   if (!message || typeof document === 'undefined') return null
 

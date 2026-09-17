@@ -135,7 +135,7 @@ describe('league creation route authorization', () => {
 
     expect(response.status).toBe(503)
     await expect(response.json()).resolves.toMatchObject({
-      error: 'Server database access is not configured.',
+      error: 'This feature is unavailable because the app’s database or server setup needs attention. Contact the app maintainer to repair it, then try again.',
       success: false,
     })
   })

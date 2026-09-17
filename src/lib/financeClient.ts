@@ -1,3 +1,4 @@
+import { appFetch, formatAppError } from '@/lib/appErrors'
 import type { FinanceSummary, ValidFinanceAction } from './finance'
 import {
   addCurrentShareToken,
@@ -83,7 +84,7 @@ async function responseMessage(response: Response, fallback: string) {
   const payload = await response.json().catch(() => null)
   return {
     message:
-      payload && typeof payload.error === 'string' ? payload.error : fallback,
+      formatAppError(payload?.error, fallback),
     payload,
   }
 }
@@ -101,12 +102,12 @@ export async function loadFinanceSnapshot(
   if (pending) return pending
 
   const request: Promise<FinanceSnapshot> = Promise.resolve().then(async () => {
-    const response = await fetch(path, { cache: 'no-store' })
+    const response = await appFetch(path, { cache: 'no-store' })
     const { message, payload } = await responseMessage(
       response,
       'Finance details could not be loaded.',
     )
-    if (!response.ok) throw new Error(message)
+    if (!response.ok || !payload) throw new Error(message)
     const snapshot = payload as FinanceSnapshot
     if (financeRequests.get(path) === request) {
       financeCache.set(path, {
@@ -128,7 +129,7 @@ export async function performFinanceAction(
   leagueId: string,
   action: ValidFinanceAction,
 ) {
-  const response = await fetch(
+  const response = await appFetch(
     `/api/leagues/${encodeURIComponent(leagueId)}/finance`,
     {
       body: JSON.stringify(action),
@@ -140,7 +141,7 @@ export async function performFinanceAction(
     response,
     'The finance update failed.',
   )
-  if (!response.ok) throw new Error(message)
+  if (!response.ok || !payload) throw new Error(message)
   invalidateFinanceCache(leagueId, action.season)
   invalidateLeagueReadCache(leagueId, action.season)
   return payload

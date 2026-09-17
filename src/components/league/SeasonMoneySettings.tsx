@@ -1,5 +1,7 @@
 'use client'
 
+import { appFetch, formatAppError } from '@/lib/appErrors'
+
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -29,11 +31,11 @@ export function SeasonMoneySettings({ leagueId, season }: { leagueId: string; se
   useEffect(() => {
     let active = true
     setBusy(true)
-    void fetch(`${endpoint}?season=${season}`, { cache: 'no-store' }).then(async response => {
+    void appFetch(`${endpoint}?season=${season}`, { cache: 'no-store' }).then(async response => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Money settings could not be loaded.')
       if (active) { setSnapshot(data); setSettings(data.settings); setError('') }
-    }).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : 'Money settings could not be loaded.') })
+    }).catch(reason => { if (active) setError(formatAppError(reason, 'Money settings could not be loaded.')) })
       .finally(() => { if (active) setBusy(false) })
     return () => { active = false }
   }, [endpoint, season, reload])
@@ -42,13 +44,13 @@ export function SeasonMoneySettings({ leagueId, season }: { leagueId: string; se
     if (!snapshot || !settings || !validateSeasonMoney(settings) || submitting.current) return
     submitting.current = true; setBusy(true); setError(''); setNotice('')
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ season, revision: snapshot.revision, settings }) })
+      const response = await appFetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ season, revision: snapshot.revision, settings }) })
       const data = await response.json()
       if (!response.ok || !data.success) throw new Error(data.error || 'Money settings could not be saved.')
       invalidateFinanceCache(leagueId); invalidateLeagueReadCache(leagueId)
       setNotice(`${season} money settings saved. Recorded payments and private notes were preserved.`)
       setReload(value => value + 1)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Money settings could not be saved.') }
+    } catch (reason) { setError(formatAppError(reason, 'Money settings could not be saved.')) }
     finally { submitting.current = false; setBusy(false) }
   }
 

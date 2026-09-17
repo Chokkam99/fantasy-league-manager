@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { getLifecycleWriteBlock } from '@/lib/lifecycleServer'
@@ -32,8 +33,13 @@ interface DatabaseError {
 
 export const dynamic = 'force-dynamic'
 
-function errorResponse(message: string, status: number) {
-  return NextResponse.json({ error: message, success: false }, { status })
+function errorResponse(message: unknown, status: number) {
+  return NextResponse.json({
+    error: apiErrorMessage(message, status,
+      'The score request could not be completed. Reload the latest data before trying again. If this continues, contact the app maintainer.',
+    ),
+    success: false,
+  }, { status })
 }
 
 function successResponse(result: AtomicManualWeekResult) {
@@ -261,13 +267,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
   } catch (error) {
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
 
     const message =
       error instanceof Error ? error.message : 'The score request failed.'
 
     console.error(`Manual score action failed for league ${leagueId}:`, message)
-    return errorResponse(message, 500)
+    return errorResponse(error, 500)
   }
 }

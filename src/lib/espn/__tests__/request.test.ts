@@ -86,3 +86,21 @@ describe('ESPN requests', () => {
     expect(views).toEqual(['mSettings', 'mTeam'])
   })
 })
+
+describe('ESPN failure recovery', () => {
+  const originalFetch = global.fetch
+  afterEach(() => { global.fetch = originalFetch })
+  it.each([
+    [401, 'enter current private-league credentials'],
+    [404, 'Check the ESPN league ID and selected season'],
+    [429, 'Wait a few minutes'],
+    [503, 'Try again later'],
+  ])('explains ESPN status %s while retaining its HTTP status', async (status, instruction) => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status, text: async () => '' })
+    await expect(requestESPNData({ league_id: '123', year: 2026 })).rejects.toMatchObject({ status, message: expect.stringContaining(instruction) })
+  })
+  it('explains connection failures without exposing native fetch exceptions', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed'))
+    await expect(requestESPNData({ league_id: '123', year: 2026 })).rejects.toMatchObject({ status: 502, message: 'ESPN could not be reached. Retry when the connection is available.' })
+  })
+})

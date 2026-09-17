@@ -1,3 +1,4 @@
+import { formatAppError } from '@/lib/appErrors'
 // ESPN Fantasy API client wrapper
 // Uses direct HTTP requests to ESPN's Fantasy API endpoints
 
@@ -73,7 +74,7 @@ export class ESPNClient {
       });
 
       if (!data.settings || !data.teams) {
-        throw new Error('Invalid league data received from ESPN');
+        throw new Error('ESPN returned invalid league data. Try loading the league again later.');
       }
 
       return {
@@ -87,7 +88,7 @@ export class ESPNClient {
       };
     } catch (error) {
       console.error('ESPN API Error - getLeague:', error);
-      throw new Error(`Failed to fetch ESPN league data: ${error}`);
+      throw new Error(formatAppError(error, 'ESPN league data could not be loaded. Check the connection settings and try again.'));
     }
   }
 
@@ -108,11 +109,11 @@ export class ESPNClient {
       ]);
 
       if (!scheduleData.schedule) {
-        throw new Error('No schedule data received from ESPN');
+        throw new Error('ESPN returned no schedule data. Check the selected season and try again later.');
       }
 
       if (!teamData.teams) {
-        throw new Error('No team data received from ESPN');
+        throw new Error('ESPN returned no team data. Check the league ID and connection settings.');
       }
 
       // Create team lookup map
@@ -130,7 +131,7 @@ export class ESPNClient {
       );
 
       if (weekMatchups.length === 0) {
-        throw new Error(`No matchups found for week ${week}`);
+        throw new Error(`ESPN has no matchups for week ${week}. Check the selected season and week, then try again after ESPN publishes the schedule.`);
       }
 
       const matchups = weekMatchups.map((matchup: ESPNMatchupData) => {
@@ -155,7 +156,7 @@ export class ESPNClient {
       };
     } catch (error) {
       console.error('ESPN API Error - getWeekData:', error);
-      throw new Error(`Failed to fetch ESPN week ${week} data: ${error}`);
+      throw new Error(`ESPN week ${week}: ${formatAppError(error, 'Scores could not be loaded. Try again later.')}`);
     }
   }
 

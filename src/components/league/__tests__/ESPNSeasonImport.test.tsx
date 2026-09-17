@@ -42,7 +42,7 @@ it('shows only unresolved identity and missing format, preserving choices after 
   expect(apply).toBeEnabled()
   fetchMock.mockResolvedValueOnce(response({ error:'Fixture import failed.' },false))
   await user.click(apply)
-  expect(await screen.findByText('Fixture import failed.')).toBeInTheDocument()
+  expect(await screen.findByText('Fixture import failed. Reload the latest data before trying again. If this continues, contact the app maintainer.')).toBeInTheDocument()
   expect(screen.getByLabelText('Who is this player?')).toHaveValue(espnHistory[0].id)
   expect(screen.getByLabelText('Manager name')).toHaveValue('Alexander Smith')
 })

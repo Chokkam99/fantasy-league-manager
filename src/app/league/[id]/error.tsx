@@ -18,7 +18,7 @@ export default function LeagueError({
   return (
     <PageState
       action={<Button onClick={reset}>Try this page again</Button>}
-      description="An unexpected page error occurred. Your league data has not been changed, and you can safely retry."
+      description="This page ran into an unexpected problem. Try opening it again. If you were saving a change, check the latest data before repeating it."
       eyebrow="Unexpected error"
       title="This page couldn’t be displayed"
       tone="danger"

@@ -29,7 +29,7 @@ describe('admin authentication client', () => {
     }) as jest.MockedFunction<typeof fetch>
 
     await expect(authenticateAdmin('password')).resolves.toEqual({
-      error: 'Commissioner authentication is not configured.',
+      error: 'This feature is unavailable because the app’s database or server setup needs attention. Contact the app maintainer to repair it, then try again.',
       success: false,
     })
   })
@@ -53,6 +53,6 @@ describe('logout confirmation', () => {
   })
   it('rejects connection failures', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('offline'))
-    await expect(logoutAdmin()).rejects.toThrow('offline')
+    await expect(logoutAdmin()).rejects.toThrow('Sign-out could not be confirmed. Reload the page and check commissioner mode')
   })
 })

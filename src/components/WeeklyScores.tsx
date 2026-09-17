@@ -1,5 +1,7 @@
 'use client'
 
+import { appFetch, formatAppError } from '@/lib/appErrors'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -196,7 +198,7 @@ export default function WeeklyScores({
     setNotice(null)
 
     try {
-      const response = await fetch(`/api/leagues/${leagueId}/scores/manual`, {
+      const response = await appFetch(`/api/leagues/${leagueId}/scores/manual`, {
         body: JSON.stringify({
           action: 'save_week',
           scores: scores.map(({ member_id, points }) => ({ member_id, points })),
@@ -223,7 +225,7 @@ export default function WeeklyScores({
     } catch (error) {
       setNotice({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'The week could not be saved.',
+        message: formatAppError(error, 'The week could not be saved.'),
       })
     } finally {
       setIsSaving(false)
@@ -235,7 +237,7 @@ export default function WeeklyScores({
     setNotice(null)
 
     try {
-      const response = await fetch(`/api/leagues/${leagueId}/scores/manual`, {
+      const response = await appFetch(`/api/leagues/${leagueId}/scores/manual`, {
         body: JSON.stringify({
           action: 'clear_week',
           season: currentSeason,
@@ -262,7 +264,7 @@ export default function WeeklyScores({
     } catch (error) {
       setNotice({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'The week could not be cleared.',
+        message: formatAppError(error, 'The week could not be cleared.'),
       })
     } finally {
       setIsClearing(false)

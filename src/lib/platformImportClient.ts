@@ -1,3 +1,4 @@
+import { appFetch, formatAppError } from '@/lib/appErrors'
 import type { AutomationReadiness } from '@/lib/automationSettings'
 import type {
   ESPNTeamMappingSnapshot,
@@ -65,7 +66,7 @@ export class PlatformImportRequestError<TPayload = unknown> extends Error {
     message: string,
     readonly payload: TPayload | null,
   ) {
-    super(message)
+    super(formatAppError(message))
     this.name = 'PlatformImportRequestError'
   }
 }
@@ -92,7 +93,7 @@ export async function loadAutomationSettings(
   season: string,
 ) {
   const query = new URLSearchParams({ season })
-  const response = await fetch(`${automationPath(leagueId)}?${query}`)
+  const response = await appFetch(`${automationPath(leagueId)}?${query}`)
   const payload = await readPayload<AutomationResponse>(
     response,
     'Score import status could not be loaded.',
@@ -110,7 +111,7 @@ export async function saveAutomationSettings(
   leagueId: string,
   draft: AutomationSettingsDraft,
 ) {
-  const response = await fetch(automationPath(leagueId), {
+  const response = await appFetch(automationPath(leagueId), {
     body: JSON.stringify(draft),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
@@ -140,7 +141,7 @@ export async function loadESPNTeamMapping(
   season: string,
 ) {
   const query = new URLSearchParams({ season })
-  const response = await fetch(`${mappingPath(leagueId)}?${query}`)
+  const response = await appFetch(`${mappingPath(leagueId)}?${query}`)
   const payload = await readPayload<MappingResponse>(
     response,
     'ESPN team assignments could not be loaded.',
@@ -159,7 +160,7 @@ export async function saveESPNTeamMapping(
   season: string,
   mappings: Record<string, string>,
 ) {
-  const response = await fetch(mappingPath(leagueId), {
+  const response = await appFetch(mappingPath(leagueId), {
     body: JSON.stringify({ mappings, season }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
@@ -186,7 +187,7 @@ export async function requestESPNImport(
   action: 'preview' | 'sync',
   week: number | 'latest',
 ) {
-  const response = await fetch(
+  const response = await appFetch(
     `/api/leagues/${encodeURIComponent(leagueId)}/scores/import`,
     {
       body: JSON.stringify({ action, season, week }),
@@ -209,7 +210,9 @@ export async function requestESPNImport(
     (action === 'preview' && (!payload.preview || !payload.validation))
   ) {
     throw new PlatformImportRequestError(
-      'The ESPN response was incomplete. No scores were changed.',
+      action === 'preview'
+        ? 'The ESPN preview was incomplete. No scores were changed. Try loading the preview again.'
+        : 'The ESPN response was incomplete. Reload the scores to check whether the import completed before trying again.',
       payload,
     )
   }

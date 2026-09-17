@@ -1,5 +1,7 @@
 'use client'
 
+import { formatAppError } from '@/lib/appErrors'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { PageState } from '@/components/ui/PageState'
@@ -15,8 +17,8 @@ export function LeagueUnavailable({
     return (
       <PageState
         action={<Button onClick={onRetry}>Try again</Button>}
-        description="The league service did not respond. Your league data has not been changed. Check your connection and try again."
-        eyebrow="Connection problem"
+        description={formatAppError(error, 'League data could not be loaded. Try again. If this continues, contact the app maintainer.')}
+        eyebrow="Unable to load"
         title="League couldn’t be loaded"
         tone="danger"
       />

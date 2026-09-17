@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { resolveESPNConfig } from '@/lib/espn/config'
@@ -25,8 +26,13 @@ interface RouteContext {
 
 export const dynamic = 'force-dynamic'
 
-function errorResponse(message: string, status: number) {
-  return NextResponse.json({ error: message, success: false }, { status })
+function errorResponse(message: unknown, status: number) {
+  return NextResponse.json({
+    error: apiErrorMessage(message, status,
+      'The ESPN score import could not be completed. Reload the latest data before trying again. If this continues, contact the app maintainer.',
+    ),
+    success: false,
+  }, { status })
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -194,7 +200,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json(
         {
           code: 'TEAM_MAPPING_REQUIRED',
-          error: error.message,
+          error: apiErrorMessage(error, 409, 'Review the ESPN team assignments before syncing again.'),
           mapping: error.snapshot,
           success: false,
         },
@@ -203,7 +209,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (isServerSupabaseConfigurationError(error)) {
-      return errorResponse(error.message, 503)
+      return errorResponse(error, 503)
     }
 
     if (error instanceof ESPNImportPersistenceError) {
@@ -212,7 +218,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json(
         {
           code: error.code,
-          error: error.message,
+          error: apiErrorMessage(error, status, 'The score import could not be completed. Reload the scores before retrying. If this continues, contact the app maintainer.'),
           import_run_id: error.runId,
           success: false,
         },
@@ -231,6 +237,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     console.error(`ESPN ${action} failed for league ${leagueId}:`, message)
-    return errorResponse(message, 500)
+    return errorResponse(error, 500)
   }
 }

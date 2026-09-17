@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { ESPNRequestError, requestESPNData } from '@/lib/espn/request'
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     if (!body.leagueId || !body.year) {
       return NextResponse.json(
-        { error: 'Missing required parameters: leagueId, year' },
+        { error: 'Enter an ESPN league ID and select a season before connecting.' },
         { status: 400 },
       )
     }
@@ -52,6 +53,6 @@ export async function POST(request: NextRequest) {
       error instanceof Error ? error.message : 'ESPN request failed.'
 
     console.error('ESPN API proxy error:', message)
-    return NextResponse.json({ error: message }, { status })
+    return NextResponse.json({ error: apiErrorMessage(error, status, 'ESPN could not be reached. Try again later.') }, { status })
   }
 }

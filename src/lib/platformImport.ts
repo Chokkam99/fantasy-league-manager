@@ -1,3 +1,4 @@
+import { formatAppError } from '@/lib/appErrors'
 export interface ImportRunSummary {
   completed_at: string | null
   error_message: string | null
@@ -84,7 +85,7 @@ export function normalizePlatformSyncHealth({
   )
 
   return {
-    lastSyncError: isOutOfRangeError ? null : lastSyncError,
+    lastSyncError: isOutOfRangeError || !lastSyncError ? null : formatPlatformSyncError(lastSyncError),
     syncStatus:
       isOutOfRangeError && syncStatus === 'error'
         ? autoSyncEnabled
@@ -126,15 +127,7 @@ export function formatPlatformSyncTime(value: string | null) {
 }
 
 export function formatPlatformSyncError(value: string) {
-  const weekMatch = value.match(/ESPN week (\d+)/i)
-  const lowerValue = value.toLowerCase()
-
-  if (
-    lowerValue.includes('fetch failed') ||
-    lowerValue.includes('network') ||
-    lowerValue.includes('could not be reached')
-  ) {
-    return `ESPN could not be reached${weekMatch ? ` for week ${weekMatch[1]}` : ''}. Retry when the connection is available.`
-  }
-  return value.replace(/typeerror:\s*/gi, '').trim()
+  const contextual = /fetch failed|failed to fetch|network|timeout|timed out/i.test(value) && !/ESPN/i.test(value)
+    ? `ESPN ${value}` : value
+  return formatAppError(contextual, 'The ESPN sync could not be completed. Try syncing again. If this continues, contact the app maintainer.')
 }

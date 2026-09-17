@@ -1,5 +1,7 @@
 'use client'
 
+import { formatAppError } from '@/lib/appErrors'
+
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
@@ -60,7 +62,7 @@ export default function AdminLogin({
       await logoutAdmin()
       onAuthChange(false)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not log out. Please try again.')
+      setError(formatAppError(caught, 'Could not log out. Please try again.'))
     } finally {
       setIsLoading(false)
     }

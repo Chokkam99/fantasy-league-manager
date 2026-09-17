@@ -119,7 +119,7 @@ describe('platform import presentation model', () => {
         totalWeeks: 0,
       }),
     ).toEqual({
-      lastSyncError: 'Failed to fetch Week 18',
+      lastSyncError: 'ESPN could not be reached for week 18. Retry when the connection is available.',
       syncStatus: 'error',
     })
   })

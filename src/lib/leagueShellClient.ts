@@ -1,3 +1,4 @@
+import { formatAppError } from '@/lib/appErrors'
 import { isMissingLifecycleSchema } from '@/lib/lifecycle'
 import {
   PUBLIC_LEAGUE_COLUMNS,
@@ -97,7 +98,7 @@ export async function loadLeagueShellData(
       }
     } catch (error) {
       const queryError = {
-        message: error instanceof Error ? error.message : 'The league could not be loaded.',
+        message: formatAppError(error, 'The league could not be loaded.'),
       }
       return {
         leagueResult: { data: null, error: queryError },

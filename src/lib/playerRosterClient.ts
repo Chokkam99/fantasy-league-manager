@@ -1,3 +1,4 @@
+import { formatAppError } from '@/lib/appErrors'
 import { loadFinanceSnapshot, type FinanceSnapshot } from '@/lib/financeClient'
 import { isMissingManagerIdentitySchema } from '@/lib/managerIdentity'
 import type { PlayerMembership } from '@/lib/players'
@@ -65,9 +66,7 @@ export async function loadPlayerRoster(
         .catch((error: unknown) => ({
           finance: null,
           financeError:
-            error instanceof Error
-              ? error.message
-              : 'Detailed dues could not be loaded.',
+            formatAppError(error, 'Detailed dues could not be loaded.'),
         })),
     ])
     return {
@@ -85,9 +84,7 @@ export async function loadPlayerRoster(
       .catch((error: unknown) => ({
         finance: null,
         financeError:
-          error instanceof Error
-            ? error.message
-            : 'Detailed dues could not be loaded.',
+          formatAppError(error, 'Detailed dues could not be loaded.'),
       })),
   ])
   const membershipResult =

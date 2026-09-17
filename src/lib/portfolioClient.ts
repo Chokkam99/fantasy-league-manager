@@ -1,3 +1,4 @@
+import { appFetch } from '@/lib/appErrors'
 import { isMissingFinanceSchema } from '@/lib/finance'
 import { isMissingLifecycleSchema } from '@/lib/lifecycle'
 import { hasConfiguredLeagueSeason } from '@/lib/leagueSeason'
@@ -129,7 +130,7 @@ export async function loadPortfolioLeagues(
 }
 
 export async function loadCommissionerPortfolio(): Promise<PortfolioLeague[]> {
-  const response = await fetch('/api/leagues')
+  const response = await appFetch('/api/leagues')
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
     throw new Error(

@@ -1,5 +1,7 @@
 'use client'
 
+import { formatAppError } from '@/lib/appErrors'
+
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LeagueUnavailable } from '@/components/league/LeagueUnavailable'
 import { useLeagueShell } from '@/components/league/LeagueShellContext'
@@ -274,14 +276,5 @@ export default function PrizesPage({ params }: PrizesPageProps) {
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error) return error.message
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof error.message === 'string'
-  ) {
-    return error.message
-  }
-  return fallback
+  return formatAppError(error, fallback)
 }

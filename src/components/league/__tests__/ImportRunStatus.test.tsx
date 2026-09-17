@@ -82,4 +82,13 @@ describe('ImportRunStatus', () => {
 
     expect(screen.getByText('Week 4 · Automatic correction')).toBeInTheDocument()
   })
+  it('explains the legacy database failure and suppresses a duplicate normalized error', () => {
+    const run = { ...baseRun, status: 'failed', error_message: 'relation "league_seasons" does not exist' }
+    const { rerender } = render(<ImportRunStatus run={run} />)
+    const message = screen.getByText(/app’s database or server setup needs attention/).textContent
+    expect(screen.queryByText(/league_seasons/)).not.toBeInTheDocument()
+    rerender(<ImportRunStatus run={run} lastSyncError={message} />)
+    expect(screen.queryByText(/app’s database or server setup needs attention/)).not.toBeInTheDocument()
+  })
+
 })

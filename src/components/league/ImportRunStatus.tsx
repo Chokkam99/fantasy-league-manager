@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/Badge'
-import type { ImportRunSummary } from '@/lib/platformImport'
+import { formatPlatformSyncError, type ImportRunSummary } from '@/lib/platformImport'
 
 export type { ImportRunSummary } from '@/lib/platformImport'
 
@@ -15,20 +15,6 @@ function formatImportTime(value: string) {
   }).format(new Date(value))
 }
 
-function formatImportError(value: string) {
-  const weekMatch = value.match(/ESPN week (\d+)/i)
-  const lowerValue = value.toLowerCase()
-
-  if (
-    lowerValue.includes('fetch failed') ||
-    lowerValue.includes('network') ||
-    lowerValue.includes('could not be reached')
-  ) {
-    return `ESPN could not be reached${weekMatch ? ` for week ${weekMatch[1]}` : ''}. Retry when the connection is available.`
-  }
-
-  return value.replace(/typeerror:\s*/gi, '').trim()
-}
 
 export function ImportRunStatus({ lastSyncError, run }: ImportRunStatusProps) {
   const triggerLabel =
@@ -63,9 +49,9 @@ export function ImportRunStatus({ lastSyncError, run }: ImportRunStatusProps) {
           ? ` · ${run.score_count} scores · ${run.matchup_count} matchups`
           : ''}
       </p>
-      {run.error_message && run.error_message !== lastSyncError && (
+      {run.error_message && formatPlatformSyncError(run.error_message) !== (lastSyncError ? formatPlatformSyncError(lastSyncError) : null) && (
         <p className="mt-2 text-sm leading-5 text-app-danger">
-          {formatImportError(run.error_message)}
+          {formatPlatformSyncError(run.error_message)}
         </p>
       )}
     </div>

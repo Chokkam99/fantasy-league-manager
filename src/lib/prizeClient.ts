@@ -1,3 +1,4 @@
+import { formatAppError } from '@/lib/appErrors'
 import { loadFinanceSnapshot, type FinanceSnapshot } from '@/lib/financeClient'
 import type { PrizeMember, PrizeScore } from '@/lib/prizes'
 import { supabase } from '@/lib/supabase'
@@ -72,9 +73,7 @@ export async function loadPrizeData(
         .catch((error: unknown) => ({
           finance: null,
           financeError:
-            error instanceof Error
-              ? error.message
-              : 'Payout details could not be loaded.',
+            formatAppError(error, 'Payout details could not be loaded.'),
         })),
     ])
     return {
@@ -94,9 +93,7 @@ export async function loadPrizeData(
       .catch((error: unknown) => ({
         finance: null,
         financeError:
-          error instanceof Error
-            ? error.message
-            : 'Payout details could not be loaded.',
+          formatAppError(error, 'Payout details could not be loaded.'),
       })),
   ])
 

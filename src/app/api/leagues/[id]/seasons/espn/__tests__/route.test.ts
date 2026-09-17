@@ -74,5 +74,5 @@ it('rejects archived targets and future substitution, and reports a missing migr
   db.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202' } })
   const result = await POST(request({ action: 'apply', season: '2026', revision: initial.preview.revision, confirmed: true }), context)
   expect(result.status).toBe(503)
-  expect((await result.json()).error).toMatch(/No changes were made/)
+  expect((await result.json()).error).toMatch(/Contact the app maintainer to repair it/)
 })

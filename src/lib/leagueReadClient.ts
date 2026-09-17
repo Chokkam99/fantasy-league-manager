@@ -1,3 +1,4 @@
+import { appFetch, formatAppError } from '@/lib/appErrors'
 export const LEAGUE_DATA_CHANGED = 'league-data-changed'
 
 function currentShareToken() {
@@ -72,13 +73,11 @@ export async function loadLeagueView<T>(
   }
 
   const request: Promise<T> = Promise.resolve().then(async () => {
-    const response = await fetch(path, { cache: 'no-store' })
+    const response = await appFetch(path, { cache: 'no-store' })
     const payload = await response.json().catch(() => null)
-    if (!response.ok) {
+    if (!response.ok || !payload) {
       throw new Error(
-        payload && typeof payload.error === 'string'
-          ? payload.error
-          : 'League data could not be loaded.',
+        formatAppError(payload?.error, 'League data could not be loaded. Reload the page to try again.'),
       )
     }
     if (leagueViewRequests.get(path) === request) {

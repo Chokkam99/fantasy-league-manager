@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
 import { validateAutomationSettings } from '@/lib/automationSettings'
@@ -10,8 +11,13 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-function errorResponse(message: string, status: number) {
-  return NextResponse.json({ error: message, success: false }, { status })
+function errorResponse(message: unknown, status: number) {
+  return NextResponse.json({
+    error: apiErrorMessage(message, status,
+      'The ESPN season preview could not be loaded. Reload the latest data before trying again. If this continues, contact the app maintainer.',
+    ),
+    success: false,
+  }, { status })
 }
 
 export async function POST(request: NextRequest) {
@@ -73,7 +79,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const status = error instanceof ESPNRequestError ? error.status : 500
     return errorResponse(
-      error instanceof Error ? error.message : 'ESPN league preview failed.',
+      error,
       status,
     )
   }

@@ -53,4 +53,13 @@ describe('league navigation cache', () => {
     await loadLeagueView('prefetch-league', 'history', { season: '2026' })
     expect(fetchMock).toHaveBeenCalledTimes(7)
   })
+  it('rejects an invalid successful response without caching it, so retry can recover', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>
+    fetchMock.mockResolvedValueOnce({ ok: true, json: jest.fn().mockRejectedValue(new SyntaxError('Unexpected token <')) } as unknown as Response)
+      .mockResolvedValueOnce(successfulPayload({ members: ['recovered'] }))
+    await expect(loadLeagueView('malformed', 'memberships')).rejects.toThrow('Reload the page')
+    await expect(loadLeagueView('malformed', 'memberships')).resolves.toEqual({ members: ['recovered'] })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
 })

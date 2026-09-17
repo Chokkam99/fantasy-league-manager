@@ -1,5 +1,7 @@
 'use client'
 
+import { formatAppError } from '@/lib/appErrors'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getAutomationReadiness } from '@/lib/automationSettings'
 import type {
@@ -278,5 +280,5 @@ function requestErrorPayload<T>(error: unknown) {
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback
+  return formatAppError(error, fallback)
 }

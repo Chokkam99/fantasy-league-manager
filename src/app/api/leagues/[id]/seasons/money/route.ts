@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@/lib/apiErrors'
 import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from '@/lib/adminSession'
@@ -6,7 +7,7 @@ import { validateSeasonMoney } from '@/lib/seasonMoney'
 import type { Json } from '@/lib/database.types'
 
 export const dynamic = 'force-dynamic'
-const fail = (error: string, status = 422) => NextResponse.json({ success: false, error }, { status })
+const fail = (error: unknown, status = 422) => NextResponse.json({ success: false, error: apiErrorMessage(error, status, 'The season money settings request could not be completed. Reload the latest data before trying again. If this continues, contact the app maintainer.') }, { status })
 const authorized = (request: NextRequest) => isValidAdminSession(request.cookies.get(ADMIN_SESSION_COOKIE)?.value, process.env.ADMIN_SESSION_SECRET)
 
 async function readSettings(id: string, season: string) {
@@ -16,7 +17,8 @@ async function readSettings(id: string, season: string) {
     database.from('league_members').select('id').eq('league_id', id).eq('season', season).eq('is_active', true),
     database.from('leagues').select('archived_at').eq('id', id).maybeSingle(),
   ])
-  if (configuration.error || roster.error || league.error) throw new Error('Season money settings could not be loaded.')
+  const readError = configuration.error || roster.error || league.error
+  if (readError) throw readError
   if (!configuration.data || !league.data) return null
   const { total_weeks, archived_at, ...expected } = configuration.data
   const settings = { fee_amount: expected.fee_amount || 0, draft_food_cost: expected.draft_food_cost || 0, weekly_prize_amount: expected.weekly_prize_amount || 0, prize_structure: expected.prize_structure || {} }
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   try {
     const current = await readSettings((await context.params).id, season)
     return current ? NextResponse.json({ success: true, ...current.payload }) : fail('Season not found.', 404)
-  } catch { return fail('Season money settings could not be loaded. Try again.', 503) }
+  } catch (error) { return fail(error, 503) }
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -48,9 +50,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     if (result.error) {
       if (['PGRST202', '42883'].includes(result.error.code)) return fail('Money editing needs the pending database update. No changes were made.', 503)
       if (['40001', '40P01', '55P03'].includes(result.error.code)) return fail('The season changed while saving. Reload money settings and try again.', 409)
-      return fail(result.error.message)
+      return fail(result.error)
     }
-    if (!result.data || typeof result.data !== 'object' || Array.isArray(result.data) || result.data.success !== true) return fail('The database did not confirm the update.', 503)
+    if (!result.data || typeof result.data !== 'object' || Array.isArray(result.data) || result.data.success !== true) return fail('The app could not confirm the money settings update. Reload money settings and check whether the values were saved before trying again.', 503)
     return NextResponse.json({ success: true, season: body.season })
-  } catch { return fail('Money settings could not be saved. Check the values and try again.') }
+  } catch (error) { return fail(error) }
 }
