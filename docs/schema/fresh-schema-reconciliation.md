@@ -109,3 +109,8 @@ Migration `202609080018_espn_season_import.sql` adds the restricted atomic ESPN 
 ## Money settings follow-up (September 9 UTC)
 
 Migration `019` adds the restricted atomic season-money editor and has been applied to production after a fresh verified backup restore. All 19 versions are present, the dry run is up to date, and row fingerprints remain unchanged across the 15 inspected public tables. The fresh-schema test now includes 001–019 and fee/payout preservation assertions. See [the money-settings release checkpoint](../deployment/money-settings-release-2026-09-09.md).
+
+
+## Scheduled-import trigger repair (September 16)
+
+Migration 020 retires the duplicate legacy playoff trigger after checking that the schema-qualified replacement is enabled. Production now has 001–020 applied. The fresh-schema suite reproduces the legacy failure before 020 and validates scheduled imports/corrections afterward. The same regression passed on a restored production backup. See [the repair checkpoint](../deployment/auto-sync-repair-2026-09-16.md).

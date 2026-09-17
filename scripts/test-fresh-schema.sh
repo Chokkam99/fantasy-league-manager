@@ -90,6 +90,10 @@ run_sql_file supabase/migrations/202609010016_historical_returning_members.sql >
 run_sql_file supabase/migrations/202609030017_atomic_new_league_setup.sql >/dev/null
 run_sql_file supabase/migrations/202609080018_espn_season_import.sql >/dev/null
 run_sql_file supabase/migrations/202609090019_season_money_settings.sql >/dev/null
+run_sql_file test/integration/legacy-playoff-trigger.fixture.sql >/dev/null
+podman exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -v expect_legacy_failure=true -U "$database_user" -d "$database_name" -f - < test/integration/playoff-trigger-import.assertions.sql >/dev/null
+run_sql_file supabase/migrations/202609160020_retire_legacy_playoff_trigger.sql >/dev/null
+podman exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -v expect_legacy_failure=false -U "$database_user" -d "$database_name" -f - < test/integration/playoff-trigger-import.assertions.sql >/dev/null
 run_sql_file test/integration/season-money.assertions.sql >/dev/null
 run_sql_file test/integration/espn-season-import.assertions.sql >/dev/null
 run_sql_file test/integration/fresh-schema.assertions.sql >/dev/null
@@ -97,4 +101,4 @@ run_sql_file test/integration/scoped-sharing.assertions.sql >/dev/null
 run_sql_file test/integration/player-payout-statuses.assertions.sql >/dev/null
 run_sql_file test/integration/atomic-new-league.assertions.sql >/dev/null
 
-echo 'Fresh fantasy-only schema passed the deployed-v0 plus migrations 001-019 PostgreSQL 17 checks, including atomic season money editing.'
+echo 'Fresh fantasy-only schema passed the deployed-v0 plus migrations 001-020 PostgreSQL 17 checks, including scheduled imports with the legacy trigger retired.'
