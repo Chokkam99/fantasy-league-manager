@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isMissingFinanceSchema } from '@/lib/finance'
 import { seasonPhase } from '@/lib/seasonNavigation'
 import { isMissingLifecycleSchema } from '@/lib/lifecycle'
+import { formatPlatformSyncError } from '@/lib/platformImport'
 import {
   PUBLIC_LEAGUE_COLUMNS,
   PUBLIC_LEAGUE_COLUMNS_WITH_LIFECYCLE,
@@ -154,8 +155,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       if (leagueResult.error || seasonsError) {
         throw leagueResult.error || seasonsError
       }
+      const league = leagueResult.data
       return NextResponse.json({
-        league: leagueResult.data,
+        // Stored sync errors can hold raw database text; public responses only carry the formatted message.
+        league: league && {
+          ...league,
+          last_sync_error: league.last_sync_error ? formatPlatformSyncError(league.last_sync_error) : null,
+        },
         seasons: seasonsData || [],
         success: true,
       })

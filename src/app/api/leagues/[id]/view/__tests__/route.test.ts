@@ -93,3 +93,22 @@ it('returns every historical score even when the API caps each response at 1,000
   expect((await response.json()).scores).toHaveLength(1500)
   expect(ranges.filter(([table]) => table === 'weekly_scores')).toEqual([['weekly_scores', 0, 999], ['weekly_scores', 1000, 1999]])
 })
+
+it('never returns raw database text from a stored sync error to league viewers', async () => {
+  createDatabase.mockReturnValue({ from: (table: string) => {
+    const data = table === 'leagues'
+      ? { id: 'fixture-league', last_sync_error: 'relation "league_seasons" does not exist', sync_status: 'error' }
+      : [{ season: '2026', archived_at: null }]
+    const result = { data, error: null }
+    const query: Record<string, unknown> = { then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve) }
+    for (const method of ['select', 'eq']) query[method] = jest.fn().mockReturnValue(query)
+    query.single = jest.fn().mockResolvedValue(result)
+    return query
+  } })
+  const response = await GET(request('resource=shell&season=2026'), context)
+  const body = await response.json()
+  expect(response.status).toBe(200)
+  expect(body.league.sync_status).toBe('error')
+  expect(body.league.last_sync_error).toEqual(expect.any(String))
+  expect(JSON.stringify(body)).not.toMatch(/league_seasons|relation/)
+})
