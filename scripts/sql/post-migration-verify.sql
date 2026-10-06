@@ -149,14 +149,29 @@ select jsonb_pretty(
         (to_regprocedure(
           'public.reactivate_league_member_atomically(text,text,uuid,text)'
         ) is null)::integer,
-      'anon_reactivation_rpc_privilege', coalesce(
-        has_function_privilege(
+      'anon_reactivation_rpc_privilege', case
+        when to_regprocedure('public.reactivate_league_member_atomically(text,text,uuid,text)') is null then null
+        else has_function_privilege(
           'anon',
           'public.reactivate_league_member_atomically(text,text,uuid,text)',
           'EXECUTE'
-        )::integer,
-        0
-      ),
+        )::integer
+      end,
+      'login_throttle_missing',
+        (to_regclass('public.admin_login_attempts') is null)::integer
+        + (to_regprocedure('public.check_admin_login_throttle(text)') is null)::integer
+        + (to_regprocedure('public.record_admin_login_failure(text)') is null)::integer
+        + (to_regprocedure('public.clear_admin_login_failures(text)') is null)::integer,
+      'anon_login_throttle_access', case
+        when to_regclass('public.admin_login_attempts') is null
+          or to_regprocedure('public.record_admin_login_failure(text)') is null then null
+        else (
+          select count(*)
+          from (values ('anon'), ('authenticated')) as roles(role_name)
+          where has_table_privilege(roles.role_name, 'public.admin_login_attempts', 'SELECT,INSERT,UPDATE,DELETE')
+            or has_function_privilege(roles.role_name, 'public.record_admin_login_failure(text)', 'EXECUTE')
+        )
+      end,
       'unchanged_week_skips_missing',
         (position('Re-importing an unchanged week' in pg_get_functiondef(
           'public.import_espn_week_atomically(text,text,integer,jsonb,jsonb,text)'::regprocedure

@@ -96,6 +96,7 @@ run_sql_file supabase/migrations/202609160020_retire_legacy_playoff_trigger.sql 
 run_sql_file supabase/migrations/202610050021_skip_unchanged_weekly_imports.sql >/dev/null
 run_sql_file supabase/migrations/202610050022_preserve_dues_on_reactivation.sql >/dev/null
 run_sql_file supabase/migrations/202610050023_skip_unchanged_manual_week_saves.sql >/dev/null
+run_sql_file supabase/migrations/202610050024_admin_login_throttle.sql >/dev/null
 podman exec -i "$container_name" psql -X -v ON_ERROR_STOP=1 -v expect_legacy_failure=false -U "$database_user" -d "$database_name" -f - < test/integration/playoff-trigger-import.assertions.sql >/dev/null
 run_sql_file test/integration/season-money.assertions.sql >/dev/null
 run_sql_file test/integration/espn-season-import.assertions.sql >/dev/null
@@ -104,6 +105,7 @@ run_sql_file test/integration/scoped-sharing.assertions.sql >/dev/null
 run_sql_file test/integration/player-payout-statuses.assertions.sql >/dev/null
 run_sql_file test/integration/weekly-import-payouts.assertions.sql >/dev/null
 run_sql_file test/integration/member-reactivation.assertions.sql >/dev/null
+run_sql_file test/integration/admin-login-throttle.assertions.sql >/dev/null
 run_sql_file test/integration/atomic-new-league.assertions.sql >/dev/null
 
-echo 'Fresh fantasy-only schema passed the deployed-v0 plus migrations 001-023 PostgreSQL 17 checks, including scheduled imports with the legacy trigger retired, unchanged re-imports and manual saves preserving paid payouts, and reactivated players keeping their dues.'
+echo 'Fresh fantasy-only schema passed the deployed-v0 plus migrations 001-024 PostgreSQL 17 checks, including scheduled imports with the legacy trigger retired, unchanged re-imports and manual saves preserving paid payouts, reactivated players keeping their dues, and commissioner sign-in throttling.'

@@ -9,6 +9,7 @@ import {
   isValidAdminSession,
   verifyAdminPassword,
 } from '@/lib/adminSession'
+import { createLoginThrottle } from '@/lib/loginThrottle'
 
 type AuthAction = 'check' | 'login' | 'logout'
 
@@ -20,9 +21,10 @@ interface AuthRequestBody {
 function response(
   body: Record<string, boolean | string>,
   status = 200,
+  headers: Record<string, string> = {},
 ): NextResponse {
   return NextResponse.json(body.error ? { ...body, error: apiErrorMessage(body.error, status, 'Sign-in could not be completed. Try again. If this continues, contact the app maintainer.') } : body, {
-    headers: { 'Cache-Control': 'no-store' },
+    headers: { 'Cache-Control': 'no-store', ...headers },
     status,
   })
 }
@@ -84,6 +86,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check the lockout before scrypt so blocked clients cannot spend server compute.
+    const throttle = createLoginThrottle(request.headers, process.env.ADMIN_SESSION_SECRET)
+    const throttleCheck = await throttle.check()
+    if (!throttleCheck.allowed) {
+      const minutes = Math.ceil(throttleCheck.retryAfterSeconds / 60)
+      return response(
+        {
+          success: false,
+          error: `Too many sign-in attempts. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`,
+        },
+        429,
+        { 'Retry-After': String(throttleCheck.retryAfterSeconds) },
+      )
+    }
+
     const passwordVerification = await verifyAdminPassword(
       body.password,
       process.env.ADMIN_PASSWORD_HASH,
@@ -101,8 +118,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (passwordVerification === 'invalid') {
+      await throttle.recordFailure()
       return response({ success: false, error: 'Invalid password' }, 401)
     }
+
+    await throttle.clear()
 
     const session = createAdminSession(process.env.ADMIN_SESSION_SECRET)
     ;(await cookies()).set(ADMIN_SESSION_COOKIE, session, {

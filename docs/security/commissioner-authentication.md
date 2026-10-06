@@ -50,3 +50,12 @@ ALLOW_LEGACY_ADMIN_PASSWORD_HASH=true
 This flag accepts only the old verifier for login; sessions still use the signed session format. Remove the flag as soon as a scrypt verifier is installed. Preview and production release approval should require a scrypt-prefixed `ADMIN_PASSWORD_HASH` and no legacy opt-in.
 
 Changing `ADMIN_PASSWORD_HASH` does not invalidate an already issued session. Rotate `ADMIN_SESSION_SECRET` as well when immediate session invalidation is required.
+
+## Sign-in throttling
+
+Migration `024` adds database-backed throttling shared by every server instance. Five wrong passwords from one client within 15 minutes lock that client out for 15 minutes; a correct password clears its record. The route checks the lock before running scrypt, so a locked client cannot spend server compute, and returns HTTP 429 with `Retry-After`.
+
+Clients are identified by an HMAC of their IP address keyed with `ADMIN_SESSION_SECRET`; raw addresses are never stored, and rotating the secret resets every record. The address comes from `x-real-ip` (or the first `x-forwarded-for` value), which Vercel sets itself. On a host that forwards client-supplied headers, the throttle can be bypassed by varying them.
+
+Throttling fails open: before migration `024` is applied, or if the database call fails, sign-in proceeds and a warning is logged. Locking the commissioner out of their own league would be worse than a short window without throttling.
+

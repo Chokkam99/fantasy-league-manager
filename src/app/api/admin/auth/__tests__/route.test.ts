@@ -11,6 +11,12 @@ import {
   legacyPasswordHash,
 } from '@/lib/adminSession'
 
+const mockRpc = jest.fn()
+
+jest.mock('@/lib/supabaseServer', () => ({
+  createServerSupabaseClient: () => ({ rpc: mockRpc }),
+}))
+
 const mockCookieGet = jest.fn()
 const mockCookieSet = jest.fn()
 const mockCookieDelete = jest.fn()
@@ -53,6 +59,11 @@ describe('admin authentication route', () => {
     mockCookieGet.mockReset()
     mockCookieSet.mockReset()
     mockCookieDelete.mockReset()
+    mockRpc.mockReset()
+    mockRpc.mockImplementation(async (name: string) => ({
+      data: name === 'check_admin_login_throttle' ? { allowed: true, retry_after_seconds: 0 } : null,
+      error: null,
+    }))
   })
 
   afterAll(() => {
@@ -187,4 +198,55 @@ describe('admin authentication route', () => {
     expect(nullBody.status).toBe(400)
     expect(unknown.status).toBe(400)
   })
+
+  describe('sign-in throttling', () => {
+    function loginFrom(address: string, attempt = password) {
+      return new NextRequest('http://localhost/api/admin/auth', {
+        body: JSON.stringify({ action: 'login', password: attempt }),
+        headers: { 'Content-Type': 'application/json', 'x-real-ip': address },
+        method: 'POST',
+      })
+    }
+    const calls = () => mockRpc.mock.calls.map(([name]) => name)
+
+    it('blocks a locked-out client before checking the password', async () => {
+      mockRpc.mockImplementation(async () => ({ data: { allowed: false, retry_after_seconds: 540 }, error: null }))
+
+      const result = await POST(loginFrom('203.0.113.7'))
+      const body = await result.json()
+
+      expect(result.status).toBe(429)
+      expect(result.headers.get('Retry-After')).toBe('540')
+      expect(body.error).toBe('Too many sign-in attempts. Try again in 9 minutes.')
+      expect(calls()).toEqual(['check_admin_login_throttle'])
+      expect(mockCookieSet).not.toHaveBeenCalled()
+    })
+
+    it('records a wrong password and clears the record after a correct one', async () => {
+      expect((await POST(loginFrom('203.0.113.7', 'wrong-password'))).status).toBe(401)
+      expect((await POST(loginFrom('203.0.113.7'))).status).toBe(200)
+
+      expect(calls()).toEqual([
+        'check_admin_login_throttle', 'record_admin_login_failure',
+        'check_admin_login_throttle', 'clear_admin_login_failures',
+      ])
+      const keys = mockRpc.mock.calls.map(([, args]) => args.p_client_key)
+      expect(new Set(keys).size).toBe(1)
+      expect(keys[0]).toMatch(/^[0-9a-f]{64}$/)
+      expect(keys[0]).not.toContain('203.0.113.7')
+    })
+
+    it('still signs in when throttling is unavailable', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'missing' } })
+
+      const result = await POST(loginFrom('203.0.113.7'))
+
+      expect(result.status).toBe(200)
+      expect(mockCookieSet).toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('throttling is unavailable (PGRST202)'))
+      warn.mockRestore()
+    })
+  })
 })
+

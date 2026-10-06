@@ -1009,6 +1009,18 @@ export type Database = {
         }
         Returns: Json
       }
+      check_admin_login_throttle: {
+        Args: { p_client_key: string }
+        Returns: Json
+      }
+      clear_admin_login_failures: {
+        Args: { p_client_key: string }
+        Returns: undefined
+      }
+      record_admin_login_failure: {
+        Args: { p_client_key: string }
+        Returns: Json
+      }
       reactivate_league_member_atomically: {
         Args: {
           p_league_id: string
