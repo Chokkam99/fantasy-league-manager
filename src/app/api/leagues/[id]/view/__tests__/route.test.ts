@@ -71,3 +71,25 @@ it.each([0, 2, 17])('summarizes season phase and canonical dues without exposing
   expect(queries.league_members).toHaveBeenCalledWith('is_active', true)
   for (const query of Object.values(queries)) expect(query).toHaveBeenCalledWith('season', '2026')
 })
+
+it('returns every historical score even when the API caps each response at 1,000 rows', async () => {
+  const scores = Array.from({ length: 1500 }, (_, index) => ({ member_id: `m${index % 12}`, points: index, week_number: 1 + Math.floor(index / 12) % 17, season: String(2021 + Math.floor(index / 204)) }))
+  const ranges: Array<[string, number, number]> = []
+  createDatabase.mockReturnValue({ from: (table: string) => {
+    let slice: [number, number] | null = null
+    const all = table === 'weekly_scores' ? scores : []
+    const query: Record<string, unknown> = {
+      then: (resolve: (value: unknown) => unknown) => {
+        const data = slice ? all.slice(slice[0], Math.min(slice[1] + 1, slice[0] + 1000)) : all
+        return Promise.resolve({ data, count: all.length, error: null }).then(resolve)
+      },
+      range: jest.fn((from: number, to: number) => { slice = [from, to]; ranges.push([table, from, to]); return query }),
+    }
+    for (const method of ['select', 'eq', 'order']) query[method] = jest.fn().mockReturnValue(query)
+    return query
+  } })
+  const response = await GET(request('resource=history&season=2026'), context)
+  expect(response.status).toBe(200)
+  expect((await response.json()).scores).toHaveLength(1500)
+  expect(ranges.filter(([table]) => table === 'weekly_scores')).toEqual([['weekly_scores', 0, 999], ['weekly_scores', 1000, 1999]])
+})

@@ -9,6 +9,7 @@ import {
 } from '@/lib/publicLeague'
 import { SEASON_CONFIG_COLUMNS } from '@/lib/seasonConfigClient'
 import { authorizeLeagueRead } from '@/lib/shareAccessServer'
+import { selectAllRows } from '@/lib/supabasePaging'
 import {
   createServerSupabaseClient,
   isServerSupabaseConfigurationError,
@@ -75,25 +76,32 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .from('league_members')
         .select('id, manager_id, manager_name, team_name, division, season, is_active')
         .eq('league_id', leagueId)
-      let scoresQuery = database
-        .from('weekly_scores')
-        .select('member_id, points, week_number, season')
-        .eq('league_id', leagueId)
-      let matchupsQuery = database
-        .from('matchup_results_with_scores')
-        .select('is_tie, team1_member_id, team1_score, team2_member_id, team2_score, week_number, winner_member_id, season')
-        .eq('league_id', leagueId)
+      // Every season's scores and matchups can exceed the API row cap, so read them in ordered pages.
+      const scoresPage = (from: number, to: number) => {
+        let query = database
+          .from('weekly_scores')
+          .select('member_id, points, week_number, season', { count: 'exact' })
+          .eq('league_id', leagueId)
+        if (scopedSeason) query = query.eq('season', scopedSeason)
+        return query.order('season').order('week_number').order('member_id').range(from, to)
+      }
+      const matchupsPage = (from: number, to: number) => {
+        let query = database
+          .from('matchup_results_with_scores')
+          .select('is_tie, team1_member_id, team1_score, team2_member_id, team2_score, week_number, winner_member_id, season', { count: 'exact' })
+          .eq('league_id', leagueId)
+        if (scopedSeason) query = query.eq('season', scopedSeason)
+        return query.order('season').order('week_number').order('team1_member_id').range(from, to)
+      }
       if (scopedSeason) {
         seasonsQuery = seasonsQuery.eq('season', scopedSeason)
         membersQuery = membersQuery.eq('season', scopedSeason)
-        scoresQuery = scoresQuery.eq('season', scopedSeason)
-        matchupsQuery = matchupsQuery.eq('season', scopedSeason)
       }
       const [seasons, members, scores, matchups] = await Promise.all([
         seasonsQuery,
         membersQuery,
-        scoresQuery,
-        matchupsQuery,
+        selectAllRows(scoresPage),
+        selectAllRows(matchupsPage),
       ])
       if (seasons.error || members.error || scores.error || matchups.error) {
         throw seasons.error || members.error || scores.error || matchups.error
