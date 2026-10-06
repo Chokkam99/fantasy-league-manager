@@ -1009,6 +1009,15 @@ export type Database = {
         }
         Returns: Json
       }
+      reactivate_league_member_atomically: {
+        Args: {
+          p_league_id: string
+          p_member_id: string
+          p_season: string
+          p_team_name?: string | null
+        }
+        Returns: Json
+      }
       revoke_league_share_link: {
         Args: { p_league_id: string; p_season: string }
         Returns: Json

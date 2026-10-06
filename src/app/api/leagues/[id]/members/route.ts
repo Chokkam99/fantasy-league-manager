@@ -92,6 +92,55 @@ async function loadMemberWithIdentity(
   return result.data as MemberRow | null
 }
 
+class MemberActionConflict extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message)
+  }
+}
+
+/**
+ * Reactivate a removed player without resetting the dues they already paid.
+ * Writing payment_status would fire the membership summary trigger and zero
+ * the season receipt, so neither path below includes it.
+ */
+async function reactivateMember(
+  database: AppSupabaseClient,
+  leagueId: string,
+  season: string,
+  memberId: string,
+  teamName: string | null,
+) {
+  const { data, error } = await database.rpc('reactivate_league_member_atomically', {
+    p_league_id: leagueId,
+    p_member_id: memberId,
+    p_season: season,
+    p_team_name: teamName,
+  })
+
+  if (!error) {
+    const member = (data as { member?: unknown } | null)?.member
+    if (!member) throw new Error('The database returned an invalid player result.')
+    return member as MemberRow
+  }
+
+  if (error.code === '23505') throw new MemberActionConflict(error.message, 409)
+  if (error.code === 'P0002') throw new MemberActionConflict(error.message, 404)
+  if (error.code !== 'PGRST202' && error.code !== '42883') throw error
+
+  // Before migration 022: reactivate in place and leave the receipt untouched.
+  const { data: member, error: updateError } = await database
+    .from('league_members')
+    .update({ is_active: true, ...(teamName ? { team_name: teamName } : {}) })
+    .eq('id', memberId)
+    .eq('league_id', leagueId)
+    .eq('season', season)
+    .eq('is_active', false)
+    .select('id, manager_name, team_name, season, is_active, payment_status')
+    .single()
+  if (updateError) throw updateError
+  return member as MemberRow
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
   if (
     !isValidAdminSession(
@@ -161,32 +210,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       }
 
-      const mutation = existingMember
-        ? supabase
-            .from('league_members')
-            .update({
-              is_active: true,
-              payment_status: 'pending',
-              team_name: memberAction.team_name,
-            })
-            .eq('id', existingMember.id)
-            .eq('league_id', leagueId)
-            .select('id, manager_name, team_name, season, is_active, payment_status')
-            .single()
-        : supabase
-            .from('league_members')
-            .insert({
-              is_active: true,
-              league_id: leagueId,
-              manager_name: memberAction.manager_name,
-              payment_status: 'pending',
-              season: memberAction.season,
-              team_name: memberAction.team_name,
-            })
-            .select('id, manager_name, team_name, season, is_active, payment_status')
-            .single()
-      const { data: member, error } = await mutation
-      if (error) throw error
+      let member: MemberRow
+      if (existingMember) {
+        member = await reactivateMember(
+          supabase,
+          leagueId,
+          memberAction.season,
+          existingMember.id,
+          memberAction.team_name,
+        )
+      } else {
+        const { data, error } = await supabase
+          .from('league_members')
+          .insert({
+            is_active: true,
+            league_id: leagueId,
+            manager_name: memberAction.manager_name,
+            payment_status: 'pending',
+            season: memberAction.season,
+            team_name: memberAction.team_name,
+          })
+          .select('id, manager_name, team_name, season, is_active, payment_status')
+          .single()
+        if (error) throw error
+        member = data as MemberRow
+      }
 
       return NextResponse.json({
         member,
@@ -214,31 +262,34 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       }
 
-      const mutation = currentMember
-        ? supabase
-            .from('league_members')
-            .update({ is_active: true, payment_status: 'pending' })
-            .eq('id', currentMember.id)
-            .eq('league_id', leagueId)
-            .select('id, manager_name, team_name, season, is_active, payment_status')
-            .single()
-        : supabase
-            .from('league_members')
-            .insert({
-              is_active: true,
-              league_id: leagueId,
-              ...(sourceMember.manager_id
-                ? { manager_id: sourceMember.manager_id }
-                : {}),
-              manager_name: sourceMember.manager_name,
-              payment_status: 'pending',
-              season: memberAction.season,
-              team_name: sourceMember.team_name,
-            })
-            .select('id, manager_name, team_name, season, is_active, payment_status')
-            .single()
-      const { data: member, error } = await mutation
-      if (error) throw error
+      let member: MemberRow
+      if (currentMember) {
+        member = await reactivateMember(
+          supabase,
+          leagueId,
+          memberAction.season,
+          currentMember.id,
+          null,
+        )
+      } else {
+        const { data, error } = await supabase
+          .from('league_members')
+          .insert({
+            is_active: true,
+            league_id: leagueId,
+            ...(sourceMember.manager_id
+              ? { manager_id: sourceMember.manager_id }
+              : {}),
+            manager_name: sourceMember.manager_name,
+            payment_status: 'pending',
+            season: memberAction.season,
+            team_name: sourceMember.team_name,
+          })
+          .select('id, manager_name, team_name, season, is_active, payment_status')
+          .single()
+        if (error) throw error
+        member = data as MemberRow
+      }
 
       return NextResponse.json({
         member,
@@ -368,6 +419,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       success: true,
     })
   } catch (error) {
+    if (error instanceof MemberActionConflict) {
+      return errorResponse(error.message, error.status)
+    }
     if (isServerSupabaseConfigurationError(error)) {
       return errorResponse(error, 503)
     }
