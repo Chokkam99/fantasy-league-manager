@@ -104,7 +104,8 @@ During new-league onboarding, paste the ESPN league URL or ID and choose the fir
 
 - Automatic import is opt-in.
 - The scheduled route runs Wednesday at 2:00 AM Phoenix (`0 9 * * 3`).
-- Each scheduled run imports the latest completed week and rechecks exactly one prior week for late ESPN corrections, oldest first.
+- Each scheduled run fills up to three completed weeks that have no scores, rechecks one prior week for late ESPN corrections, and imports the latest completed week last. After the configured final week is imported, the next run rechecks it once.
+- Re-importing a week whose scores are unchanged leaves it untouched, so settled player payouts stay Paid.
 - Imports are restricted to the league's configured active season.
 - Each import replaces one exact league/season/week atomically, so corrections are idempotent and a failed import cannot leave partial scores or matchups.
 - A per-league/season/week lock prevents manual and scheduled imports from racing; commissioners can see the latest completed or failed import attempt.
@@ -112,6 +113,8 @@ During new-league onboarding, paste the ESPN league URL or ID and choose the fir
 - ESPN is authoritative for automated weeks, so the bounded correction pass can replace a manual score edit in either checked week.
 - Historical seasons are read from stored data and are never re-imported from ESPN.
 - An unset or incorrect `CRON_SECRET` fails closed.
+- A run with any failed league returns HTTP 500, so the Vercel cron log shows it. Set `CRON_HEARTBEAT_URL` to a Healthchecks.io-style ping URL to get an alert when a run fails or never starts.
+- The all-leagues page flags a league whose automatic sync has not run for more than eight days mid-season.
 
 ## Environment variables
 
@@ -125,6 +128,7 @@ During new-league onboarding, paste the ESPN league URL or ID and choose the fir
 | `ADMIN_SESSION_SECRET` | Server only | Signs expiring commissioner sessions; at least 32 characters. |
 | `ALLOW_LEGACY_ADMIN_PASSWORD_HASH` | Server only | Temporary migration flag only; omit in target deployments. |
 | `CRON_SECRET` | Server only | Bearer secret for the scheduled import route. |
+| `CRON_HEARTBEAT_URL` | Server only | Optional heartbeat monitor URL pinged after each scheduled run (`/fail` appended on failure). |
 
 ## Scripts
 
@@ -177,6 +181,6 @@ The GitHub Actions workflow in `.github/workflows/quality.yml` runs the frozen d
 
 ## Deployment state
 
-Production has all 20 forward migrations applied. Migration 020 retires an obsolete score trigger that blocked scheduled imports; see the [September 16 repair checkpoint](docs/deployment/auto-sync-repair-2026-09-16.md). Money settings, binary dues labels, readable text, and corrected allocation colors are documented in the [money-settings release checkpoint](docs/deployment/money-settings-release-2026-09-09.md). This release adds ESPN-first season imports, phase-aware navigation, improved season setup, and shared dues freshness/privacy to the redesigned league interface. Migration 018 was applied after a verified backup restore; existing production row fingerprints are unchanged and the linked dry run is up to date. Automatic ESPN sync remains disabled. See the [September 8 release checkpoint](docs/deployment/production-release-2026-09-08.md).
+Production has all 20 forward migrations applied. Migration 020 retires an obsolete score trigger that blocked scheduled imports; see the [September 16 repair checkpoint](docs/deployment/auto-sync-repair-2026-09-16.md). Money settings, binary dues labels, readable text, and corrected allocation colors are documented in the [money-settings release checkpoint](docs/deployment/money-settings-release-2026-09-09.md). This release adds ESPN-first season imports, phase-aware navigation, improved season setup, and shared dues freshness/privacy to the redesigned league interface. Migration 018 was applied after a verified backup restore; existing production row fingerprints are unchanged and the linked dry run is up to date. Automatic ESPN sync has been enabled since September. See the [September 8 release checkpoint](docs/deployment/production-release-2026-09-08.md).
 
 Supabase preview branching is unavailable on the current free plan, so future schema and write behavior should continue to be verified in disposable local PostgreSQL without creating paid resources or pointing a writable preview deployment at Production. See the [completed Production migration checkpoint](docs/deployment/production-migration-2026-08-27.md). The [preview rollout](docs/deployment/preview-rollout.md) and [pre-execution Production rollout](docs/deployment/production-rollout-2026-08-26.md) are retained as historical planning evidence.

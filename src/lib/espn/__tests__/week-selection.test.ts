@@ -1,6 +1,7 @@
 import {
   findLatestCompletedWeek,
   getCompletedWeekCandidates,
+  getFinalWeekCorrectionTargets,
   getScheduledImportTargets,
 } from '@/lib/espn/week-selection'
 
@@ -76,5 +77,28 @@ describe('completed ESPN week selection', () => {
     ])
     expect(getScheduledImportTargets(0)).toEqual([])
     expect(getScheduledImportTargets(2.5)).toEqual([])
+  })
+
+  it('backfills missed weeks oldest first before the correction and primary weeks', () => {
+    expect(getScheduledImportTargets(8, [6, 2, 2, 5, 8, 7, 0, 3.5])).toEqual([
+      { purpose: 'backfill', trigger_mode: 'scheduled', week: 2 },
+      { purpose: 'backfill', trigger_mode: 'scheduled', week: 5 },
+      { purpose: 'backfill', trigger_mode: 'scheduled', week: 6 },
+      { purpose: 'correction', trigger_mode: 'scheduled_correction', week: 7 },
+      { purpose: 'primary', trigger_mode: 'scheduled', week: 8 },
+    ])
+  })
+
+  it('limits each run to a few backfill weeks', () => {
+    const targets = getScheduledImportTargets(12, [1, 2, 3, 4, 5, 6])
+    expect(targets.filter(target => target.purpose === 'backfill').map(target => target.week)).toEqual([1, 2, 3])
+    expect(targets.at(-1)).toEqual({ purpose: 'primary', trigger_mode: 'scheduled', week: 12 })
+  })
+
+  it('rechecks only the final week once the season is complete', () => {
+    expect(getFinalWeekCorrectionTargets(17)).toEqual([
+      { purpose: 'correction', trigger_mode: 'scheduled_correction', week: 17 },
+    ])
+    expect(getFinalWeekCorrectionTargets(0)).toEqual([])
   })
 })

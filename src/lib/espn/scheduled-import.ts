@@ -1,23 +1,21 @@
-import {
-  getScheduledImportTargets,
-  type ScheduledImportTarget,
-} from '@/lib/espn/week-selection'
+import type { ScheduledImportTarget } from '@/lib/espn/week-selection'
 
 export type ScheduledImportOutcome<T> =
   | { result: T; success: true; target: ScheduledImportTarget }
   | { error: unknown; success: false; target: ScheduledImportTarget }
 
 /**
- * Runs targets sequentially. The correction pass must finish first so the
- * primary import is the final writer of visible league sync health.
+ * Runs targets sequentially in the given order. Backfill and correction
+ * passes must finish first so the primary import is the final writer of
+ * visible league sync health.
  */
 export async function runScheduledImportTargets<T>(
-  latestCompletedWeek: number,
+  targets: ScheduledImportTarget[],
   importTarget: (target: ScheduledImportTarget) => Promise<T>,
 ): Promise<ScheduledImportOutcome<T>[]> {
   const outcomes: ScheduledImportOutcome<T>[] = []
 
-  for (const target of getScheduledImportTargets(latestCompletedWeek)) {
+  for (const target of targets) {
     try {
       outcomes.push({
         result: await importTarget(target),

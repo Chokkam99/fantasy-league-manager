@@ -40,13 +40,30 @@ function databaseFixture(
     league_id: string
     season: string
     status: string
+    trigger_mode?: string
     week_number: number
   }> = [],
+  scoredWeeks: number[] = [1, 2, 3, 4, 5, 6, 7, 8],
 ) {
   return {
     from: jest.fn((table: string) => {
+      if (table === 'weekly_scores') {
+        const rows = scoredWeeks.flatMap((week) => [
+          { league_id: 'league-1', season: '2026', week_number: week },
+          { league_id: 'league-1', season: '2026', week_number: week },
+        ])
+        const query: Record<string, unknown> = {
+          range: jest.fn().mockResolvedValue({ count: rows.length, data: rows, error: null }),
+        }
+        for (const method of ['select', 'in', 'order']) query[method] = jest.fn().mockReturnValue(query)
+        return query
+      }
+
       if (table === 'leagues') {
         return {
+          update: jest.fn(() => ({
+            eq: jest.fn().mockResolvedValue({ error: null }),
+          })),
           select: jest.fn(() => ({
             eq: jest.fn().mockResolvedValue({
               data: [
@@ -169,13 +186,21 @@ describe('weekly score cron route', () => {
     ).toEqual(['scheduled_correction', 'scheduled'])
   })
 
-  it('stops scheduled ESPN checks after the configured final week succeeds', async () => {
+  it('stops scheduled ESPN checks after the final week is imported and rechecked', async () => {
     mockCreateServerSupabaseClient.mockReturnValue(
       databaseFixture([
         {
           league_id: 'league-1',
           season: '2026',
           status: 'succeeded',
+          trigger_mode: 'scheduled',
+          week_number: 17,
+        },
+        {
+          league_id: 'league-1',
+          season: '2026',
+          status: 'succeeded',
+          trigger_mode: 'scheduled_correction',
           week_number: 17,
         },
       ]),
@@ -219,5 +244,101 @@ describe('weekly score cron route', () => {
       },
     ])
     expect(payload.imported).toMatchObject([{ purpose: 'primary', week: 8 }])
+  })
+
+  it('rechecks the final week once after the season ends', async () => {
+    mockCreateServerSupabaseClient.mockReturnValue(
+      databaseFixture([
+        { league_id: 'league-1', season: '2026', status: 'succeeded', trigger_mode: 'scheduled', week_number: 17 },
+      ]),
+    )
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/cron/import-weekly-scores', {
+        headers: { authorization: 'Bearer test-cron-secret' },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mockGetLatestCompletedWeek).not.toHaveBeenCalled()
+    expect(payload.imported).toMatchObject([{ purpose: 'correction', week: 17 }])
+    expect(mockImportValidatedWeekData.mock.calls.map(([, triggerMode]) => triggerMode)).toEqual(['scheduled_correction'])
+  })
+
+  it('backfills completed weeks that have no scores before the usual passes', async () => {
+    mockCreateServerSupabaseClient.mockReturnValue(databaseFixture([], [1, 2, 5, 6, 7]))
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/cron/import-weekly-scores', {
+        headers: { authorization: 'Bearer test-cron-secret' },
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.imported).toMatchObject([
+      { purpose: 'backfill', week: 3 },
+      { purpose: 'backfill', week: 4 },
+      { purpose: 'correction', week: 7 },
+      { purpose: 'primary', week: 8 },
+    ])
+    expect(mockImportValidatedWeekData.mock.calls.map(([, triggerMode]) => triggerMode)).toEqual([
+      'scheduled', 'scheduled', 'scheduled_correction', 'scheduled',
+    ])
+  })
+
+  describe('failure visibility', () => {
+    const originalHeartbeat = process.env.CRON_HEARTBEAT_URL
+    let fetchSpy: jest.SpyInstance
+
+    beforeEach(() => {
+      process.env.CRON_HEARTBEAT_URL = 'https://hc-ping.com/fixture-check'
+      fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true, status: 200 } as Response)
+      jest.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      jest.restoreAllMocks()
+      if (originalHeartbeat === undefined) delete process.env.CRON_HEARTBEAT_URL
+      else process.env.CRON_HEARTBEAT_URL = originalHeartbeat
+    })
+
+    it('pings the heartbeat monitor after a successful run', async () => {
+      const response = await GET(
+        new NextRequest('http://localhost/api/cron/import-weekly-scores', {
+          headers: { authorization: 'Bearer test-cron-secret' },
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual(['https://hc-ping.com/fixture-check'])
+    })
+
+    it('fails the run and reports it when a league import fails', async () => {
+      mockPreviewWeek.mockImplementation(async (week: number) => {
+        if (week === 8) throw new Error('ESPN week unavailable')
+        return completedWeek(week)
+      })
+
+      const response = await GET(
+        new NextRequest('http://localhost/api/cron/import-weekly-scores', {
+          headers: { authorization: 'Bearer test-cron-secret' },
+        }),
+      )
+      const payload = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(payload.success).toBe(false)
+      expect(payload.errors).toMatchObject([{ error: 'ESPN week unavailable', purpose: 'primary', week: 8 }])
+      expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual(['https://hc-ping.com/fixture-check/fail'])
+    })
+
+    it('sends no ping for an unauthenticated request so the monitor alerts on the silence', async () => {
+      const response = await GET(new NextRequest('http://localhost/api/cron/import-weekly-scores'))
+
+      expect(response.status).toBe(401)
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
   })
 })

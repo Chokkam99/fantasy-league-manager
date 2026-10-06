@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isAuthorizedCronRequest } from '@/lib/cronAuth'
+import { reportCronHeartbeat } from '@/lib/cronHeartbeat'
 import { resolveESPNConfig } from '@/lib/espn/config'
 import { ESPNImportService } from '@/lib/espn/import'
 import { ESPNImportPersistenceError } from '@/lib/espn/persistence'
 import { runScheduledImportTargets } from '@/lib/espn/scheduled-import'
 import { validateWeekImport } from '@/lib/espn/validation'
+import {
+  getFinalWeekCorrectionTargets,
+  getScheduledImportTargets,
+  type ScheduledImportTarget,
+} from '@/lib/espn/week-selection'
 import { validateActiveSeasonAccess } from '@/lib/seasonAccess'
 import {
   createServerSupabaseClient,
   isServerSupabaseConfigurationError,
 } from '@/lib/supabaseServer'
+import { selectAllRows } from '@/lib/supabasePaging'
 
 interface CronLeague {
   auto_sync_enabled: boolean
@@ -65,6 +72,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (configuredLeagues.length === 0) {
+      await reportCronHeartbeat(process.env.CRON_HEARTBEAT_URL, 'success')
       return NextResponse.json({
         success: true,
         message: 'No ESPN leagues have automatic sync enabled.',
@@ -73,7 +81,8 @@ export async function GET(request: NextRequest) {
     }
 
     const leagueIds = configuredLeagues.map((league) => league.id)
-    const [seasonsResult, membersResult, importRunsResult] = await Promise.all([
+    const currentSeasons = [...new Set(configuredLeagues.map((league) => league.current_season))]
+    const [seasonsResult, membersResult, importRunsResult, scoredWeeksResult] = await Promise.all([
       database
         .from('league_seasons')
         .select('league_id, season, total_weeks')
@@ -85,14 +94,27 @@ export async function GET(request: NextRequest) {
         .eq('is_active', true),
       database
         .from('import_runs')
-        .select('league_id, season, status, week_number')
+        .select('league_id, season, status, trigger_mode, week_number')
         .in('league_id', leagueIds)
         .eq('status', 'succeeded'),
+      selectAllRows((from, to) =>
+        database
+          .from('weekly_scores')
+          .select('league_id, season, week_number', { count: 'exact' })
+          .in('league_id', leagueIds)
+          .in('season', currentSeasons)
+          .order('league_id')
+          .order('season')
+          .order('week_number')
+          .order('member_id')
+          .range(from, to),
+      ),
     ])
 
     if (seasonsResult.error) throw seasonsResult.error
     if (membersResult.error) throw membersResult.error
     if (importRunsResult.error) throw importRunsResult.error
+    if (scoredWeeksResult.error) throw scoredWeeksResult.error
 
     const imported = []
     const skipped = []
@@ -118,14 +140,18 @@ export async function GET(request: NextRequest) {
             season.season === league.current_season,
         )
         const maximumWeek = seasonConfig?.total_weeks || 17
-        const finalWeekAlreadyImported = (importRunsResult.data || []).some(
+        const finalWeekRuns = (importRunsResult.data || []).filter(
           (run) =>
             run.league_id === league.id &&
             run.season === league.current_season &&
             run.week_number === maximumWeek,
         )
+        const finalWeekAlreadyImported = finalWeekRuns.length > 0
+        const finalWeekRechecked = finalWeekRuns.some(
+          (run) => run.trigger_mode === 'scheduled_correction',
+        )
 
-        if (finalWeekAlreadyImported) {
+        if (finalWeekAlreadyImported && finalWeekRechecked) {
           skipped.push({
             league_id: league.id,
             league_name: league.name,
@@ -140,20 +166,41 @@ export async function GET(request: NextRequest) {
           espnConfig,
           database,
         )
-        const latestCompletedWeek = await espnService.getLatestCompletedWeek(
-          maximumWeek,
-        )
-        const completedWeek = latestCompletedWeek
-          ? Math.min(latestCompletedWeek, maximumWeek)
-          : null
+        let targets: ScheduledImportTarget[]
 
-        if (!completedWeek) {
-          skipped.push({
-            league_id: league.id,
-            league_name: league.name,
-            reason: 'No completed week is ready to import.',
-          })
-          continue
+        if (finalWeekAlreadyImported) {
+          targets = getFinalWeekCorrectionTargets(maximumWeek)
+        } else {
+          const latestCompletedWeek = await espnService.getLatestCompletedWeek(
+            maximumWeek,
+          )
+          const completedWeek = latestCompletedWeek
+            ? Math.min(latestCompletedWeek, maximumWeek)
+            : null
+
+          if (!completedWeek) {
+            skipped.push({
+              league_id: league.id,
+              league_name: league.name,
+              reason: 'No completed week is ready to import.',
+            })
+            continue
+          }
+
+          const scoredWeeks = new Set(
+            scoredWeeksResult.data
+              .filter(
+                (score) =>
+                  score.league_id === league.id &&
+                  score.season === league.current_season,
+              )
+              .map((score) => score.week_number),
+          )
+          const weeksWithoutScores = Array.from(
+            { length: completedWeek },
+            (_, index) => index + 1,
+          ).filter((week) => !scoredWeeks.has(week))
+          targets = getScheduledImportTargets(completedWeek, weeksWithoutScores)
         }
 
         const memberIds = (membersResult.data || [])
@@ -165,7 +212,7 @@ export async function GET(request: NextRequest) {
           .map((member) => member.id)
 
         const outcomes = await runScheduledImportTargets(
-          completedWeek,
+          targets,
           async (target) => {
             const preview = await espnService.previewWeek(target.week)
             const validation = validateWeekImport(
@@ -296,6 +343,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // A failed league must fail the run so Vercel's cron log and the heartbeat monitor both show it.
+    await reportCronHeartbeat(
+      process.env.CRON_HEARTBEAT_URL,
+      errors.length === 0 ? 'success' : 'fail',
+    )
     return NextResponse.json({
       success: errors.length === 0,
       timestamp: new Date().toISOString(),
@@ -303,8 +355,9 @@ export async function GET(request: NextRequest) {
       skipped: skipped.length > 0 ? skipped : undefined,
       warnings: warnings.length > 0 ? warnings : undefined,
       errors: errors.length > 0 ? errors : undefined,
-    })
+    }, { status: errors.length === 0 ? 200 : 500 })
   } catch (error) {
+    await reportCronHeartbeat(process.env.CRON_HEARTBEAT_URL, 'fail')
     if (isServerSupabaseConfigurationError(error)) {
       return NextResponse.json({ error: error.message }, { status: 503 })
     }

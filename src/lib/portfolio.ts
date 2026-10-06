@@ -59,9 +59,19 @@ interface PortfolioInput {
   payments?: PortfolioPaymentRow[]
   leagues: League[]
   members: PortfolioMemberRow[]
+  now?: Date
   scores: PortfolioScoreRow[]
   seasons: LeagueSeason[]
 }
+
+// The weekly import runs every Wednesday; a day of slack avoids flagging a late run.
+const STALE_AUTOMATIC_SYNC_MS = 8 * 24 * 60 * 60 * 1000
+
+const syncDate = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'America/Phoenix',
+})
 
 const currency = new Intl.NumberFormat('en-US', {
   currency: 'USD',
@@ -89,6 +99,7 @@ export function buildPortfolioLeagues({
   scores,
   seasons,
   payments = [],
+  now = new Date(),
 }: PortfolioInput): PortfolioLeague[] {
   const seasonByScope = new Map(
     seasons.map((season) => [
@@ -161,9 +172,23 @@ export function buildPortfolioLeagues({
       syncStatus: league.sync_status || 'none',
       totalWeeks: season?.total_weeks ?? 0,
     })
+    const latestWeek = latestWeekByScope.get(key) || 0
+    const lastSyncTime = league.last_sync_at ? Date.parse(league.last_sync_at) : Number.NaN
+    // Mid-season silence means the scheduled import stopped running, even if nothing recorded an error.
+    const automaticSyncStale =
+      Boolean(league.auto_sync_enabled) &&
+      syncHealth.syncStatus !== 'error' &&
+      season !== undefined &&
+      latestWeek >= 1 &&
+      latestWeek < season.total_weeks &&
+      Number.isFinite(lastSyncTime) &&
+      now.getTime() - lastSyncTime > STALE_AUTOMATIC_SYNC_MS
     const attentionReasons = [
       !season ? 'Season configuration is missing' : null,
       syncHealth.syncStatus === 'error' ? 'The last score sync failed' : null,
+      automaticSyncStale
+        ? `Automatic score sync hasn't run since ${syncDate.format(lastSyncTime)}`
+        : null,
       pendingMembers > 0
         ? `${pendingMembers} ${pendingMembers === 1 ? 'player has' : 'players have'} dues pending`
         : null,
@@ -182,7 +207,7 @@ export function buildPortfolioLeagues({
       collectedAmount,
       expectedAmount,
       feeAmount,
-      latestWeek: latestWeekByScope.get(key) || 0,
+      latestWeek,
       paidMembers: counts.paidMembers,
       pendingMembers,
       outstandingDues: (outstandingByScope.get(key) || []).sort((a, b) => a.managerName.localeCompare(b.managerName) || a.memberId.localeCompare(b.memberId)),

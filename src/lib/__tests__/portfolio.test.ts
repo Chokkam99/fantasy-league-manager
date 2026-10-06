@@ -148,4 +148,30 @@ describe('portfolio view model', () => {
       totalPlayers: 1,
     })
   })
+
+  describe('automatic score sync freshness', () => {
+    const now = new Date('2026-10-14T18:00:00Z')
+    const score = (week: number) => ({ is_final_score: true, league_id: 'league-one', points: 100, season: '2026', week_number: week, week_status: 'completed' })
+    const reasonsFor = (overrides: Partial<League>, weeks = [1, 2, 3]) => buildPortfolioLeagues({
+      leagues: [league({ auto_sync_enabled: true, ...overrides })], members: [], now,
+      scores: weeks.map(score), seasons: [season({ draft_food_cost: 0, prize_structure: {}, weekly_prize_amount: 0 })],
+    })[0].attentionReasons
+
+    it('flags a mid-season league whose weekly import has not run for over eight days', () => {
+      expect(reasonsFor({ last_sync_at: '2026-09-30T09:54:00Z' })).toContain("Automatic score sync hasn't run since Sep 30")
+    })
+
+    it('stays quiet within a normal weekly gap, before week one, after the final week, or with sync off', () => {
+      const stale = '2026-09-30T09:54:00Z'
+      expect(reasonsFor({ last_sync_at: '2026-10-07T09:54:00Z' })).toEqual([])
+      expect(reasonsFor({ last_sync_at: stale }, [])).toEqual([])
+      expect(reasonsFor({ last_sync_at: stale }, Array.from({ length: 17 }, (_, index) => index + 1))).toEqual([])
+      expect(reasonsFor({ auto_sync_enabled: false, last_sync_at: stale })).toEqual([])
+    })
+
+    it('reports a recorded sync failure once instead of also calling it stale', () => {
+      expect(reasonsFor({ last_sync_at: '2026-09-30T09:54:00Z', sync_status: 'error' })).toEqual(['The last score sync failed'])
+    })
+  })
 })
+

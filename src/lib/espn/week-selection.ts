@@ -4,7 +4,7 @@ export interface WeekCompletion {
 }
 
 export interface ScheduledImportTarget {
-  purpose: 'correction' | 'primary'
+  purpose: 'backfill' | 'correction' | 'primary'
   trigger_mode: 'scheduled' | 'scheduled_correction'
   week: number
 }
@@ -49,18 +49,28 @@ export async function findLatestCompletedWeek(
   return null
 }
 
+/** Missed weeks filled per run, oldest first, so one run stays well inside the function timeout. */
+export const MAX_BACKFILL_WEEKS_PER_RUN = 3
+
 /**
- * Recheck one older completed week for late ESPN stat corrections, then import
- * the primary completed week last so league-level sync health reflects it.
+ * Fill completed weeks that have no scores (for example after a missed
+ * Wednesday), recheck one older completed week for late ESPN stat corrections,
+ * then import the primary completed week last so league-level sync health
+ * reflects it.
  */
 export function getScheduledImportTargets(
   latestCompletedWeek: number,
+  weeksWithoutScores: number[] = [],
 ): ScheduledImportTarget[] {
   if (!Number.isInteger(latestCompletedWeek) || latestCompletedWeek < 1) {
     return []
   }
 
-  const targets: ScheduledImportTarget[] = []
+  const targets: ScheduledImportTarget[] = [...new Set(weeksWithoutScores)]
+    .filter((week) => Number.isInteger(week) && week >= 1 && week < latestCompletedWeek - 1)
+    .sort((left, right) => left - right)
+    .slice(0, MAX_BACKFILL_WEEKS_PER_RUN)
+    .map((week) => ({ purpose: 'backfill', trigger_mode: 'scheduled', week }))
 
   if (latestCompletedWeek > 1) {
     targets.push({
@@ -77,4 +87,15 @@ export function getScheduledImportTargets(
   })
 
   return targets
+}
+
+/**
+ * After the configured final week is imported, recheck it once on the next
+ * scheduled run so late ESPN stat corrections still land.
+ */
+export function getFinalWeekCorrectionTargets(
+  finalWeek: number,
+): ScheduledImportTarget[] {
+  if (!Number.isInteger(finalWeek) || finalWeek < 1) return []
+  return [{ purpose: 'correction', trigger_mode: 'scheduled_correction', week: finalWeek }]
 }

@@ -1,10 +1,11 @@
 import { runScheduledImportTargets } from '@/lib/espn/scheduled-import'
+import { getScheduledImportTargets } from '@/lib/espn/week-selection'
 
 describe('scheduled ESPN import orchestration', () => {
   it('runs one correction before the primary completed week', async () => {
     const importTarget = jest.fn(async ({ week }: { week: number }) => week)
 
-    await expect(runScheduledImportTargets(8, importTarget)).resolves.toEqual([
+    await expect(runScheduledImportTargets(getScheduledImportTargets(8), importTarget)).resolves.toEqual([
       {
         result: 7,
         success: true,
@@ -34,7 +35,7 @@ describe('scheduled ESPN import orchestration', () => {
       return week
     })
 
-    const outcomes = await runScheduledImportTargets(8, importTarget)
+    const outcomes = await runScheduledImportTargets(getScheduledImportTargets(8), importTarget)
 
     expect(outcomes[0]).toMatchObject({
       error: correctionError,
