@@ -72,7 +72,7 @@ This starts a disposable Supabase PostgreSQL 17 container without publishing a h
 
 Follow [the rollout guide](docs/schema/authorization-foundation-rollout.md), [finance/identity design](docs/schema/finance-identity-foundation.md), and [safe archival design](docs/schema/safe-archival.md) before applying any future remote migration.
 
-For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`020`. See the release checkpoints below for production migration status. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
+For a brand-new empty database targeting the current workspace, use the guarded fantasy-only baseline in `supabase/bootstrap/deployed-v0.sql`, followed immediately by migrations `001`–`023`. See the release checkpoints below for production migration status. The two paths, remaining product decisions, and reusable approval gates are documented in [fresh schema reconciliation](docs/schema/fresh-schema-reconciliation.md).
 
 ## Player access
 
@@ -150,10 +150,14 @@ npm run schema:types                # Regenerate linked Supabase types
 npm run schema:audit                # Read-only linked schema/data-health audit
 npm run schema:audit:cleanup        # Aggregate-only legacy cleanup candidate report
 npm run schema:audit:constraints    # Aggregate-only core constraint compatibility report
-npm run schema:export:rollback -- --output data/rollout-backups/<name> --confirm-read-only-production-export
 npm run schema:test:authorization   # Disposable PostgreSQL 17 migration/import test
 npm run schema:test:cleanup         # Disposable exact cleanup/constraint test
 npm run schema:test:fresh           # Disposable empty-database bootstrap test
+npm run db:backup -- data/rollout-backups/<name>   # Read-only production schema/data dump (Keychain password)
+npm run db:rehearse -- data/rollout-backups/<name> <sql files...>  # Apply migrations/assertions to a restored backup
+npm run db:dry-run -- data/rollout-backups/<name>  # List unapplied production migrations
+npm run db:push                     # Apply them (asks to confirm)
+npm run db:verify                   # Read-only production counts and access checks
 ```
 
 ## Project structure
@@ -181,6 +185,6 @@ The GitHub Actions workflow in `.github/workflows/quality.yml` runs the frozen d
 
 ## Deployment state
 
-Production has all 20 forward migrations applied. Migration 020 retires an obsolete score trigger that blocked scheduled imports; see the [September 16 repair checkpoint](docs/deployment/auto-sync-repair-2026-09-16.md). Money settings, binary dues labels, readable text, and corrected allocation colors are documented in the [money-settings release checkpoint](docs/deployment/money-settings-release-2026-09-09.md). This release adds ESPN-first season imports, phase-aware navigation, improved season setup, and shared dues freshness/privacy to the redesigned league interface. Migration 018 was applied after a verified backup restore; existing production row fingerprints are unchanged and the linked dry run is up to date. Automatic ESPN sync has been enabled since September. See the [September 8 release checkpoint](docs/deployment/production-release-2026-09-08.md).
+Production has all 23 forward migrations applied. Migrations 021–023 (October 5) stop unchanged re-imports and manual saves from reopening paid player payouts, and keep dues receipts when a removed player is re-added; see the [October 5 release checkpoint](docs/deployment/money-correctness-2026-10-05.md). Migration 020 retires an obsolete score trigger that blocked scheduled imports; see the [September 16 repair checkpoint](docs/deployment/auto-sync-repair-2026-09-16.md). Money settings, binary dues labels, readable text, and corrected allocation colors are documented in the [money-settings release checkpoint](docs/deployment/money-settings-release-2026-09-09.md). This release adds ESPN-first season imports, phase-aware navigation, improved season setup, and shared dues freshness/privacy to the redesigned league interface. Migration 018 was applied after a verified backup restore; existing production row fingerprints are unchanged and the linked dry run is up to date. Automatic ESPN sync has been enabled since September. See the [September 8 release checkpoint](docs/deployment/production-release-2026-09-08.md).
 
 Supabase preview branching is unavailable on the current free plan, so future schema and write behavior should continue to be verified in disposable local PostgreSQL without creating paid resources or pointing a writable preview deployment at Production. See the [completed Production migration checkpoint](docs/deployment/production-migration-2026-08-27.md). The [preview rollout](docs/deployment/preview-rollout.md) and [pre-execution Production rollout](docs/deployment/production-rollout-2026-08-26.md) are retained as historical planning evidence.
